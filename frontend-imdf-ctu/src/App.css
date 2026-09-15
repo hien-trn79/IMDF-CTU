@@ -1,0 +1,37 @@
+.app {
+  display: grid;
+  min-height: 100vh;
+  width: 100%;
+  grid-template-areas: 'header' 'main' 'footer';
+  grid-template-rows: 60px 1fr 30px;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.app-header {
+  grid-area: header;
+}
+
+/* Main content area */
+
+.app-main {
+  grid-area: main;
+  display: grid;
+  grid-template-areas: 'navbar content';
+  grid-template-columns: 1fr 5fr;
+  gap: 12px;
+  min-height: 0;
+}
+
+.navbar {
+  grid-area: navbar;
+}
+
+.main-content {
+  grid-area: content;
+  min-height: 0;
+}
+
+.app-footer {
+  grid-area: footer;
+}
