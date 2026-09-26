@@ -9,11 +9,13 @@ import com.example.backend_imdf_ctu.mapper.IndoorRouteMapper;
 import com.example.backend_imdf_ctu.repository.IndoorRouteRepository;
 import com.example.backend_imdf_ctu.service.IndoorRouteService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class IndoorRouteServiceImpl implements IndoorRouteService {
@@ -23,6 +25,7 @@ public class IndoorRouteServiceImpl implements IndoorRouteService {
 
     @Override
     public List<IndoorRouteResponse> getAll() {
+        log.info("Retrieving all indoor routes");
         // retrieve all indoor routes from the repository and convert them to response DTOs using the mapper
         return repository.findAll().stream()
             .map(mapper::toResponse)
