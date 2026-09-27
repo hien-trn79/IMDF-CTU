@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 import java.util.UUID;
 
 @Repository
-public interface IndoorRouteRepository extends JpaRepository<IndoorRoute, UUID> {
+public interface IndoorRouteRepository extends JpaRepository<IndoorRoute, Integer> {
 }

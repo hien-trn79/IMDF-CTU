@@ -24,6 +24,15 @@ public enum ErrorCode {
     ROUTE_NOT_FOUND(404, "Không tìm thấy đường đi"),
     INVALID_ROUTE_POINT(400, "Điểm bắt đầu hoặc điểm kết thúc không hợp lệ"),
 
+    //    ===== GRID LINE =====
+    GRID_LINE_NOT_FOUND(404, "Không tìm thấy topology line"),
+
+    // ==== NETWORK NODES ====
+    NETWORK_NODES_NOT_FOUND(404, "Không tìm thấy network node"),
+
+    // ==== NETWORK EDGES ====
+    NETWORK_EDGES_NOT_FOUND(404, "Không tìm thấy network edge"),
+
     // ===== USER =====
     USER_NOT_FOUND(404, "Không tìm thấy người dùng"),
     USER_ALREADY_EXISTS(409, "Người dùng đã tồn tại");
