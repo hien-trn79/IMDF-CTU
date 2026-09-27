@@ -10,11 +10,11 @@ public interface IndoorRouteService {
 
     List<IndoorRouteResponse> getAll();
 
-    IndoorRouteResponse getById(UUID indoorRouteId);
+    IndoorRouteResponse getById(Integer indoorRouteId);
 
     IndoorRouteResponse create(IndoorRouteRequest request);
 
-    IndoorRouteResponse update(UUID indoorRouteId, IndoorRouteRequest request);
+    IndoorRouteResponse update(Integer indoorRouteId, IndoorRouteRequest request);
 
-    void delete(UUID indoorRouteId);
+    void delete(Integer indoorRouteId);
 }

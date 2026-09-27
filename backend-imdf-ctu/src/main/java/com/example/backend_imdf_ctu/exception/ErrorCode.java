@@ -24,6 +24,10 @@ public enum ErrorCode {
     ROUTE_NOT_FOUND(404, "Không tìm thấy đường đi"),
     INVALID_ROUTE_POINT(400, "Điểm bắt đầu hoặc điểm kết thúc không hợp lệ"),
 
+    //    ===== GRID LINE =====
+    GRID_LINE_NOT_FOUND(404, "Không tìm thấy topology line"),
+    GRID_LINE_ALREADY_EXISTS(409, "Topology line đã tồn tại"),
+
     // ===== USER =====
     USER_NOT_FOUND(404, "Không tìm thấy người dùng"),
     USER_ALREADY_EXISTS(409, "Người dùng đã tồn tại");

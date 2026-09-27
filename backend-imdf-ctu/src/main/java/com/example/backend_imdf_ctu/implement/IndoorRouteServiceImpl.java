@@ -33,7 +33,7 @@ public class IndoorRouteServiceImpl implements IndoorRouteService {
     }
 
     @Override
-    public IndoorRouteResponse getById(UUID indoorRouteId) {
+    public IndoorRouteResponse getById(Integer indoorRouteId) {
         // find the indoor route by ID and convert it to a response DTO using the mapper
         return repository.findById(indoorRouteId)
             .map(mapper::toResponse)
@@ -55,7 +55,7 @@ public class IndoorRouteServiceImpl implements IndoorRouteService {
     }
 
     @Override
-    public IndoorRouteResponse update(UUID indoorRouteId, IndoorRouteRequest request) {
+    public IndoorRouteResponse update(Integer indoorRouteId, IndoorRouteRequest request) {
         IndoorRoute indoorRoute = repository.findById(indoorRouteId)
             .orElseThrow(() -> new BusinessException(
                 ErrorCode.ROUTE_NOT_FOUND,
@@ -72,7 +72,7 @@ public class IndoorRouteServiceImpl implements IndoorRouteService {
     }
 
     @Override
-    public void delete(UUID indoorRouteId) {
+    public void delete(Integer indoorRouteId) {
         IndoorRoute indoorRoute = repository.findById(indoorRouteId)
             .orElseThrow(() -> new BusinessException(
                 ErrorCode.ROUTE_NOT_FOUND,

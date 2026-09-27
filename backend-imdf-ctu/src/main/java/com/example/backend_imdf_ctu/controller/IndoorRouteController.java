@@ -24,7 +24,7 @@ public class IndoorRouteController {
 
     // [GET] /api/indoor-routes/{indoorRouteId}
     @GetMapping("/{indoorRouteId}")
-    public IndoorRouteResponse getById(@PathVariable UUID indoorRouteId) {
+    public IndoorRouteResponse getById(@PathVariable Integer indoorRouteId) {
         return service.getById(indoorRouteId);
     }
 
@@ -37,14 +37,14 @@ public class IndoorRouteController {
     // [PUT] /api/indoor-routes/{indoorRouteId}
     @PutMapping("/{indoorRouteId}")
     public IndoorRouteResponse update(
-        @PathVariable UUID indoorRouteId,
+        @PathVariable Integer indoorRouteId,
         @RequestBody IndoorRouteRequest request) {
         return service.update(indoorRouteId, request);
     }
 
     // [DELETE] /api/indoor-routes/{indoorRouteId}
     @DeleteMapping("/{indoorRouteId}")
-    public Boolean delete(@PathVariable UUID indoorRouteId) {
+    public Boolean delete(@PathVariable Integer indoorRouteId) {
         if(service.getById(indoorRouteId) != null) {
             service.delete(indoorRouteId);
             return true;
