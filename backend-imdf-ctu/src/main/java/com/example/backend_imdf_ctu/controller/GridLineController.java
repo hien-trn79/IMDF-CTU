@@ -12,6 +12,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/grid-lines")
 @RequiredArgsConstructor
+@CrossOrigin
 public class GridLineController {
 
     private final GridLineService service;
@@ -36,10 +37,11 @@ public class GridLineController {
 
     // add list of grid lines
     @PostMapping("/batch")
-    public List<GridLineResponse> createBatch(@RequestBody List<GridLineRequest> requests) {
+    public Integer createBatch(@RequestBody List<GridLineRequest> requests) {
         return requests.stream()
             .map(service::create)
-            .toList();
+            .toList()
+            .size();
     }
 
 

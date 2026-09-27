@@ -12,6 +12,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/indoor-routes")
 @RequiredArgsConstructor
+@CrossOrigin
 public class IndoorRouteController {
 
     private final IndoorRouteService service;

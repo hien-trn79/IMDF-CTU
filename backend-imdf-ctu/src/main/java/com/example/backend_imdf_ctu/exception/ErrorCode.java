@@ -26,7 +26,9 @@ public enum ErrorCode {
 
     //    ===== GRID LINE =====
     GRID_LINE_NOT_FOUND(404, "Không tìm thấy topology line"),
-    GRID_LINE_ALREADY_EXISTS(409, "Topology line đã tồn tại"),
+
+    // ==== NETWORK NODES ====
+    NETWORK_NODES_NOT_FOUND(404, "Không tìm thấy network node"),
 
     // ===== USER =====
     USER_NOT_FOUND(404, "Không tìm thấy người dùng"),
