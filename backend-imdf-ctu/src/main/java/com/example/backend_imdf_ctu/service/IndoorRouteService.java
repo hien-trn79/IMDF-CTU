@@ -4,7 +4,6 @@ import com.example.backend_imdf_ctu.dto.request.IndoorRouteRequest;
 import com.example.backend_imdf_ctu.dto.response.IndoorRouteResponse;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface IndoorRouteService {
 

@@ -30,6 +30,9 @@ public enum ErrorCode {
     // ==== NETWORK NODES ====
     NETWORK_NODES_NOT_FOUND(404, "Không tìm thấy network node"),
 
+    // ==== NETWORK EDGES ====
+    NETWORK_EDGES_NOT_FOUND(404, "Không tìm thấy network edge"),
+
     // ===== USER =====
     USER_NOT_FOUND(404, "Không tìm thấy người dùng"),
     USER_ALREADY_EXISTS(409, "Người dùng đã tồn tại");
