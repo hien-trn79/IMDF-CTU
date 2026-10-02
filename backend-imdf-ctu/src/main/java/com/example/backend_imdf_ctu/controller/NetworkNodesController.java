@@ -24,7 +24,7 @@ public class NetworkNodesController {
 
     // [GET] /network-nodes/{id}
     @GetMapping("/{id}")
-    public NetworkNodesResponse getById(Integer id) {
+    public NetworkNodesResponse getById(@PathVariable Integer id) {
         return service.getById(id);
     }
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
-export type ActiveView = 'map' | 'indoor-routes' | 'grid-lines'
+export type ActiveView = 'map' | 'indoor-routes' | 'grid-lines' | 'network'
 
 interface NavigationContextType {
   activeView: ActiveView

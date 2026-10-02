@@ -160,13 +160,13 @@ export default function BaseMap() {
   return (
     <div className="basemap relative h-full w-full rounded-2xl overflow-hidden border border-sky-500">
       {anyLoading && (
-        <div className="absolute top-3 right-3 z-[1000] bg-white/90 px-3 py-1.5 rounded-lg shadow text-sm text-blue-600">
+        <div className="absolute top-3 right-3 z-1000 bg-white/90 px-3 py-1.5 rounded-lg shadow text-sm text-blue-600">
           Đang tải dữ liệu lớp bản đồ...
         </div>
       )}
 
       {errors.length > 0 && (
-        <div className="absolute top-3 right-3 z-[1000] bg-white/90 px-3 py-1.5 rounded-lg shadow text-sm text-red-600 max-w-xs">
+        <div className="absolute top-3 right-3 z-1000 bg-white/90 px-3 py-1.5 rounded-lg shadow text-sm text-red-600 max-w-xs">
           {errors.map(([id, s]) => (
             <div key={id}>
               {selectedLayers.find((l) => l.id === id)?.layerName}: {s.error}

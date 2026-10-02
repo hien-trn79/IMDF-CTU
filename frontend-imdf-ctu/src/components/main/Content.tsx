@@ -1,6 +1,7 @@
 import BaseMap from './BaseMap'
 import IndoorRouteManagement from '../indoor-route/IndoorRouteManagement'
 import GridLineManagement from '../grid-line/GridLineManagement'
+import NetworkNodeManagement from '../network-node/NetworkNodeManagement'
 import { useNavigation } from '../../context/NavigationContext'
 
 export default function Content() {
@@ -11,6 +12,8 @@ export default function Content() {
       {activeView === 'indoor-routes' && <IndoorRouteManagement />}
       {activeView === 'grid-lines' && <GridLineManagement />}
       {activeView === 'map' && <BaseMap />}
+      {activeView === 'network' && <NetworkNodeManagement />}
     </div>
   )
 }
+

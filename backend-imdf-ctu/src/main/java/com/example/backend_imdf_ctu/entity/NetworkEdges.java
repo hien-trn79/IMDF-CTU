@@ -19,11 +19,13 @@ public class NetworkEdges {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "source")
-    private Integer source;
+    @ManyToOne
+    @JoinColumn(name = "source", referencedColumnName = "id")
+    private NetworkNodes source;
 
-    @Column(name = "target")
-    private Integer target;
+    @ManyToOne
+    @JoinColumn(name = "target", referencedColumnName = "id")
+    private NetworkNodes target;
 
     @Column(name = "cost")
     private Double cost;

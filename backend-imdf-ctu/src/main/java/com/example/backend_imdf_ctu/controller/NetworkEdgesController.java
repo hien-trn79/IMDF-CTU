@@ -23,7 +23,7 @@ public class NetworkEdgesController {
 
     // [GET] /network-edges/{id}
     @GetMapping("/{id}")
-    public NetworkEdgesResponse getById(Integer id) {
+    public NetworkEdgesResponse getById(@PathVariable Integer id) {
         return service.getById(id);
     }
 

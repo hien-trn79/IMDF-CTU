@@ -1,4 +1,4 @@
-import { FileCodeCorner, Route, ChevronRight, Compass, GitBranch } from 'lucide-react'
+import { FileCodeCorner, Route, ChevronRight, Compass, GitBranch, Network } from 'lucide-react'
 import { useState } from 'react'
 import { useLayer } from '../../context/LayerContext'
 import { useNavigation } from '../../context/NavigationContext'
@@ -63,6 +63,24 @@ export default function Navbar() {
         </div>
         <span className="text-[10px] bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full">
           Map
+        </span>
+      </div>
+
+      {/* Module 3: Network Node & Edge */}
+      <div
+        className={`navbar-item py-2.5 px-3 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-between ${
+          activeView === 'network'
+            ? 'bg-emerald-50 text-emerald-800 border-l-4 border-emerald-600 shadow-2xs'
+            : 'bg-transparent text-gray-700 hover:bg-gray-100 hover:text-emerald-700'
+        }`}
+        onClick={() => setActiveView('network')}
+      >
+        <div className="flex items-center gap-2.5">
+          <Network className={`w-4 h-4 ${activeView === 'network' ? 'text-emerald-600' : 'text-gray-500'}`} />
+          <span>Network Node &amp; Edge</span>
+        </div>
+        <span className="text-[10px] bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">
+          CRUD
         </span>
       </div>
 
