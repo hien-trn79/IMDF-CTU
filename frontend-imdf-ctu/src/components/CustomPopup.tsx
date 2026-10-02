@@ -6,9 +6,6 @@ interface CustomPopup {
 
 export default function CustomPopup({ building }: CustomPopup) {
   console.log('building', building)
-  const { id } = building
-  const { name } = building.properties
-
   return (
     <div className="w-full rounded-xl bg-white">
       {/* Header */}

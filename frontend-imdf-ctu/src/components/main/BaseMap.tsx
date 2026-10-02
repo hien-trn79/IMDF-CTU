@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Popup, GeoJSON } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
 import L from 'leaflet'
 
 import 'leaflet/dist/leaflet.css'
@@ -8,7 +8,6 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 
 import { useEffect, useRef, useState } from 'react'
-import CustomPopup from '../CustomPopup'
 import { useLayer } from '../../context/LayerContext'
 import CustomModal from '../CustomModal'
 
@@ -135,7 +134,7 @@ export default function BaseMap() {
   const onEachFeature = (originalStyle: any) => (feature: any, layer: any) => {
     if (feature.properties && feature.properties.name) {
       layer.on({
-        click: (e: any) => {
+        click: () => {
           setSelectedBuilding(feature)
           setIsOpenModal(true)
         },
