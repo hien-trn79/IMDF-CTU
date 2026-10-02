@@ -1,0 +1,77 @@
+package com.example.backend_imdf_ctu.implement;
+
+import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
+import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
+import com.example.backend_imdf_ctu.entity.IndoorRoute;
+import com.example.backend_imdf_ctu.entity.NetworkEdges;
+import com.example.backend_imdf_ctu.exception.BusinessException;
+import com.example.backend_imdf_ctu.exception.ErrorCode;
+import com.example.backend_imdf_ctu.mapper.NetworkEdgesMapper;
+import com.example.backend_imdf_ctu.repository.IndoorRouteRepository;
+import com.example.backend_imdf_ctu.repository.NetworkEdgesRepository;
+import com.example.backend_imdf_ctu.service.NetworkEdgesService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class NetworkEdgesServiceImpl implements NetworkEdgesService {
+
+    private final NetworkEdgesRepository repository;
+    private final NetworkEdgesMapper mapper;
+
+    private final IndoorRouteRepository indoorRouteRepository;
+
+    @Override
+    public List<NetworkEdgesResponse> getAll() {
+        return repository.findAll()
+            .stream()
+            .map(mapper::toResponse)
+            .toList();
+    }
+
+    @Override
+    public NetworkEdgesResponse getById(Integer id) {
+        return repository.findById(id)
+            .map(mapper::toResponse)
+            .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_EDGES_NOT_FOUND));
+    }
+
+    @Override
+    public NetworkEdgesResponse create(NetworkEdgesRequest request) {
+        IndoorRoute indoorRoute = indoorRouteRepository.findById(request.getIndoorRouteId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.ROUTE_NOT_FOUND));
+
+        NetworkEdges entity = mapper.toEntity(request, indoorRoute);
+
+        return mapper.toResponse(repository.save(entity));
+    }
+
+    @Override
+    public NetworkEdgesResponse update(
+        Integer id,
+        NetworkEdgesRequest request
+    ) {
+        NetworkEdges existingEntity = repository.findById(id)
+            .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_EDGES_NOT_FOUND));
+
+        IndoorRoute indoorRoute = indoorRouteRepository.findById(request.getIndoorRouteId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.ROUTE_NOT_FOUND));
+
+        NetworkEdges updatedEntity = mapper.toEntity(request, indoorRoute);
+
+        return mapper.toResponse(repository.save(updatedEntity));
+    }
+
+    @Override
+    public Boolean delete(Integer id) {
+        NetworkEdges existingEntity = repository.findById(id)
+            .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_EDGES_NOT_FOUND));
+
+        repository.delete(existingEntity);
+        return true;
+    }
+
+}
