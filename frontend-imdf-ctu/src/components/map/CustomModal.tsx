@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, MapPin, Layers, Hash, Building2, Copy, Check, Code2, AlignLeft } from 'lucide-react'
-import type { BuildingType } from '../model/Building.model'
+import type { BuildingType } from '../../model/Building.model'
 
 interface CustomModalProps {
   building: BuildingType | null

@@ -1,6 +1,19 @@
 @import 'tailwindcss';
+@import '@fontsource/k2d';
+@import '@fontsource/k2d/700.css';
 
 body {
   margin: 0;
   padding: 0;
+}
+
+html {
+  font-family: 'K2D', sans-serif;
+}
+
+@theme {
+  --color-primary: #0d47a1;
+  --color-secondary: #1976d2;
+  --color-third: #c3e2f5;
+  --color-white-sm: #f8fafc;
 }

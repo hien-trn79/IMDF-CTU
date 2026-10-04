@@ -1,4 +1,4 @@
-package com.example.backend_imdf_ctu.service;
+package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkNodesRequest;
 import com.example.backend_imdf_ctu.dto.response.NetworkNodesResponse;

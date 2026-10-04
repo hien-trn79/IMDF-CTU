@@ -2,7 +2,7 @@ package com.example.backend_imdf_ctu.controller;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkNodesRequest;
 import com.example.backend_imdf_ctu.dto.response.NetworkNodesResponse;
-import com.example.backend_imdf_ctu.service.NetworkNodesService;
+import com.example.backend_imdf_ctu.service.interfaces.NetworkNodesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,7 +24,7 @@ public class NetworkNodesController {
 
     // [GET] /network-nodes/{id}
     @GetMapping("/{id}")
-    public NetworkNodesResponse getById(Integer id) {
+    public NetworkNodesResponse getById(@PathVariable Integer id) {
         return service.getById(id);
     }
 

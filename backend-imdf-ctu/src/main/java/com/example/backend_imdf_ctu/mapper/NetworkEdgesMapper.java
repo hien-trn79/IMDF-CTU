@@ -4,6 +4,7 @@ import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
 import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
 import com.example.backend_imdf_ctu.entity.IndoorRoute;
 import com.example.backend_imdf_ctu.entity.NetworkEdges;
+import com.example.backend_imdf_ctu.entity.NetworkNodes;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.PrecisionModel;
@@ -22,8 +23,8 @@ public class NetworkEdgesMapper {
         NetworkEdgesResponse response = new NetworkEdgesResponse();
 
         response.setId(entity.getId());
-        response.setSource(entity.getSource());
-        response.setTarget(entity.getTarget());
+        response.setSource(entity.getSource().getId());
+        response.setTarget(entity.getTarget().getId());
         response.setCost(entity.getCost());
         response.setReverseCost(entity.getReverseCost());
 
@@ -43,11 +44,14 @@ public class NetworkEdgesMapper {
 
     public NetworkEdges toEntity(
         NetworkEdgesRequest request,
-        IndoorRoute indoorRoute) {
+        IndoorRoute indoorRoute,
+        NetworkNodes sourceNode,
+        NetworkNodes targetNode
+    ) {
         NetworkEdges entity = new NetworkEdges();
 
-        entity.setSource(request.getSource());
-        entity.setTarget(request.getTarget());
+        entity.setSource(sourceNode);
+        entity.setTarget(targetNode);
         entity.setCost(request.getCost());
         entity.setReverseCost(request.getReverseCost());
 
@@ -70,10 +74,12 @@ public class NetworkEdgesMapper {
     public void updateEntity(
         NetworkEdges entity,
         NetworkEdgesRequest request,
-        IndoorRoute indoorRoute
+        IndoorRoute indoorRoute,
+        NetworkNodes sourceNode,
+        NetworkNodes targetNode
     ) {
-        entity.setSource(request.getSource());
-        entity.setTarget(request.getTarget());
+        entity.setSource(sourceNode);
+        entity.setTarget(targetNode);
         entity.setCost(request.getCost());
         entity.setReverseCost(request.getReverseCost());
 

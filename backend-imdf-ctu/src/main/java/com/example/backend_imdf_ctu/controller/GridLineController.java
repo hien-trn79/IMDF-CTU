@@ -2,12 +2,11 @@ package com.example.backend_imdf_ctu.controller;
 
 import com.example.backend_imdf_ctu.dto.request.GridLineRequest;
 import com.example.backend_imdf_ctu.dto.response.GridLineResponse;
-import com.example.backend_imdf_ctu.service.GridLineService;
+import com.example.backend_imdf_ctu.service.interfaces.GridLineService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/grid-lines")

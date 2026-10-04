@@ -2,7 +2,7 @@ package com.example.backend_imdf_ctu.controller;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
 import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
-import com.example.backend_imdf_ctu.service.NetworkEdgesService;
+import com.example.backend_imdf_ctu.service.interfaces.NetworkEdgesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,7 +23,7 @@ public class NetworkEdgesController {
 
     // [GET] /network-edges/{id}
     @GetMapping("/{id}")
-    public NetworkEdgesResponse getById(Integer id) {
+    public NetworkEdgesResponse getById(@PathVariable Integer id) {
         return service.getById(id);
     }
 

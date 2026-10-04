@@ -1,4 +1,4 @@
-package com.example.backend_imdf_ctu.service;
+package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.IndoorRouteRequest;
 import com.example.backend_imdf_ctu.dto.response.IndoorRouteResponse;

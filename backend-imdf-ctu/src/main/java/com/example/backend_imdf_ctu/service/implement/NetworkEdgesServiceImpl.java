@@ -1,15 +1,17 @@
-package com.example.backend_imdf_ctu.implement;
+package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
 import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
 import com.example.backend_imdf_ctu.entity.IndoorRoute;
 import com.example.backend_imdf_ctu.entity.NetworkEdges;
+import com.example.backend_imdf_ctu.entity.NetworkNodes;
 import com.example.backend_imdf_ctu.exception.BusinessException;
 import com.example.backend_imdf_ctu.exception.ErrorCode;
 import com.example.backend_imdf_ctu.mapper.NetworkEdgesMapper;
 import com.example.backend_imdf_ctu.repository.IndoorRouteRepository;
 import com.example.backend_imdf_ctu.repository.NetworkEdgesRepository;
-import com.example.backend_imdf_ctu.service.NetworkEdgesService;
+import com.example.backend_imdf_ctu.repository.NetworkNodesRepository;
+import com.example.backend_imdf_ctu.service.interfaces.NetworkEdgesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +25,8 @@ public class NetworkEdgesServiceImpl implements NetworkEdgesService {
     private final NetworkEdgesMapper mapper;
 
     private final IndoorRouteRepository indoorRouteRepository;
+
+    private final NetworkNodesRepository nodesRepository;
 
     @Override
     public List<NetworkEdgesResponse> getAll() {
@@ -44,7 +48,19 @@ public class NetworkEdgesServiceImpl implements NetworkEdgesService {
         IndoorRoute indoorRoute = indoorRouteRepository.findById(request.getIndoorRouteId())
             .orElseThrow(() -> new BusinessException(ErrorCode.ROUTE_NOT_FOUND));
 
-        NetworkEdges entity = mapper.toEntity(request, indoorRoute);
+        // Find Source and Target nodes based on the provided IDs in the request
+        NetworkNodes sourceNode = nodesRepository.findById(request.getSource())
+            .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_NODES_NOT_FOUND));
+
+        NetworkNodes targetNode = nodesRepository.findById(request.getTarget())
+            .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_NODES_NOT_FOUND));
+
+        NetworkEdges entity = mapper.toEntity(
+            request,
+            indoorRoute,
+            sourceNode,
+            targetNode
+        );
 
         return mapper.toResponse(repository.save(entity));
     }
@@ -60,7 +76,19 @@ public class NetworkEdgesServiceImpl implements NetworkEdgesService {
         IndoorRoute indoorRoute = indoorRouteRepository.findById(request.getIndoorRouteId())
             .orElseThrow(() -> new BusinessException(ErrorCode.ROUTE_NOT_FOUND));
 
-        NetworkEdges updatedEntity = mapper.toEntity(request, indoorRoute);
+        // Find Source and Target nodes based on the provided IDs in the request
+        NetworkNodes sourceNode = nodesRepository.findById(request.getSource())
+            .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_NODES_NOT_FOUND));
+
+        NetworkNodes targetNode = nodesRepository.findById(request.getTarget())
+            .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_NODES_NOT_FOUND));
+
+        NetworkEdges updatedEntity = mapper.toEntity(
+            request,
+            indoorRoute,
+            sourceNode,
+            targetNode
+        );
 
         return mapper.toResponse(repository.save(updatedEntity));
     }

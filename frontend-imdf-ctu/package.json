@@ -10,7 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.3.4",
+    "@fontsource/k2d": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
+    "antd": "^6.6.5",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.33.0",
     "maplibre-gl": "^6.4.1",
