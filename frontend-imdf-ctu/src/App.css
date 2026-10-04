@@ -1,4 +1,4 @@
-.app {
+/* .app {
   display: grid;
   min-height: 100vh;
   width: 100%;
@@ -6,15 +6,15 @@
   grid-template-rows: 60px 1fr 30px;
   grid-template-columns: 1fr;
   gap: 12px;
-}
+} */
 
-.app-header {
+/* .app-header {
   grid-area: header;
-}
+} */
 
 /* Main content area */
 
-.app-main {
+/* .app-main {
   grid-area: main;
   display: grid;
   grid-template-areas: 'navbar content';
@@ -25,13 +25,49 @@
 
 .navbar {
   grid-area: navbar;
-}
+} */
 
-.main-content {
+/* .main-content {
   grid-area: content;
   min-height: 0;
 }
 
 .app-footer {
   grid-area: footer;
+} */
+
+/* ============== NEW DESIGN ============= */
+.page {
+  display: grid;
+  height: 100vh;
+  grid-template-areas: 'header' 'main';
+  grid-template-rows: 70px 1fr;
+  gap: 8px;
+  max-width: 100vw;
+}
+
+.page-header {
+  grid-area: header;
+}
+
+.page-main {
+  grid-area: main;
+  display: grid;
+}
+
+/* =============== PAGE OUTDOORS =============== */
+.page-outdoors {
+  display: grid;
+  grid-template-areas: 'page-outdoor-main page-outdoor-sidebar';
+  grid-template-columns: 4fr 1fr;
+  gap: 8px;
+}
+
+.page-outdoor-main {
+  grid-area: page-outdoor-main;
+}
+
+.page-outdoor-sidebar {
+  grid-area: page-outdoor-sidebar;
+  gap: 8px;
 }

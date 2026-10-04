@@ -1,4 +1,4 @@
-package com.example.backend_imdf_ctu.implement;
+package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.GridLineRequest;
 import com.example.backend_imdf_ctu.dto.response.GridLineResponse;
@@ -9,8 +9,7 @@ import com.example.backend_imdf_ctu.exception.ErrorCode;
 import com.example.backend_imdf_ctu.mapper.GridLineMapper;
 import com.example.backend_imdf_ctu.repository.GridLineRepository;
 import com.example.backend_imdf_ctu.repository.IndoorRouteRepository;
-import com.example.backend_imdf_ctu.service.GridLineService;
-import com.example.backend_imdf_ctu.service.IndoorRouteService;
+import com.example.backend_imdf_ctu.service.interfaces.GridLineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -20,7 +19,6 @@ import org.locationtech.jts.io.WKBReader;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor

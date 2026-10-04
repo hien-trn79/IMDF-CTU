@@ -35,7 +35,12 @@ public enum ErrorCode {
 
     // ===== USER =====
     USER_NOT_FOUND(404, "Không tìm thấy người dùng"),
-    USER_ALREADY_EXISTS(409, "Người dùng đã tồn tại");
+    USER_ALREADY_EXISTS(409, "Người dùng đã tồn tại"),
+
+    EMAIL_ALREADY_EXISTS(409, "Email đã tồn tại"),
+    EMAIL_NOT_FOUND(404, "Không tìm thấy người dùng với email"),
+    INVALID_CREDENTIALS(401, "Email hoặc mật khẩu không đúng"),
+    ;
 
     private final int status;
     private final String message;

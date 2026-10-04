@@ -1,4 +1,4 @@
-package com.example.backend_imdf_ctu.implement;
+package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
 import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
@@ -11,7 +11,7 @@ import com.example.backend_imdf_ctu.mapper.NetworkEdgesMapper;
 import com.example.backend_imdf_ctu.repository.IndoorRouteRepository;
 import com.example.backend_imdf_ctu.repository.NetworkEdgesRepository;
 import com.example.backend_imdf_ctu.repository.NetworkNodesRepository;
-import com.example.backend_imdf_ctu.service.NetworkEdgesService;
+import com.example.backend_imdf_ctu.service.interfaces.NetworkEdgesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

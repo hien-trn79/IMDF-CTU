@@ -9,11 +9,11 @@ export default function Content() {
 
   return (
     <div className="main-content min-h-0 overflow-hidden rounded-2xl border border-sky-500 bg-white flex flex-col shadow-sm">
-      {activeView === 'indoor-routes' && <IndoorRouteManagement />}
+      {/* Hiển thị các component dựa trên activeView */}
+      {/* {activeView === 'indoor-routes' && <IndoorRouteManagement />}
       {activeView === 'grid-lines' && <GridLineManagement />}
       {activeView === 'map' && <BaseMap />}
-      {activeView === 'network' && <NetworkNodeManagement />}
+      {activeView === 'network' && <NetworkNodeManagement />} */}
     </div>
   )
 }
-

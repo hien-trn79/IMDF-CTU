@@ -1,4 +1,4 @@
-package com.example.backend_imdf_ctu.implement;
+package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkNodesRequest;
 import com.example.backend_imdf_ctu.dto.response.NetworkNodesResponse;
@@ -9,7 +9,7 @@ import com.example.backend_imdf_ctu.exception.ErrorCode;
 import com.example.backend_imdf_ctu.mapper.NetworkNodesMapper;
 import com.example.backend_imdf_ctu.repository.IndoorRouteRepository;
 import com.example.backend_imdf_ctu.repository.NetworkNodesRepository;
-import com.example.backend_imdf_ctu.service.NetworkNodesService;
+import com.example.backend_imdf_ctu.service.interfaces.NetworkNodesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

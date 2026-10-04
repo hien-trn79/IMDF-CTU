@@ -1,4 +1,4 @@
-package com.example.backend_imdf_ctu.implement;
+package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.IndoorRouteRequest;
 import com.example.backend_imdf_ctu.dto.response.IndoorRouteResponse;
@@ -7,13 +7,12 @@ import com.example.backend_imdf_ctu.exception.BusinessException;
 import com.example.backend_imdf_ctu.exception.ErrorCode;
 import com.example.backend_imdf_ctu.mapper.IndoorRouteMapper;
 import com.example.backend_imdf_ctu.repository.IndoorRouteRepository;
-import com.example.backend_imdf_ctu.service.IndoorRouteService;
+import com.example.backend_imdf_ctu.service.interfaces.IndoorRouteService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Service

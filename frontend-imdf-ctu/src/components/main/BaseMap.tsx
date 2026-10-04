@@ -9,7 +9,11 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 
 import { useEffect, useRef, useState } from 'react'
 import { useLayer } from '../../context/LayerContext'
-import CustomModal from '../CustomModal'
+import CustomModal from '../map/CustomModal'
+// import { networkNodeService } from '../../services/networkNodeService'
+// import { networkEdgeService } from '../../services/networkEdgeService'
+// import type { NetworkNodeResponse } from '../../model/NetworkNode.model'
+// import type { NetworkEdgeResponse } from '../../model/NetworkEdge.model'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -34,10 +38,44 @@ export default function BaseMap() {
   const [layerData, setLayerData] = useState<Record<string, LayerFetchState>>({})
   const abortControllers = useRef<Record<string, AbortController>>({})
 
+  // Chon tòa nhà để hiển thị modal
   const [selectedBuilding, setSelectedBuilding] = useState<any>(null)
   const [isOpenModal, setIsOpenModal] = useState(false)
+  // const [networkNodes, setNetworkNodes] = useState<NetworkNodeResponse[]>([])
+  // const [networkEdges, setNetworkEdges] = useState<NetworkEdgeResponse[]>([])
+  // const [networkLoading, setNetworkLoading] = useState(true)
+  // const [networkError, setNetworkError] = useState<string | null>(null)
+  // const [networkVisible, setNetworkVisible] = useState(true)
+  // const [selectedNode, setSelectedNode] = useState<NetworkNodeResponse | null>(null)
+  // const [selectedEdge, setSelectedEdge] = useState<NetworkEdgeResponse | null>(null)
 
+  // Toa do ban dau cua ban do
   const position: [number, number] = [10.03031, 105.76843]
+
+  // useEffect(() => {
+  //   let cancelled = false
+  //   setNetworkLoading(true)
+  //   setNetworkError(null)
+
+  //   Promise.all([networkNodeService.getAll(), networkEdgeService.getAll()])
+  //     .then(([nodes, edges]) => {
+  //       if (cancelled) return
+  //       setNetworkNodes(nodes)
+  //       setNetworkEdges(edges)
+  //     })
+  //     .catch((error: unknown) => {
+  //       if (!cancelled) {
+  //         setNetworkError(error instanceof Error ? error.message : 'Không thể tải mạng lưới indoor')
+  //       }
+  //     })
+  //     .finally(() => {
+  //       if (!cancelled) setNetworkLoading(false)
+  //     })
+
+  //   return () => {
+  //     cancelled = true
+  //   }
+  // }, [])
 
   useEffect(() => {
     const currentIds = new Set(selectedLayers.map((l) => l.id))
@@ -78,6 +116,8 @@ export default function BaseMap() {
         srsName: 'EPSG:4326',
       })
 
+      // Fetch dữ liệu GeoJSON từ GeoServer
+      // duong link vi du: http://localhost:8080/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=building&outputFormat=application/json&srsName=EPSG:4326
       fetch(`${geoServerUrl}/wfs?${params.toString()}`, { signal: controller.signal })
         .then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -108,11 +148,13 @@ export default function BaseMap() {
     }
   }, [selectedLayers, geoServerUrl])
 
+  // Lấy màu cho từng layer dựa trên index trong selectedLayers
   const getColorForLayer = (id: string) => {
     const index = selectedLayers.findIndex((l) => l.id === id)
     return LAYER_COLORS[index % LAYER_COLORS.length]
   }
 
+  // Hàm trả về style cho từng feature dựa trên loại hình học
   const getFeatureStyle = (color: string) => (feature: any) => {
     const geomType = feature?.geometry?.type
     if (geomType === 'LineString' || geomType === 'MultiLineString') {
@@ -131,6 +173,7 @@ export default function BaseMap() {
     })
   }
 
+  // Hàm xử lý từng feature, thêm sự kiện click để mở modal và hover để đổi style
   const onEachFeature = (originalStyle: any) => (feature: any, layer: any) => {
     if (feature.properties && feature.properties.name) {
       layer.on({
@@ -154,6 +197,7 @@ export default function BaseMap() {
     }
   }
 
+  // Kiểm tra xem có layer nào đang loading hay có lỗi không
   const anyLoading = Object.values(layerData).some((s) => s.loading)
   const errors = Object.entries(layerData).filter(([, s]) => s.error)
 

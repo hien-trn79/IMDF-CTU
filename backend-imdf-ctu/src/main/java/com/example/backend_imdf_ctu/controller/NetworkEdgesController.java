@@ -2,7 +2,7 @@ package com.example.backend_imdf_ctu.controller;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
 import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
-import com.example.backend_imdf_ctu.service.NetworkEdgesService;
+import com.example.backend_imdf_ctu.service.interfaces.NetworkEdgesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

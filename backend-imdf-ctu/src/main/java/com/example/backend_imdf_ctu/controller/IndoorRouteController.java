@@ -2,12 +2,11 @@ package com.example.backend_imdf_ctu.controller;
 
 import com.example.backend_imdf_ctu.dto.request.IndoorRouteRequest;
 import com.example.backend_imdf_ctu.dto.response.IndoorRouteResponse;
-import com.example.backend_imdf_ctu.service.IndoorRouteService;
+import com.example.backend_imdf_ctu.service.interfaces.IndoorRouteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/indoor-routes")
