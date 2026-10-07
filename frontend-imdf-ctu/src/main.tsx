@@ -3,14 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { LayerProvider } from './context/LayerContext.tsx'
-import { NavigationProvider } from './context/NavigationContext.tsx'
+import { UserProvider } from './context/UserContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <LayerProvider>
-      <NavigationProvider>
+    <UserProvider>
+      <LayerProvider>
         <App />
-      </NavigationProvider>
-    </LayerProvider>
+      </LayerProvider>
+    </UserProvider>
   </StrictMode>
 )

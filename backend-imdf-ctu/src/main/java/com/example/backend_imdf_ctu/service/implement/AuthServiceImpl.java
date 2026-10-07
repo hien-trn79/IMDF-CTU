@@ -36,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
         User user = User.builder()
             .email(request.getEmail())
             .password(passwordEncoder.encode(request.getPassword())) // MẬT KHẨU ĐƯỢC MÃ HÓA BCRYPT
-            .role(Role.USER) // Mặc định là ROLE_USER
+            .role(request.getRole() != null ? request.getRole() : Role.USER) // Mặc định là ROLE_USER
             .build();
 
         // Save User
