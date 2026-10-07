@@ -56,18 +56,3 @@
 }
 
 /* =============== PAGE OUTDOORS =============== */
-.page-outdoors {
-  display: grid;
-  grid-template-areas: 'page-outdoor-main page-outdoor-sidebar';
-  grid-template-columns: 4fr 1fr;
-  gap: 8px;
-}
-
-.page-outdoor-main {
-  grid-area: page-outdoor-main;
-}
-
-.page-outdoor-sidebar {
-  grid-area: page-outdoor-sidebar;
-  gap: 8px;
-}
