@@ -6,7 +6,7 @@ export default function PageMain() {
   // Lay active View hien tai
   const { activeView } = useNavigation()
   return (
-    <main className="page-main w-full  p-2 flex flex-col gap-2">
+    <main className="page-main w-full">
       {/* MAP LAYOUT */}
       {activeView === 'Map' && <PageMap />}
 
