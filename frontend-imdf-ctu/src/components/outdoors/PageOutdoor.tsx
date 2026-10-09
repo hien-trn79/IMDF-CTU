@@ -65,7 +65,6 @@ export default function PageOutdoor() {
   // Callback khi người dùng click vào row hoặc nút "Xem trên bản đồ" ở Table
   const handleSelectFeature = (item: OutdoorFeatureItem) => {
     setSelectedFeature(item)
-    console.info('Selected Feature:', item)
   }
 
   // Mở modal chi tiết feature. Modal render ở document.body nên phải thoát fullscreen trước
@@ -85,7 +84,7 @@ export default function PageOutdoor() {
   const inset = isMapFullscreen ? 0 : 8
 
   return (
-    <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-5">
+    <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-5 px-2">
       {/* OUTDOOR MAIN MAP + BẢNG NỔI */}
       <main className="page-outdoor-main min-w-0 lg:col-span-4">
         <div
@@ -121,7 +120,7 @@ export default function PageOutdoor() {
           </button>
 
           {/* BẢNG NỔI TRÊN KHUNG MAP (kiểu bảng thuộc tính QGIS) */}
-          <div ref={panelRef} className="absolute right-2 bottom-2 left-2 z-1000">
+          <div ref={panelRef} className="absolute right-1 bottom-1 left-1 z-1000">
             <OutdoorTable
               features={features}
               loading={isLoading}

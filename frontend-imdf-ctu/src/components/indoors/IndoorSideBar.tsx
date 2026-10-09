@@ -1,0 +1,108 @@
+import { Plus, RotateCcw, Waypoints } from 'lucide-react'
+import { GRID_LINE_COLOR } from './gridLineGeoJson'
+
+interface IndoorSideBarProps {
+  isLoading: boolean
+  error: string | null
+  gridLineCount: number
+  isGridLineVisible: boolean
+  onToggleGridLine: (visible: boolean) => void
+  onRefresh: () => void
+}
+
+export default function IndoorSideBar({
+  isLoading,
+  error,
+  gridLineCount,
+  isGridLineVisible,
+  onToggleGridLine,
+  onRefresh,
+}: IndoorSideBarProps) {
+  const onCreate = () => {
+    console.log('Thêm Dữ liệu Indoor mới lên layer đang chọn')
+  }
+
+  return (
+    <aside className="page-ourdoor-sidebar w-full shrink-0 space-y-4 sm:w-70 lg:w-72.5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between border-b border-slate-300 pb-3 text-sm font-bold text-blue-700">
+          <span className="flex items-center gap-2">
+            <Waypoints className="h-4 w-4 fill-slate-300 text-slate-300" />
+            Quản lý nội khu (Indoor Topology)
+          </span>
+        </div>
+
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <button
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-500 hover:border-blue-300 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Làm mới
+          </button>
+          <button
+            onClick={onCreate}
+            title="Thêm feature mới lên layer đang chọn"
+            className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-xs font-bold text-white hover:bg-emerald-600"
+          >
+            <Plus className="h-4 w-4" /> Thêm đối tượng
+          </button>
+        </div>
+
+        {/* DANH SÁCH LAYER */}
+        <div className="space-y-1.5 rounded-xl bg-slate-50 p-2">
+          <label
+            className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border-l-4 px-3 py-3 shadow-sm transition ${
+              isGridLineVisible
+                ? 'border-blue-500 bg-white'
+                : 'border-transparent bg-slate-100/70 hover:bg-white'
+            }`}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <input
+                type="checkbox"
+                checked={isGridLineVisible}
+                disabled={isLoading}
+                onChange={(e) => onToggleGridLine(e.target.checked)}
+                className="h-4 w-4 accent-blue-600"
+              />
+              <Waypoints
+                className={`h-4 w-4 shrink-0 ${isGridLineVisible ? 'text-blue-600' : 'text-slate-400'}`}
+              />
+              <span className="truncate text-xs font-medium text-slate-600">
+                Đường lưới (Grid lines)
+              </span>
+            </span>
+
+            <span className="flex shrink-0 items-center gap-1.5">
+              {/* Mẫu màu đường trên bản đồ */}
+              <span
+                className="h-0.5 w-4 rounded-full"
+                style={{ backgroundColor: GRID_LINE_COLOR }}
+                aria-hidden
+              />
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                {isLoading ? 'Đang tải...' : gridLineCount}
+              </span>
+              {isGridLineVisible && (
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                  Hiện
+                </span>
+              )}
+            </span>
+          </label>
+        </div>
+
+        {error && (
+          <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-2 text-[11px] text-red-600">
+            Không đọc được danh sách grid line: {error}
+          </p>
+        )}
+
+        <p className="mt-2 px-1 text-[10px] text-slate-400">
+          Chọn checkbox để bật/tắt layer trên bản đồ.
+        </p>
+      </section>
+    </aside>
+  )
+}

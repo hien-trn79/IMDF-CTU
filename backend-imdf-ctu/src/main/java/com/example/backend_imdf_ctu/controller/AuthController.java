@@ -5,10 +5,7 @@ import com.example.backend_imdf_ctu.dto.request.RegisterRequest;
 import com.example.backend_imdf_ctu.dto.response.AuthResponse;
 import com.example.backend_imdf_ctu.service.interfaces.AuthService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
@@ -20,13 +17,13 @@ public class AuthController {
 
     // Dang ky tai khoan nguoi dung
     @PostMapping("/register")
-    public AuthResponse register(RegisterRequest request) {
+    public AuthResponse register(@RequestBody RegisterRequest request) {
         return service.register(request);
     }
 
     // Dang nhap tai khoan nguoi dung
     @PostMapping("/login")
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(@RequestBody LoginRequest request) {
         return service.login(request);
     }
 }

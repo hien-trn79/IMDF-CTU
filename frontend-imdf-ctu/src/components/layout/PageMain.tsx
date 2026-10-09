@@ -1,17 +1,11 @@
-import { useNavigation } from '../../context/NavigationContext'
-import PageMap from '../map/PageMap'
-import PageOutdoor from '../outdoors/PageOutdoor'
+import PageHeader from './PageHeader'
+import type { ReactNode } from 'react'
 
-export default function PageMain() {
-  // Lay active View hien tai
-  const { activeView } = useNavigation()
+export default function PageMain({ children }: { children: ReactNode }) {
   return (
-    <main className="page-main w-full">
-      {/* MAP LAYOUT */}
-      {activeView === 'Map' && <PageMap />}
-
-      {/* OUTDOOR LAYOUT  */}
-      {activeView === 'Outdoors' && <PageOutdoor />}
-    </main>
+    <div className="page">
+      <PageHeader />
+      <main className="page-main w-full">{children}</main>
+    </div>
   )
 }

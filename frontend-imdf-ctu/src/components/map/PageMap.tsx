@@ -26,7 +26,7 @@ export default function PageMap() {
   const position: [number, number] = [10.03031, 105.76843]
 
   return (
-    <div className="basemap relative h-full w-full rounded-2xl overflow-hidden border border-sky-500">
+    <div className="basemap relative h-full min-h-0 w-full rounded-2xl overflow-hidden border border-sky-500">
       <MapContainer
         center={position}
         minZoom={1}
