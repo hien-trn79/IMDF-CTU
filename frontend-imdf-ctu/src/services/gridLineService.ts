@@ -1,3 +1,4 @@
+import { useUser } from '../context/UserContext.tsx'
 import type { GridLineRequest, GridLineResponse } from '../model/GridLine.model.ts'
 
 const API_BASE = '/api/grid-lines'
@@ -9,7 +10,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
       const body = await res.json()
       if (body?.message) msg = body.message
       else if (typeof body === 'string') msg = body
-    } catch { 
+    } catch {
       const text = await res.text().catch(() => '')
       if (text) msg = text
     }
@@ -24,8 +25,13 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export const gridLineService = {
-  async getAll(): Promise<GridLineResponse[]> {
-    const res = await fetch(API_BASE, { headers: { Accept: 'application/json' } })
+  async getAll(token: string): Promise<GridLineResponse[]> {
+    const res = await fetch(API_BASE, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    })
     return handleResponse<GridLineResponse[]>(res)
   },
 

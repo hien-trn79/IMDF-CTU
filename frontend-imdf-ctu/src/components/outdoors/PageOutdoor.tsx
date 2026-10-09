@@ -65,7 +65,6 @@ export default function PageOutdoor() {
   // Callback khi người dùng click vào row hoặc nút "Xem trên bản đồ" ở Table
   const handleSelectFeature = (item: OutdoorFeatureItem) => {
     setSelectedFeature(item)
-    console.info('Selected Feature:', item)
   }
 
   // Mở modal chi tiết feature. Modal render ở document.body nên phải thoát fullscreen trước

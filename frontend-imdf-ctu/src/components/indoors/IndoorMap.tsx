@@ -1,10 +1,13 @@
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
+import { MapContainer, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import type { FeatureCollection } from 'geojson'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+import GridLineLayer from './GridlineLayers'
+import type { IndoorFeatureItem } from './IndoorTable'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -14,12 +17,22 @@ L.Icon.Default.mergeOptions({
 })
 
 interface IndoorMapProps {
-  setObjectCount: (count: number) => void
-  selectedFeature: any
-  onFeatureClick?: (feature: any) => void
+  showGridLines: boolean
+  gridLineData: FeatureCollection
+  features: IndoorFeatureItem[]
+  selectedFeature: IndoorFeatureItem | null
+  onSelectFeature: (item: IndoorFeatureItem) => void
+  onClearSelection: () => void
 }
 
-export default function IndoorMap() {
+export default function IndoorMap({
+  showGridLines,
+  gridLineData,
+  features,
+  selectedFeature,
+  onSelectFeature,
+  onClearSelection,
+}: IndoorMapProps) {
   const position: [number, number] = [10.03031, 105.76843]
 
   return (
@@ -37,6 +50,16 @@ export default function IndoorMap() {
           maxNativeZoom={19}
           maxZoom={22}
         />
+
+        {showGridLines && (
+          <GridLineLayer
+            data={gridLineData}
+            items={features}
+            selectedFeature={selectedFeature}
+            onSelectFeature={onSelectFeature}
+            onClearSelection={onClearSelection}
+          />
+        )}
       </MapContainer>
     </div>
   )

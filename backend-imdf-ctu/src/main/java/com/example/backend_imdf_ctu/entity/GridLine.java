@@ -1,9 +1,12 @@
 package com.example.backend_imdf_ctu.entity;
 
+import com.example.backend_imdf_ctu.mapper.LineStringConvert;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.LineString;
 
 import java.util.UUID;
@@ -42,6 +45,7 @@ public class GridLine {
 
     @NotNull(message = "geom cannot be null")
     @Column(name = "geom", nullable = false)
+    @Convert(converter = LineStringConvert.class)
     private LineString geom;
 
     // Foreign key liên kết sang IndoorRoute dựa trên Khóa chính 'id' (Integer)
