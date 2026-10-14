@@ -1,4 +1,4 @@
-import type { BuildingType } from '../model/Building.model'
+import type { BuildingType } from '../../model/Building.model'
 
 interface CustomPopup {
   building: BuildingType

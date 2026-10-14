@@ -5,9 +5,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 
@@ -15,6 +17,7 @@ import java.time.LocalDateTime;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    // Xử lý lỗi nghiệp vụ, trả về mã lỗi và thông báo chi tiết
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(
         BusinessException ex,
@@ -36,6 +39,7 @@ public class GlobalExceptionHandler {
             .body(response);
     }
 
+    // Xử lý lỗi validation, trả về 400 với thông báo chi tiết
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(
         MethodArgumentNotValidException ex,
@@ -64,13 +68,14 @@ public class GlobalExceptionHandler {
             .body(response);
     }
 
+    // Xử lý các lỗi không xác định, trả về 500 với thông báo chung
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(
         Exception ex,
         HttpServletRequest request
     ) {
         log.error(
-            "Unexpected error occurred: method={}, uri={}",
+            "Không xử lý được lỗi: method={}, uri={}",
             request.getMethod(),
             request.getRequestURI(),
             ex
@@ -86,6 +91,47 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
             .status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(response);
+    }
+
+//KIỂM TRA LỖI KHI THAM SỐ TRUYỀN VÀO KHÔNG ĐÚNG ĐỊNH DẠNG, TRẢ VỀ 400 VỚI THÔNG BÁO RÕ RÀNG
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatchException(
+        MethodArgumentTypeMismatchException ex,
+        HttpServletRequest request
+    ) {
+        String message = String.format("Tham số '%s' không đúng định dạng", ex.getName());
+
+        ErrorResponse response = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(400)
+            .code("INVALID_PARAMETER")
+            .message(message)
+            .path(request.getRequestURI())
+            .build();
+
+        return ResponseEntity
+            .badRequest()
+            .body(response);
+    }
+
+
+//    KIỂM TRA LỖI JSON KHÔNG HỢP LỆ, TRẢ VỀ 400 VỚI THÔNG BÁO RÕ RÀNG
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+        HttpMessageNotReadableException ex,
+        HttpServletRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(400)
+            .code("INVALID_JSON")
+            .message("Dữ liệu JSON không đúng định dạng cú pháp")
+            .path(request.getRequestURI())
+            .build();
+
+        return ResponseEntity
+            .badRequest()
             .body(response);
     }
 }

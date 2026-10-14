@@ -18,7 +18,7 @@ L.Icon.Default.mergeOptions({
 })
 
 export default function PageMap() {
-  const [isFoundLocation, setIsFoundLocation] = useState(true)
+  const [isFoundLocation] = useState(true)
 
   const [isCloseModal, setIsCloseModal] = useState(false)
 

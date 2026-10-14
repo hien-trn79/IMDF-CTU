@@ -1,28 +1,35 @@
 package com.example.backend_imdf_ctu.exception;
 
 public enum ErrorCode {
+    ANCHOR_NOT_FOUND(404, "Không tìm thấy anchor"),
 
-    // ===== COMMON =====
-    INVALID_REQUEST(400, "Yêu cầu không hợp lệ"),
-    UNAUTHORIZED(401, "Bạn chưa đăng nhập"),
-    FORBIDDEN(403, "Bạn không có quyền thực hiện thao tác này"),
-    RESOURCE_NOT_FOUND(404, "Không tìm thấy tài nguyên"),
-    INTERNAL_SERVER_ERROR(500, "Đã xảy ra lỗi hệ thống"),
+    OPENING_CATEGORY_NOT_FOUND(404, "Không tìm thấy loại opening"),
+    OPENING_NOT_FOUND(404, "Không tìm thấy lối vào - opening"),
 
-    // ===== BUILDING =====
-    BUILDING_NOT_FOUND(404, "Không tìm thấy tòa nhà"),
-    BUILDING_ALREADY_EXISTS(409, "Tòa nhà đã tồn tại"),
+    VENUE_NOT_FOUND(404, "Không tìm thấy địa điểm"),
+    VENUE_CATEGORY_NOT_FOUND(404, "Không tìm thấy loại địa điểm"),
+    ADDRESS_NOT_FOUND(404, "Không tìm thấy địa chỉ"),
 
-    // ===== ROOM =====
-    ROOM_NOT_FOUND(404, "Không tìm thấy phòng"),
-    ROOM_ALREADY_EXISTS(409, "Phòng đã tồn tại"),
+    FEATURE_NOT_FOUND(404, "Không tìm thấy feature"),
+    RESTRICTION_CATEGORY_NOT_FOUND(404, "Không tìm thấy restriction category"),
 
-    // ===== LEVEL =====
-    LEVEL_NOT_FOUND(404, "Không tìm thấy tầng"),
+    BUILDING_NOT_FOUND(404, "Không tìm thấy building"),
+    BUILDING_CATEGORY_NOT_FOUND(404, "Không tìm thấy building category"),
 
+    LEVEL_CATEGORY_NOT_FOUND(404, "Không tìm thấy level category"),
+
+    LEVEL_NOT_FOUND(404, "Không tìm thấy level"),
+
+    UNIT_CATEGORY_NOT_FOUND(404, "Không tìm thấy unit category"),
+    UNIT_NOT_FOUND(404, "Không tìm thấy unit"),
+
+    SECTION_CATEGORY_NOT_FOUND(404, "Không tìm thấy section category"),
+    SECTION_NOT_FOUND(404, "Không tìm thấy section"),
+
+    RELATIONSHIP_CATEGORY_NOT_FOUND(404, "Không tìm thấy relationship category"),
+    RELATIONSHIP_NOT_FOUND(404, "Không tìm thấy relationship"),
     // ===== ROUTING =====
     ROUTE_NOT_FOUND(404, "Không tìm thấy đường đi"),
-    INVALID_ROUTE_POINT(400, "Điểm bắt đầu hoặc điểm kết thúc không hợp lệ"),
 
     //    ===== GRID LINE =====
     GRID_LINE_NOT_FOUND(404, "Không tìm thấy topology line"),
@@ -35,11 +42,12 @@ public enum ErrorCode {
 
     // ===== USER =====
     USER_NOT_FOUND(404, "Không tìm thấy người dùng"),
-    USER_ALREADY_EXISTS(409, "Người dùng đã tồn tại"),
 
     EMAIL_ALREADY_EXISTS(409, "Email đã tồn tại"),
     EMAIL_NOT_FOUND(404, "Không tìm thấy người dùng với email"),
     INVALID_CREDENTIALS(401, "Email hoặc mật khẩu không đúng"),
+
+    INVALID_GEOMETRY(400, "Hình học không hợp lệ"),
     ;
 
     private final int status;

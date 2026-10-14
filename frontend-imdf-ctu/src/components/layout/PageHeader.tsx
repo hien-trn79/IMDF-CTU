@@ -1,6 +1,6 @@
 import { Building2, CircleUser, Map, Route, Search } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router'
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { useUser } from '../../context/UserContext'
 
 export default function PageHeader() {

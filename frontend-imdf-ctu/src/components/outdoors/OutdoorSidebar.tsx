@@ -1,6 +1,5 @@
 import {
   Building2,
-  Circle,
   DoorOpen,
   Layers3,
   MapPin,
@@ -8,7 +7,6 @@ import {
   RotateCcw,
   SquareStack,
   Waypoints,
-  ChevronRight,
   Building,
 } from 'lucide-react'
 import { useLayer } from '../../context/LayerContext'
@@ -17,7 +15,7 @@ import { getLayerLabel } from './outdoorTypes'
 const layerIcons = [Building2, MapPin, SquareStack, Waypoints, DoorOpen]
 
 export default function OutdoorSidebar({
-  objectCount,
+  objectCount: _objectCount,
   onCreate,
 }: {
   // props ve so luong doi tuong hien thi tren ban do va ham xu ly khi nguoi dung muon them doi tuong moi
@@ -100,31 +98,6 @@ export default function OutdoorSidebar({
           Chọn checkbox để bật/tắt layer trên bản đồ.
         </p>
       </section>
-      {/* SUMMARY */}
-      {/* <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 border-b border-slate-300 pb-3 text-sm font-bold text-blue-700">
-          <Circle className="h-4 w-4 fill-slate-300 text-slate-300" />
-          Tổng kết và lọc
-        </div>
-        <div className="space-y-2">
-          {[
-            ['Tất cả đối tượng', objectCount],
-            ['Tất cả trạng thái', 'Active'],
-            ['Tất cả layer', selectedLayers.length],
-          ].map(([label, value]) => (
-            <button
-              key={String(label)}
-              className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left text-xs text-slate-500 hover:border-blue-300 hover:bg-blue-50"
-            >
-              <span>{label}</span>
-              <span className="flex items-center gap-1 font-semibold text-slate-600">
-                {value}
-                <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-              </span>
-            </button>
-          ))}
-        </div>
-      </section> */}
     </aside>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import IndoorMap from './IndoorMap'
 import IndoorSideBar from './IndoorSideBar'
@@ -6,8 +6,22 @@ import { useGridLines } from './useGridLines'
 import type { IndoorFeatureItem } from './IndoorTable'
 import IndoorTable from '../indoors/IndoorTable'
 import FeatureDetailModal from '../outdoors/FeatureDetailModal'
+import ModalAddIndoor from './ModalAddIndoor'
+import ModalEditGridLine from './ModalEditGridLine'
+import ModalEditNode from './ModalEditNode'
+import ModalEditEdge from './ModalEditEdge'
+import { networkNodeService } from '../../services/networkNodeService'
+import { networkEdgeService } from '../../services/networkEdgeService'
+import { gridLineService } from '../../services/gridLineService'
+import type { NetworkNodeResponse } from '../../model/NetworkNode.model'
+import type { NetworkEdgeResponse } from '../../model/NetworkEdge.model'
+import { useUser } from '../../context/UserContext'
+import { wkbHexToPoint } from '../../utils/wkbParser'
+import { parseWKBHexToCoords } from '../../utils/wkbUtils'
 
 const GRID_LINE_LAYER = { id: 'grid_line', layerName: 'Đường lưới (Grid lines)' }
+const NODE_LAYER = { id: 'network_node', layerName: 'Network Node' }
+const EDGE_LAYER = { id: 'network_edge', layerName: 'Network Edge' }
 
 export default function PageIndoors() {
   // Feature đang chọn (từ bảng hoặc từ click trên bản đồ)
@@ -24,10 +38,56 @@ export default function PageIndoors() {
 
   // Dữ liệu grid line: gọi API ở một chỗ duy nhất rồi truyền cho sidebar, map và bảng
   const { geoJson, gridLines, isLoading, error, reload } = useGridLines()
-  const [showGridLines, setShowGridLines] = useState(false)
+  const [networkNodes, setNetworkNodes] = useState<NetworkNodeResponse[]>([])
+  const [networkEdges, setNetworkEdges] = useState<NetworkEdgeResponse[]>([])
+  const [topologyReloadKey, setTopologyReloadKey] = useState(0)
+  const [drawing, setDrawing] = useState(false)
+  const [snapEnabled, setSnapEnabled] = useState(true)
+  const [drawCoordinates, setDrawCoordinates] = useState<[number, number][]>([])
 
-  // Danh sách feature cho bảng/map: chỉ có dữ liệu khi layer được bật
-  const features = useMemo<IndoorFeatureItem[]>(
+  // Layer visibility
+  const [showGridLines, setShowGridLines] = useState(false)
+  const [showNodes, setShowNodes] = useState(false)
+  const [showEdges, setShowEdges] = useState(false)
+
+  // Edit modals
+  const [editGridLineItem, setEditGridLineItem] = useState<IndoorFeatureItem | null>(null)
+  const [editNodeItem, setEditNodeItem] = useState<NetworkNodeResponse | null>(null)
+  const [editEdgeItem, setEditEdgeItem] = useState<NetworkEdgeResponse | null>(null)
+
+  const { authData } = useUser()
+  const token = authData?.token || ''
+
+  const reloadTopology = () => setTopologyReloadKey((key) => key + 1) // Muc dich: khi reloadTopology, key thay đổi => useEffect sẽ gọi lại API topology
+
+  useEffect(() => {
+    // Gọi API topology khi token thay đổi hoặc topologyReloadKey thay đổi
+    let cancelled = false
+    if (!token) {
+      setNetworkNodes([])
+      setNetworkEdges([])
+      return
+    }
+
+    // Goi đồng thời 2 API: network nodes và network edges, sau đó set state nếu chưa bị huỷ
+    Promise.all([networkNodeService.getAll(token), networkEdgeService.getAll(token)])
+      .then(([nodes, edges]) => {
+        if (!cancelled) {
+          setNetworkNodes(nodes)
+          setNetworkEdges(edges)
+        }
+      })
+      .catch((topologyError: unknown) => {
+        console.error('Lỗi tải topology:', topologyError)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  // ── Feature items cho bảng ──────────────────────────────────────────────────
+
+  const gridLineFeatures = useMemo<IndoorFeatureItem[]>(
     () =>
       showGridLines
         ? geoJson.features.map((f, index) => ({
@@ -41,6 +101,68 @@ export default function PageIndoors() {
           }))
         : [],
     [geoJson, showGridLines]
+  )
+
+  // Feature items cho network nodes
+  const nodeFeatures = useMemo<IndoorFeatureItem[]>(
+    () =>
+      showNodes
+        ? networkNodes.map((node, index) => {
+            const pt = wkbHexToPoint(node.geom)
+            return {
+              feature: {
+                id: String(node.id),
+                type: 'Feature',
+                geometry: pt ? { type: 'Point', coordinates: pt } : null,
+                geometry_wkb: node.geom,
+                properties: {
+                  id: node.id,
+                  isConnector: node.isConnector,
+                  indoorRouteId: node.indoorRouteId,
+                  indoorRouteName: node.indoorRouteName,
+                },
+              },
+              layer: NODE_LAYER,
+              index,
+            }
+          })
+        : [],
+    [networkNodes, showNodes]
+  )
+
+  const edgeFeatures = useMemo<IndoorFeatureItem[]>(
+    () =>
+      showEdges
+        ? networkEdges.map((edge, index) => {
+            const coords = parseWKBHexToCoords(edge.geometry)
+            return {
+              feature: {
+                id: String(edge.id),
+                type: 'Feature',
+                geometry: coords.length >= 2 ? { type: 'LineString', coordinates: coords } : null,
+                geometry_wkb: edge.geometry,
+                properties: {
+                  id: edge.id,
+                  source: edge.source,
+                  target: edge.target,
+                  cost: edge.cost,
+                  reverseCost: edge.reverseCost,
+                  indoorRouteId: edge.indoorRouteId,
+                  indoorRouteName: edge.indoorRouteName,
+                },
+              },
+              layer: EDGE_LAYER,
+              index,
+            }
+          })
+        : [],
+    [networkEdges, showEdges]
+  )
+
+  // Gộp tất cả feature items cho IndoorTable
+  const allFeatures = useMemo<IndoorFeatureItem[]>(
+    () => [...gridLineFeatures, ...nodeFeatures, ...edgeFeatures],
+    [gridLineFeatures, nodeFeatures, edgeFeatures]
   )
 
   // Khoảng đệm quanh bản đồ: 8px ở chế độ thường, 0 khi fullscreen
@@ -86,6 +208,18 @@ export default function PageIndoors() {
       setIsOpenSelectedFeatureModal(false)
     }
   }
+  const handleToggleNode = (visible: boolean) => {
+    setShowNodes(visible)
+    if (!visible && selectedFeature?.layer.id === NODE_LAYER.id) {
+      setSelectedFeature(null)
+    }
+  }
+  const handleToggleEdge = (visible: boolean) => {
+    setShowEdges(visible)
+    if (!visible && selectedFeature?.layer.id === EDGE_LAYER.id) {
+      setSelectedFeature(null)
+    }
+  }
 
   const handleSelectFeature = (item: IndoorFeatureItem) => {
     setSelectedFeature(item)
@@ -104,6 +238,54 @@ export default function PageIndoors() {
     }
     setIsOpenSelectedFeatureModal(true)
   }
+
+  // ── Edit handlers ───────────────────────────────────────────────────────────
+  const handleEditFeature = (item: IndoorFeatureItem) => {
+    if (item.layer.id === GRID_LINE_LAYER.id) {
+      setEditGridLineItem(item)
+    } else if (item.layer.id === NODE_LAYER.id) {
+      const nodeId = Number(item.feature.id)
+      const node = networkNodes.find((n) => n.id === nodeId) ?? null
+      setEditNodeItem(node)
+    } else if (item.layer.id === EDGE_LAYER.id) {
+      const edgeId = Number(item.feature.id)
+      const edge = networkEdges.find((e) => e.id === edgeId) ?? null
+      setEditEdgeItem(edge)
+    }
+  }
+
+  // ── Delete handlers ─────────────────────────────────────────────────────────
+  const handleDeleteFeature = useCallback(
+    async (item: IndoorFeatureItem) => {
+      const id = Number(item.feature.id)
+      try {
+        if (item.layer.id === GRID_LINE_LAYER.id) {
+          await gridLineService.delete(id, token)
+          reload()
+        } else if (item.layer.id === NODE_LAYER.id) {
+          await networkNodeService.delete(id, token)
+          reloadTopology()
+        } else if (item.layer.id === EDGE_LAYER.id) {
+          await networkEdgeService.delete(id, token)
+          reloadTopology()
+        }
+      } catch (err) {
+        console.error('Lỗi xóa đối tượng:', err)
+      }
+    },
+    [token, reload]
+  )
+
+  // ── Click topology from map ─────────────────────────────────────────────────
+  const handleSelectNodeFromMap = useCallback((node: NetworkNodeResponse) => {
+    setEditNodeItem(node)
+  }, [])
+  const handleSelectEdgeFromMap = useCallback((edge: NetworkEdgeResponse) => {
+    setEditEdgeItem(edge)
+  }, [])
+
+  // INDOOR SIDE BAR: truyền thêm state modal để sidebar có thể mở modal thêm indoor
+  const [isOpenAddIndoor, setIsOpenAddIndoor] = useState(false)
 
   return (
     <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-5 px-2">
@@ -126,10 +308,20 @@ export default function PageIndoors() {
           <IndoorMap
             showGridLines={showGridLines}
             gridLineData={geoJson}
-            features={features}
+            features={gridLineFeatures}
             selectedFeature={selectedFeature}
             onSelectFeature={handleSelectFeature}
             onClearSelection={handleClearSelection}
+            drawing={drawing}
+            snapEnabled={snapEnabled}
+            drawCoordinates={drawCoordinates}
+            onDrawCoordinatesChange={setDrawCoordinates}
+            networkNodes={networkNodes}
+            networkEdges={networkEdges}
+            showNodes={showNodes}
+            showEdges={showEdges}
+            onSelectNode={handleSelectNodeFromMap}
+            onSelectEdge={handleSelectEdgeFromMap}
           />
 
           {/* Nút mở rộng bản đồ, nằm ngay dưới nút zoom +/- của Leaflet */}
@@ -151,11 +343,13 @@ export default function PageIndoors() {
           {/* BẢNG NỔI TRÊN KHUNG MAP (kiểu bảng thuộc tính QGIS) */}
           <div ref={panelRef} className="absolute right-1 bottom-1 left-1 z-1000">
             <IndoorTable
-              features={features}
+              features={allFeatures}
               loading={isLoading}
               selectedFeature={selectedFeature}
               onSelectFeature={handleSelectFeature}
               onOpenDetailModal={handleOpenDetailModal}
+              onEditFeature={handleEditFeature}
+              onDeleteFeature={handleDeleteFeature}
             />
           </div>
         </div>
@@ -169,7 +363,17 @@ export default function PageIndoors() {
           gridLineCount={gridLines.length}
           isGridLineVisible={showGridLines}
           onToggleGridLine={handleToggleGridLine}
-          onRefresh={reload}
+          onRefresh={() => {
+            reload()
+            reloadTopology()
+          }}
+          setIsOpenAddIndoor={setIsOpenAddIndoor}
+          nodeCount={networkNodes.length}
+          isNodeVisible={showNodes}
+          onToggleNode={handleToggleNode}
+          edgeCount={networkEdges.length}
+          isEdgeVisible={showEdges}
+          onToggleEdge={handleToggleEdge}
         />
       </aside>
 
@@ -178,6 +382,89 @@ export default function PageIndoors() {
         isOpenSelectedFeatureModal={isOpenSelectedFeatureModal}
         onClose={() => setIsOpenSelectedFeatureModal(false)}
         data={selectedFeature}
+      />
+
+      {/* MODAL THÊM DỮ LIỆU INDOOR MỚI */}
+      {isOpenAddIndoor && (
+        <ModalAddIndoor
+          isOpen={isOpenAddIndoor}
+          onClose={() => {
+            setIsOpenAddIndoor(false)
+            setDrawing(false)
+            setDrawCoordinates([])
+          }}
+          coordinates={drawCoordinates}
+          drawing={drawing}
+          snapEnabled={snapEnabled}
+          onDrawingChange={setDrawing}
+          onClearCoordinates={() => setDrawCoordinates([])}
+          onSnapChange={setSnapEnabled}
+          onCreated={() => {
+            reload()
+            reloadTopology()
+            setIsOpenAddIndoor(false)
+            setDrawing(false)
+            setDrawCoordinates([])
+          }}
+          nodes={networkNodes}
+          edges={networkEdges}
+          token={token}
+        />
+      )}
+
+      {/* MODAL CHỈNH SỬA GRIDLINE */}
+      {editGridLineItem && (
+        <ModalEditGridLine
+          isOpen={!!editGridLineItem}
+          onClose={() => setEditGridLineItem(null)}
+          gridLineItem={editGridLineItem}
+          token={token}
+          nodes={networkNodes}
+          edges={networkEdges}
+          onUpdated={() => {
+            reload()
+            setEditGridLineItem(null)
+          }}
+          onDelete={async (id) => {
+            await gridLineService.delete(id, token)
+            reload()
+            setEditGridLineItem(null)
+          }}
+        />
+      )}
+
+      {/* MODAL CHỈNH SỬA NODE */}
+      <ModalEditNode
+        isOpen={!!editNodeItem}
+        onClose={() => setEditNodeItem(null)}
+        node={editNodeItem}
+        token={token}
+        onUpdated={() => {
+          reloadTopology()
+          setEditNodeItem(null)
+        }}
+        onDeleted={async (id) => {
+          await networkNodeService.delete(id, token)
+          reloadTopology()
+          setEditNodeItem(null)
+        }}
+      />
+
+      {/* MODAL CHỈNH SỬA EDGE */}
+      <ModalEditEdge
+        isOpen={!!editEdgeItem}
+        onClose={() => setEditEdgeItem(null)}
+        edge={editEdgeItem}
+        token={token}
+        onUpdated={() => {
+          reloadTopology()
+          setEditEdgeItem(null)
+        }}
+        onDeleted={async (id) => {
+          await networkEdgeService.delete(id, token)
+          reloadTopology()
+          setEditEdgeItem(null)
+        }}
       />
     </div>
   )

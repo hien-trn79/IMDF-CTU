@@ -222,7 +222,7 @@ export default function OutdoorMap({
               fillColor: '#f87171', // Màu nền bên trong
               fillOpacity: 0.55, // Độ mờ màu nền
             })}
-            onEachFeature={(feature, layer) => {
+            onEachFeature={(_feature, layer) => {
               // Click trực tiếp vào geometry trên bản đồ cũng xem được chi tiết
               layer.on({
                 click: () => {
