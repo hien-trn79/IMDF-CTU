@@ -1,4 +1,5 @@
 import type { NetworkEdgeRequest, NetworkEdgeResponse } from '../model/NetworkEdge.model'
+import { authHeaders } from './authHeaders'
 
 const API_BASE = '/api/network-edges'
 
@@ -24,36 +25,36 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export const networkEdgeService = {
-  async getAll(): Promise<NetworkEdgeResponse[]> {
-    const res = await fetch(API_BASE, { headers: { Accept: 'application/json' } })
+  async getAll(token: string): Promise<NetworkEdgeResponse[]> {
+    const res = await fetch(API_BASE, { headers: authHeaders(token) })
     return handleResponse<NetworkEdgeResponse[]>(res)
   },
 
-  async getById(id: number): Promise<NetworkEdgeResponse> {
-    const res = await fetch(`${API_BASE}/${id}`, { headers: { Accept: 'application/json' } })
+  async getById(id: number, token: string): Promise<NetworkEdgeResponse> {
+    const res = await fetch(`${API_BASE}/${id}`, { headers: authHeaders(token) })
     return handleResponse<NetworkEdgeResponse>(res)
   },
 
-  async create(data: NetworkEdgeRequest): Promise<NetworkEdgeResponse> {
+  async create(data: NetworkEdgeRequest, token: string): Promise<NetworkEdgeResponse> {
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: authHeaders(token, true),
       body: JSON.stringify(data),
     })
     return handleResponse<NetworkEdgeResponse>(res)
   },
 
-  async update(id: number, data: NetworkEdgeRequest): Promise<NetworkEdgeResponse> {
+  async update(id: number, data: NetworkEdgeRequest, token: string): Promise<NetworkEdgeResponse> {
     const res = await fetch(`${API_BASE}/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: authHeaders(token, true),
       body: JSON.stringify(data),
     })
     return handleResponse<NetworkEdgeResponse>(res)
   },
 
-  async delete(id: number): Promise<boolean> {
-    const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' })
+  async delete(id: number, token: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE', headers: authHeaders(token) })
     return handleResponse<boolean>(res)
   },
 }

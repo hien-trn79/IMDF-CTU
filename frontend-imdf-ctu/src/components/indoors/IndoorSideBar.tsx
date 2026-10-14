@@ -8,6 +8,14 @@ interface IndoorSideBarProps {
   isGridLineVisible: boolean
   onToggleGridLine: (visible: boolean) => void
   onRefresh: () => void
+  setIsOpenAddIndoor: (open: boolean) => void
+  // Topology layers
+  nodeCount: number
+  isNodeVisible: boolean
+  onToggleNode: (visible: boolean) => void
+  edgeCount: number
+  isEdgeVisible: boolean
+  onToggleEdge: (visible: boolean) => void
 }
 
 export default function IndoorSideBar({
@@ -17,9 +25,16 @@ export default function IndoorSideBar({
   isGridLineVisible,
   onToggleGridLine,
   onRefresh,
+  setIsOpenAddIndoor,
+  nodeCount,
+  isNodeVisible,
+  onToggleNode,
+  edgeCount,
+  isEdgeVisible,
+  onToggleEdge,
 }: IndoorSideBarProps) {
   const onCreate = () => {
-    console.log('Thêm Dữ liệu Indoor mới lên layer đang chọn')
+    setIsOpenAddIndoor(true)
   }
 
   return (
@@ -51,46 +66,39 @@ export default function IndoorSideBar({
 
         {/* DANH SÁCH LAYER */}
         <div className="space-y-1.5 rounded-xl bg-slate-50 p-2">
-          <label
-            className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border-l-4 px-3 py-3 shadow-sm transition ${
-              isGridLineVisible
-                ? 'border-blue-500 bg-white'
-                : 'border-transparent bg-slate-100/70 hover:bg-white'
-            }`}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isGridLineVisible}
-                disabled={isLoading}
-                onChange={(e) => onToggleGridLine(e.target.checked)}
-                className="h-4 w-4 accent-blue-600"
-              />
-              <Waypoints
-                className={`h-4 w-4 shrink-0 ${isGridLineVisible ? 'text-blue-600' : 'text-slate-400'}`}
-              />
-              <span className="truncate text-xs font-medium text-slate-600">
-                Đường lưới (Grid lines)
-              </span>
-            </span>
+          {/* GridLine layer */}
+          <LayerRow
+            checked={isGridLineVisible}
+            disabled={isLoading}
+            onChange={onToggleGridLine}
+            color={GRID_LINE_COLOR}
+            label="Đường lưới (Grid lines)"
+            count={isLoading ? 'Đang tải...' : String(gridLineCount)}
+            visible={isGridLineVisible}
+          />
 
-            <span className="flex shrink-0 items-center gap-1.5">
-              {/* Mẫu màu đường trên bản đồ */}
-              <span
-                className="h-0.5 w-4 rounded-full"
-                style={{ backgroundColor: GRID_LINE_COLOR }}
-                aria-hidden
-              />
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                {isLoading ? 'Đang tải...' : gridLineCount}
-              </span>
-              {isGridLineVisible && (
-                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-                  Hiện
-                </span>
-              )}
-            </span>
-          </label>
+          {/* Network Node layer */}
+          <LayerRow
+            checked={isNodeVisible}
+            disabled={isLoading}
+            onChange={onToggleNode}
+            color="#dc2626"
+            label="Nodes (Đỉnh)"
+            count={isLoading ? '...' : String(nodeCount)}
+            visible={isNodeVisible}
+            dot
+          />
+
+          {/* Network Edge layer */}
+          <LayerRow
+            checked={isEdgeVisible}
+            disabled={isLoading}
+            onChange={onToggleEdge}
+            color="#7c3aed"
+            label="Edges (Cạnh)"
+            count={isLoading ? '...' : String(edgeCount)}
+            visible={isEdgeVisible}
+          />
         </div>
 
         {error && (
@@ -104,5 +112,68 @@ export default function IndoorSideBar({
         </p>
       </section>
     </aside>
+  )
+}
+
+// ─── Sub-component ────────────────────────────────────────────────────────────
+interface LayerRowProps {
+  checked: boolean
+  disabled: boolean
+  onChange: (v: boolean) => void
+  color: string
+  label: string
+  count: string
+  visible: boolean
+  dot?: boolean // circle dot instead of line swatch
+}
+
+function LayerRow({
+  checked,
+  disabled,
+  onChange,
+  color,
+  label,
+  count,
+  visible,
+  dot,
+}: LayerRowProps) {
+  return (
+    <label
+      className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border-l-4 px-3 py-3 shadow-sm transition ${
+        visible ? 'border-blue-500 bg-white' : 'border-transparent bg-slate-100/70 hover:bg-white'
+      }`}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+          className="h-4 w-4 accent-blue-600"
+        />
+        <Waypoints className={`h-4 w-4 shrink-0 ${visible ? 'text-blue-600' : 'text-slate-400'}`} />
+        <span className="truncate text-xs font-medium text-slate-600">{label}</span>
+      </span>
+
+      <span className="flex shrink-0 items-center gap-1.5">
+        {dot ? (
+          <span
+            className="h-2.5 w-2.5 rounded-full border"
+            style={{ backgroundColor: color, borderColor: color }}
+            aria-hidden
+          />
+        ) : (
+          <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+        )}
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+          {count}
+        </span>
+        {visible && (
+          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+            Hiện
+          </span>
+        )}
+      </span>
+    </label>
   )
 }

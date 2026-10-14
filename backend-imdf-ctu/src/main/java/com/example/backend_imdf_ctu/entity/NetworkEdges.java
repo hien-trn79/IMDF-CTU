@@ -1,5 +1,6 @@
 package com.example.backend_imdf_ctu.entity;
 
+import com.example.backend_imdf_ctu.mapper.LineStringConvert;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -34,6 +35,7 @@ public class NetworkEdges {
     private Double reverseCost;
 
     @Column(name = "geometry", columnDefinition = "geometry(LineString, 4326)")
+    @Convert(converter = LineStringConvert.class)
     private LineString geometry;
 
     @ManyToOne

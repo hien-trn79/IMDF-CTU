@@ -1,4 +1,5 @@
 import type { IndoorRouteRequest, IndoorRouteResponse } from '../model/IndoorRoute.model'
+import { authHeaders } from './authHeaders'
 
 const API_BASE = '/api/indoor-routes'
 
@@ -24,36 +25,36 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export const indoorRouteService = {
-  async getAll(): Promise<IndoorRouteResponse[]> {
-    const res = await fetch(API_BASE, { headers: { Accept: 'application/json' } })
+  async getAll(token: string): Promise<IndoorRouteResponse[]> {
+    const res = await fetch(API_BASE, { headers: authHeaders(token) })
     return handleResponse<IndoorRouteResponse[]>(res)
   },
 
-  async getById(id: number): Promise<IndoorRouteResponse> {
-    const res = await fetch(`${API_BASE}/${id}`, { headers: { Accept: 'application/json' } })
+  async getById(id: number, token: string): Promise<IndoorRouteResponse> {
+    const res = await fetch(`${API_BASE}/${id}`, { headers: authHeaders(token) })
     return handleResponse<IndoorRouteResponse>(res)
   },
 
-  async create(data: IndoorRouteRequest): Promise<IndoorRouteResponse> {
+  async create(data: IndoorRouteRequest, token: string): Promise<IndoorRouteResponse> {
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: authHeaders(token, true),
       body: JSON.stringify(data),
     })
     return handleResponse<IndoorRouteResponse>(res)
   },
 
-  async update(id: number, data: IndoorRouteRequest): Promise<IndoorRouteResponse> {
+  async update(id: number, data: IndoorRouteRequest, token: string): Promise<IndoorRouteResponse> {
     const res = await fetch(`${API_BASE}/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: authHeaders(token, true),
       body: JSON.stringify(data),
     })
     return handleResponse<IndoorRouteResponse>(res)
   },
 
-  async delete(id: number): Promise<boolean> {
-    const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' })
+  async delete(id: number, token: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE', headers: authHeaders(token) })
     return handleResponse<boolean>(res)
   },
 }

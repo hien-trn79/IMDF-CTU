@@ -1,0 +1,56 @@
+package com.example.backend_imdf_ctu.entity;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Point;
+
+import java.util.UUID;
+
+@Entity
+@Table(name = "building")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class Building {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "building_id", nullable = false, unique = true)
+    private UUID buildingId;
+
+    @PrePersist
+    public void autofill() {
+        if (this.buildingId == null) {
+            this.buildingId = UUID.randomUUID();
+        }
+    }
+
+    @Column(name = "display_point", nullable = false, columnDefinition = "geometry(Point, 4326)")
+    private Point displayPoint;
+
+    @Column(name = "geometry", nullable = false, columnDefinition = "geometry(MultiPolygon, 4326)")
+    private MultiPolygon geometry;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "feature_id", referencedColumnName = "id")
+    private Feature feature;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "address_id", referencedColumnName = "id")
+    private Address address;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "restriction_category_id", referencedColumnName = "id")
+    private RestrictionCategory restrictionCategory;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "building_category_id", referencedColumnName = "id")
+    private BuildingCategory buildingCategory;
+}

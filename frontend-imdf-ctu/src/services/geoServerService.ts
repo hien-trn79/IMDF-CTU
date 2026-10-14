@@ -73,7 +73,6 @@ export const updateFeature = (
   properties: Record<string, unknown>,
   geoServerUrl: string
 ) => {
-  const typeName = getTypeName(layerName)
   const values = Object.entries(properties)
     .filter(([key, value]) => key && value !== undefined && value !== null)
     .map(

@@ -1,8 +1,8 @@
-import { useNavigation } from '../context/NavigationContext'
+import { useState } from 'react'
 import { Route, Layers, GitBranch } from 'lucide-react'
 
 export default function Header() {
-  const { activeView, setActiveView } = useNavigation()
+  const [activeView, setActiveView] = useState('grid-lines')
 
   return (
     <div className="app-header py-3 pl-4 pr-4 flex items-center justify-between border-b border-gray-200 bg-gray-50/50 shadow-sm h-full">

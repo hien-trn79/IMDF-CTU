@@ -1,5 +1,6 @@
 package com.example.backend_imdf_ctu.entity;
 
+import com.example.backend_imdf_ctu.mapper.PointConvert;
 import jakarta.persistence.*;
 import lombok.*;
 import org.locationtech.jts.geom.Point;
@@ -21,6 +22,7 @@ public class NetworkNodes {
     private Boolean isConnector;
 
     @Column(name = "geom", nullable = true, columnDefinition = "geometry(Point, 4326)")
+    @Convert(converter = PointConvert.class)
     private Point geom;
 
     @ManyToOne

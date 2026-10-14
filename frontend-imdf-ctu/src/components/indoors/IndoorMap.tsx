@@ -1,13 +1,19 @@
-import { MapContainer, TileLayer } from 'react-leaflet'
+import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import type { FeatureCollection } from 'geojson'
+import { useCallback } from 'react'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-import GridLineLayer from './GridlineLayers'
+import GridLineLayer from './GridLineLayers'
 import type { IndoorFeatureItem } from './IndoorTable'
+import DrawRouteLayer from './DrawRouteLayer'
+import TopologyLayers from './TopologyLayers'
+import type { NetworkNodeResponse } from '../../model/NetworkNode.model'
+import type { NetworkEdgeResponse } from '../../model/NetworkEdge.model'
+import { wkbHexToPoint } from '../../utils/wkbParser'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -23,6 +29,150 @@ interface IndoorMapProps {
   selectedFeature: IndoorFeatureItem | null
   onSelectFeature: (item: IndoorFeatureItem) => void
   onClearSelection: () => void
+  drawing: boolean
+  snapEnabled: boolean
+  drawCoordinates: [number, number][]
+  onDrawCoordinatesChange: (coordinates: [number, number][]) => void
+  networkNodes: NetworkNodeResponse[]
+  networkEdges: NetworkEdgeResponse[]
+  showNodes?: boolean
+  showEdges?: boolean
+  onSelectNode?: (node: NetworkNodeResponse) => void
+  onSelectEdge?: (edge: NetworkEdgeResponse) => void
+}
+
+function DrawingAndTopology({
+  gridLineData,
+  drawing,
+  snapEnabled,
+  drawCoordinates,
+  onDrawCoordinatesChange,
+  networkNodes,
+  networkEdges,
+  showNodes,
+  showEdges,
+  onSelectNode,
+  onSelectEdge,
+}: Pick<
+  IndoorMapProps,
+  | 'gridLineData'
+  | 'drawing'
+  | 'snapEnabled'
+  | 'drawCoordinates'
+  | 'onDrawCoordinatesChange'
+  | 'networkNodes'
+  | 'networkEdges'
+  | 'showNodes'
+  | 'showEdges'
+  | 'onSelectNode'
+  | 'onSelectEdge'
+>) {
+  const map = useMap()
+
+  const snapCoordinates = useCallback(
+    (point: L.LatLng): import('./DrawRouteLayer').SnapDetail => {
+      if (!snapEnabled) return { latLng: point, snapType: 'none', label: '' }
+
+      const sourcePx = map.latLngToLayerPoint(point)
+      let nearestLatLng = point
+      let minDistancePx = 18 // Ngưỡng hút (pixels)
+      let snapType: 'node' | 'vertex' | 'edge' | 'none' = 'none'
+      let label = ''
+
+      // 1. Ưu tiên Hút vào NetworkNodes
+      networkNodes.forEach((node) => {
+        const coord = wkbHexToPoint(node.geom)
+        if (!coord) return
+        const nodeLatLng = L.latLng(coord[1], coord[0])
+        const distPx = sourcePx.distanceTo(map.latLngToLayerPoint(nodeLatLng))
+        if (distPx < minDistancePx) {
+          minDistancePx = distPx
+          nearestLatLng = nodeLatLng
+          snapType = 'node'
+          label = `Node #${node.id}`
+        }
+      })
+
+      // 2. Hút vào các đỉnh (vertices) của GridLines & Edges hiện tại
+      gridLineData.features.forEach((feature) => {
+        const checkVertex = (lng: number, lat: number) => {
+          const vLatLng = L.latLng(lat, lng)
+          const distPx = sourcePx.distanceTo(map.latLngToLayerPoint(vLatLng))
+          if (distPx < minDistancePx) {
+            minDistancePx = distPx
+            nearestLatLng = vLatLng
+            snapType = 'vertex'
+            label = 'Đỉnh đường'
+          }
+        }
+        if (feature.geometry.type === 'LineString') {
+          feature.geometry.coordinates.forEach(([lng, lat]) => checkVertex(lng, lat))
+        } else if (feature.geometry.type === 'MultiLineString') {
+          feature.geometry.coordinates.forEach((line) => line.forEach(([lng, lat]) => checkVertex(lng, lat)))
+        }
+      })
+
+      // 3. Hút vào đoạn thẳng (edge segment) của GridLines
+      const snapToSegments = (line: number[][]) => {
+        for (let index = 1; index < line.length; index++) {
+          const startPx = map.latLngToLayerPoint([line[index - 1][1], line[index - 1][0]])
+          const endPx = map.latLngToLayerPoint([line[index][1], line[index][0]])
+          const deltaX = endPx.x - startPx.x
+          const deltaY = endPx.y - startPx.y
+          const lengthSquared = deltaX * deltaX + deltaY * deltaY
+          if (lengthSquared === 0) continue
+
+          const ratio = Math.max(
+            0,
+            Math.min(
+              1,
+              ((sourcePx.x - startPx.x) * deltaX + (sourcePx.y - startPx.y) * deltaY) / lengthSquared
+            )
+          ) // Tính toán điểm chiếu vuông góc từ sourcePx lên đoạn thẳng
+
+
+          const projPx = L.point(startPx.x + ratio * deltaX, startPx.y + ratio * deltaY)
+          const distPx = sourcePx.distanceTo(projPx)
+          if (distPx < minDistancePx) {
+            minDistancePx = distPx
+            nearestLatLng = map.layerPointToLatLng(projPx)
+            snapType = 'edge'
+            label = 'Cạnh đường (Edge)'
+          }
+        }
+      }
+
+      gridLineData.features.forEach((feature) => {
+        if (feature.geometry.type === 'LineString') snapToSegments(feature.geometry.coordinates)
+        if (feature.geometry.type === 'MultiLineString') {
+          feature.geometry.coordinates.forEach(snapToSegments)
+        }
+      })
+
+      return { latLng: nearestLatLng, snapType, label }
+    },
+    [gridLineData, map, networkNodes, snapEnabled]
+  )
+
+  return (
+    <>
+      <DrawRouteLayer
+        active={drawing}
+        snapEnabled={snapEnabled}
+        coordinates={drawCoordinates}
+        snapCoordinates={snapCoordinates}
+        onCoordinatesChange={onDrawCoordinatesChange}
+      />
+      <TopologyLayers
+        edges={networkEdges}
+        nodes={networkNodes}
+        showNodes={showNodes}
+        showEdges={showEdges}
+        onSelectNode={onSelectNode}
+        onSelectEdge={onSelectEdge}
+      />
+    </>
+  )
 }
 
 export default function IndoorMap({
@@ -32,6 +182,16 @@ export default function IndoorMap({
   selectedFeature,
   onSelectFeature,
   onClearSelection,
+  drawing,
+  snapEnabled,
+  drawCoordinates,
+  onDrawCoordinatesChange,
+  networkNodes,
+  networkEdges,
+  showNodes,
+  showEdges,
+  onSelectNode,
+  onSelectEdge,
 }: IndoorMapProps) {
   const position: [number, number] = [10.03031, 105.76843]
 
@@ -60,7 +220,21 @@ export default function IndoorMap({
             onClearSelection={onClearSelection}
           />
         )}
+        <DrawingAndTopology
+          gridLineData={gridLineData}
+          drawing={drawing}
+          snapEnabled={snapEnabled}
+          drawCoordinates={drawCoordinates}
+          onDrawCoordinatesChange={onDrawCoordinatesChange}
+          networkNodes={networkNodes}
+          networkEdges={networkEdges}
+          showNodes={showNodes}
+          showEdges={showEdges}
+          onSelectNode={onSelectNode}
+          onSelectEdge={onSelectEdge}
+        />
       </MapContainer>
     </div>
   )
 }
+

@@ -5,6 +5,7 @@ import jakarta.persistence.Converter;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.PrecisionModel;
+import org.locationtech.jts.io.ByteOrderValues;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKBWriter;
 
@@ -16,7 +17,10 @@ public class LineStringConvert implements AttributeConverter<LineString, byte[]>
     @Override
     public byte[] convertToDatabaseColumn(LineString attribute) {
         if (attribute == null) return null;
-        return new WKBWriter().write(attribute);
+        if (attribute.getSRID() == 0) {
+            attribute.setSRID(4326);
+        }
+        return new WKBWriter(2, ByteOrderValues.LITTLE_ENDIAN, true).write(attribute);
     }
 
     @Override
@@ -27,7 +31,7 @@ public class LineStringConvert implements AttributeConverter<LineString, byte[]>
             byte[] bytes = dbData;
 
             // Kiểm tra nếu dữ liệu dưới DB là chuỗi Hex WKB bị lưu thành Byte ASCII (bắt đầu bằng "0102" -> 0x30 0x31 0x30 0x32)
-            if (bytes.length >= 4 && bytes[0] == 0x30 && bytes[1] == 0x31 && bytes[2] == 0x30 && bytes[3] == 0x32) {
+            if (bytes.length >= 4 && bytes[0] == 0x30 && bytes[1] == 0x31) {
                 String hexString = new String(bytes);
                 bytes = WKBReader.hexToBytes(hexString);
             }

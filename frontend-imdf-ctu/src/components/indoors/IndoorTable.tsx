@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, ConfigProvider, Space, Table, Tag, Tooltip } from 'antd'
+import { Button, ConfigProvider, Popconfirm, Space, Table, Tag, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { ChevronDown, ChevronUp, Crosshair, Edit3, FileText, Trash2 } from 'lucide-react'
 
@@ -24,6 +24,8 @@ interface IndoorTableProps {
   selectedFeature?: IndoorFeatureItem | null
   onSelectFeature?: (item: IndoorFeatureItem) => void
   onOpenDetailModal?: (item: IndoorFeatureItem | null) => void
+  onEditFeature?: (item: IndoorFeatureItem) => void
+  onDeleteFeature?: (item: IndoorFeatureItem) => void
 }
 
 interface RowData {
@@ -65,6 +67,8 @@ export default function IndoorTable({
   selectedFeature = null,
   onSelectFeature,
   onOpenDetailModal,
+  onEditFeature,
+  onDeleteFeature,
 }: IndoorTableProps) {
   const [current, setCurrent] = useState(1)
   const [pageSize, setPageSize] = useState(VISIBLE_ROWS)
@@ -138,7 +142,7 @@ export default function IndoorTable({
       {
         title: 'Thao tác',
         key: 'actions',
-        width: 136,
+        width: 150,
         fixed: 'right',
         render: (_: unknown, record: RowData) => (
           <Space size={2} onClick={(e) => e.stopPropagation()}>
@@ -159,16 +163,30 @@ export default function IndoorTable({
               />
             </Tooltip>
             <Tooltip title="Chỉnh sửa">
-              <Button type="text" size="small" icon={<Edit3 className="h-3.5 w-3.5" />} />
+              <Button
+                type="text"
+                size="small"
+                icon={<Edit3 className="h-3.5 w-3.5" />}
+                onClick={() => onEditFeature?.(record.item)}
+              />
             </Tooltip>
-            <Tooltip title="Xoá">
-              <Button type="text" size="small" danger icon={<Trash2 className="h-3.5 w-3.5" />} />
-            </Tooltip>
+            <Popconfirm
+              title="Xóa đối tượng này?"
+              description="Thao tác không thể hoàn tác."
+              okText="Xóa"
+              cancelText="Hủy"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => onDeleteFeature?.(record.item)}
+            >
+              <Tooltip title="Xoá">
+                <Button type="text" size="small" danger icon={<Trash2 className="h-3.5 w-3.5" />} />
+              </Tooltip>
+            </Popconfirm>
           </Space>
         ),
       },
     ]
-  }, [dynamicKeys, onSelectFeature, onOpenDetailModal])
+  }, [dynamicKeys, onSelectFeature, onOpenDetailModal, onEditFeature, onDeleteFeature])
 
   return (
     <section className="outdoor_table qgis-table overflow-hidden rounded-lg border border-slate-300 bg-white shadow-2xl">
