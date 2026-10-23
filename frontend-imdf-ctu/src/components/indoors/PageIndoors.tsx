@@ -83,7 +83,7 @@ export default function PageIndoors() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, topologyReloadKey])
 
   // ── Feature items cho bảng ──────────────────────────────────────────────────
 
@@ -311,6 +311,7 @@ export default function PageIndoors() {
             features={gridLineFeatures}
             selectedFeature={selectedFeature}
             onSelectFeature={handleSelectFeature}
+            onOpenDetailModal={handleOpenDetailModal}
             onClearSelection={handleClearSelection}
             drawing={drawing}
             snapEnabled={snapEnabled}

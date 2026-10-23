@@ -79,6 +79,18 @@ export default function IndoorTable({
     setCurrent(1)
   }, [features.length])
 
+  useEffect(() => {
+    if (!selectedFeature) return
+    const selectedIndex = features.findIndex(
+      (item) =>
+        item.layer.id === selectedFeature.layer.id &&
+        item.index === selectedFeature.index
+    )
+    if (selectedIndex >= 0) {
+      setCurrent(Math.floor(selectedIndex / pageSize) + 1)
+    }
+  }, [features, pageSize, selectedFeature])
+
   const isSelected = (item: IndoorFeatureItem) =>
     !!selectedFeature &&
     selectedFeature.layer.id === item.layer.id &&

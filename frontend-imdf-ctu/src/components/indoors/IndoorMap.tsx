@@ -28,6 +28,7 @@ interface IndoorMapProps {
   features: IndoorFeatureItem[]
   selectedFeature: IndoorFeatureItem | null
   onSelectFeature: (item: IndoorFeatureItem) => void
+  onOpenDetailModal: (item: IndoorFeatureItem) => void
   onClearSelection: () => void
   drawing: boolean
   snapEnabled: boolean
@@ -181,6 +182,7 @@ export default function IndoorMap({
   features,
   selectedFeature,
   onSelectFeature,
+  onOpenDetailModal,
   onClearSelection,
   drawing,
   snapEnabled,
@@ -217,6 +219,7 @@ export default function IndoorMap({
             items={features}
             selectedFeature={selectedFeature}
             onSelectFeature={onSelectFeature}
+            onOpenDetailModal={onOpenDetailModal}
             onClearSelection={onClearSelection}
           />
         )}
@@ -237,4 +240,3 @@ export default function IndoorMap({
     </div>
   )
 }
-
