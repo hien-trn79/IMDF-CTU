@@ -13,9 +13,9 @@ function App() {
       <div className="min-h-screen">
         <Routes>
           <Route element={<Page />}>
-            <Route index element={<Navigate to="/outdoors" replace />} />
-            <Route path="outdoors" element={<PageOutdoor />} />
-            <Route path="indoors" element={<PageIndoors />} />
+            <Route index element={<Navigate to="/indoors" replace />} />
+            <Route path="indoors" element={<PageOutdoor />} />
+            <Route path="route" element={<PageIndoors />} />
             <Route path="map" element={<PageMap />} />
             <Route path="me" element={<AccountDetail />} />
           </Route>

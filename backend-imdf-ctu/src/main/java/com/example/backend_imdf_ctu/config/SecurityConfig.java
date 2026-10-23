@@ -98,10 +98,14 @@ public class SecurityConfig {
                 // ========== ROLE_ADMIN ONLY =========
                 .requestMatchers("/admin/**").hasRole("ADMIN")
 
-                // ========== ROLE_USER =========
-
                 // ========== PUBLIC =========
-
+                .requestMatchers(HttpMethod.GET, "/grid-lines/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/network-nodes/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/network-edges/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/indoor-routes/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/units/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/anchors/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/openings/**").permitAll()
 
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

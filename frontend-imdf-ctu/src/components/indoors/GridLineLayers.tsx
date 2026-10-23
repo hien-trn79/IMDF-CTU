@@ -10,6 +10,7 @@ interface GridLineLayerProps {
   items: IndoorFeatureItem[] // cùng thứ tự với data.features
   selectedFeature: IndoorFeatureItem | null
   onSelectFeature: (item: IndoorFeatureItem) => void
+  onOpenDetailModal: (item: IndoorFeatureItem) => void
   onClearSelection: () => void
 }
 
@@ -22,6 +23,7 @@ export default function GridLineLayer({
   items,
   selectedFeature,
   onSelectFeature,
+  onOpenDetailModal,
   onClearSelection,
 }: GridLineLayerProps) {
   const map = useMap()
@@ -31,12 +33,14 @@ export default function GridLineLayer({
 
   // Giữ callback mới nhất mà không làm effect vẽ layer chạy lại
   const onSelectRef = useRef(onSelectFeature)
+  const onOpenDetailRef = useRef(onOpenDetailModal)
   const onClearRef = useRef(onClearSelection)
 
   useEffect(() => {
     onSelectRef.current = onSelectFeature
+    onOpenDetailRef.current = onOpenDetailModal
     onClearRef.current = onClearSelection
-  }, [onSelectFeature, onClearSelection])
+  }, [onSelectFeature, onOpenDetailModal, onClearSelection])
 
   // 1) Vẽ layer + bắt sự kiện click
   useEffect(() => {
@@ -57,6 +61,11 @@ export default function GridLineLayer({
           L.DomEvent.stopPropagation(e) // không để map click bỏ chọn ngay sau đó
           const item = items[index]
           if (item) onSelectRef.current(item)
+        })
+        featureLayer.on('dblclick', (e: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e)
+          const item = items[index]
+          if (item) onOpenDetailRef.current(item)
         })
       },
     }).addTo(map)

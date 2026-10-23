@@ -186,6 +186,8 @@ export default function OutdoorTable({
     ]
   }, [dynamicKeys, onSelectFeature, onOpenDetailModal])
 
+  console.log('OutdoorTable render', { features, selectedFeature, dataSource, columns })
+
   return (
     <section className="outdoor_table qgis-table overflow-hidden rounded-lg border border-slate-300 bg-white shadow-2xl">
       <style>{QGIS_TABLE_CSS}</style>
