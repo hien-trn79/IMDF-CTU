@@ -178,7 +178,7 @@ export default function ModalDirections() {
     .slice(0, 5)
 
   return (
-    <div className="absolute inset-0 z-[2000] isolate flex items-start justify-center sm:items-center p-0 sm:p-4">
+    <div className="absolute inset-0 z-2000 isolate flex items-start justify-center sm:items-center p-0 sm:p-4">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity"
@@ -190,7 +190,7 @@ export default function ModalDirections() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 pt-4 sm:pt-5 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="shrink-0 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-500 p-2.5 shadow-lg shadow-blue-500/20">
+            <div className="shrink-0 rounded-2xl bg-linear-to-br from-blue-600 to-sky-500 p-2.5 shadow-lg shadow-blue-500/20">
               <Navigation size={18} className="text-white fill-current" />
             </div>
             <div>
@@ -266,17 +266,14 @@ export default function ModalDirections() {
                 }`}
                 title="Định vị vị trí của tôi"
               >
-                <Crosshair
-                  size={15}
-                  className={isLocating ? 'animate-spin text-blue-600' : ''}
-                />
+                <Crosshair size={15} className={isLocating ? 'animate-spin text-blue-600' : ''} />
                 <span className="hidden sm:inline">Vị trí của tôi</span>
               </button>
             </div>
 
             {/* Gợi ý Origin */}
             {showOriginSuggestions && !isUsingMyLocation && (
-              <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white/98 p-1.5 shadow-xl backdrop-blur-md z-[2100] animate-in fade-in-50 slide-in-from-top-1 duration-150">
+              <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white/98 p-1.5 shadow-xl backdrop-blur-md z-2100 animate-in fade-in-50 slide-in-from-top-1 duration-150">
                 {/* Nút Vị trí của tôi luôn hiển thị trên cùng */}
                 <div
                   onClick={handleUseMyLocation}
@@ -369,7 +366,7 @@ export default function ModalDirections() {
 
             {/* Gợi ý Dest */}
             {showDestSuggestions && (
-              <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white/98 p-1.5 shadow-xl backdrop-blur-md z-[2100] animate-in fade-in-50 slide-in-from-top-1 duration-150">
+              <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white/98 p-1.5 shadow-xl backdrop-blur-md z-2100 animate-in fade-in-50 slide-in-from-top-1 duration-150">
                 {destText.trim() && destSuggestions.length > 0 ? (
                   destSuggestions.map((s) => (
                     <SuggestionItem key={s.id} item={s} onClick={() => handleSelectDest(s)} />
@@ -400,7 +397,7 @@ export default function ModalDirections() {
             type="button"
             onClick={handleStartNavigation}
             disabled={!canNavigate}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 py-3 px-4 font-bold text-sm text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-700 hover:to-sky-700 hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-600 to-sky-600 py-3 px-4 font-bold text-sm text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-700 hover:to-sky-700 hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isRouting ? (
               <>
@@ -420,10 +417,10 @@ export default function ModalDirections() {
               {isUsingMyLocation && locationError
                 ? locationError
                 : !originLocation && !isUsingMyLocation
-                ? 'Vui lòng chọn điểm bắt đầu hoặc sử dụng vị trí GPS'
-                : !destLocation
-                ? 'Vui lòng chọn điểm đến'
-                : ''}
+                  ? 'Vui lòng chọn điểm bắt đầu hoặc sử dụng vị trí GPS'
+                  : !destLocation
+                    ? 'Vui lòng chọn điểm đến'
+                    : ''}
             </p>
           )}
         </div>
@@ -433,13 +430,7 @@ export default function ModalDirections() {
 }
 
 /* ────────────────── SUGGESTION ITEM ────────────────── */
-function SuggestionItem({
-  item,
-  onClick,
-}: {
-  item: DestinationItem
-  onClick: () => void
-}) {
+function SuggestionItem({ item, onClick }: { item: DestinationItem; onClick: () => void }) {
   const isRoom = item.category === 'room'
 
   return (
@@ -452,8 +443,8 @@ function SuggestionItem({
           isRoom
             ? 'bg-emerald-500 text-white'
             : item.category === 'building'
-            ? 'bg-sky-600 text-white'
-            : 'bg-amber-500 text-white'
+              ? 'bg-sky-600 text-white'
+              : 'bg-amber-500 text-white'
         }`}
       >
         {isRoom ? (
@@ -476,9 +467,7 @@ function SuggestionItem({
             </span>
           )}
         </div>
-        <p className="text-[11px] text-slate-500 truncate">
-          {item.subtitle || item.address || ''}
-        </p>
+        <p className="text-[11px] text-slate-500 truncate">{item.subtitle || item.address || ''}</p>
       </div>
     </div>
   )
