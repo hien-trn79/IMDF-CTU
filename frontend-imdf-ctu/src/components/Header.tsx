@@ -8,10 +8,14 @@ export default function Header() {
     <div className="app-header py-3 pl-4 pr-4 flex items-center justify-between border-b border-gray-200 bg-gray-50/50 shadow-sm h-full">
       <div className="flex items-center gap-3">
         <div className="logo-ctu">
-          <img src="/ctu-logo.png" alt="CTU Logo" className="w-9 h-9 object-contain drop-shadow-sm" />
+          <img
+            src="/ctu-logo.png"
+            alt="CTU Logo"
+            className="w-9 h-9 object-contain drop-shadow-sm"
+          />
         </div>
         <div className="web-name">
-          <h1 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-700 to-indigo-600 tracking-tight">
+          <h1 className="text-xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-sky-700 to-indigo-600 tracking-tight">
             CTUMapping
           </h1>
         </div>
