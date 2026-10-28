@@ -20,4 +20,7 @@ public class LevelCategory {
 
     @Column(name = "level_category_name", nullable = false)
     private String levelCategoryName;
+
+    @Column(name = "level_category_vietnamese_name", nullable = false)
+    private String levelCategoryVietnameseName;
 }

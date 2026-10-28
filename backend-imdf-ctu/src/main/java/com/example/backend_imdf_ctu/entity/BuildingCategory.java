@@ -20,4 +20,7 @@ public class BuildingCategory {
 
     @Column(name = "building_category_name", nullable = false)
     private String buildingCategoryName;
+
+    @Column(name = "building_category_vietnamese_name", nullable = false)
+    private String buildingCategoryVietnameseName;
 }

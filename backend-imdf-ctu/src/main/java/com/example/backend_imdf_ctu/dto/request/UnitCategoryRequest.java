@@ -6,4 +6,6 @@ import lombok.Data;
 public class UnitCategoryRequest {
 
     private String unitCategoryName;
+
+    private String unitCategoryVietnameseName;
 }

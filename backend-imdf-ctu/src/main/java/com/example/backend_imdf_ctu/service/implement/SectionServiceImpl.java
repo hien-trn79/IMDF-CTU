@@ -41,9 +41,17 @@ public class SectionServiceImpl implements SectionService {
         SectionCategory sectionCategory = sectionCategoryRepository.findById(request.getSectionCategoryId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.SECTION_CATEGORY_NOT_FOUND, "Section category with id " + request.getSectionCategoryId() + " not found"));
 
-        Feature feature = featureRepository.findById(request.getFeatureId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Feature with id " + request.getFeatureId() + " not found"));
-
+        Feature feature;
+        if (request.getFeatureId() != null) {
+            feature = featureRepository.findById(request.getFeatureId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
+        } else {
+            // Tự động tạo Feature mới nếu không có featureId
+            feature = new Feature();
+            feature.setFeatureId(java.util.UUID.randomUUID());
+            feature.setFeatureType("section");
+            feature = featureRepository.save(feature);
+        }
         Level level = levelRepository.findById(request.getLevelId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEVEL_NOT_FOUND, "Level with id " + request.getLevelId() + " not found"));
 

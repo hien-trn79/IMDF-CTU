@@ -6,4 +6,6 @@ import lombok.Data;
 public class RestrictionCateRequest {
 
     private String restrictionCateName;
+
+    private String restrictionCateVietnameseName;
 }

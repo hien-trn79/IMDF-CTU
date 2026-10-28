@@ -26,6 +26,10 @@ public class LevelMapper {
     public Level toEntity(LevelRequest request, LevelCategory levelCategory) {
         Level entity = new Level();
 
+        // apply attributes
+        entity.setOutdoor(request.getOutdoor());
+        entity.setOrdinal(request.getOrdinal());
+
         applyRelations(request, levelCategory, entity);
 
         // Apply geometry conversion
@@ -57,6 +61,10 @@ public class LevelMapper {
         LevelRequest request,
         LevelCategory levelCategory
     ) {
+        // apply attributes
+        entity.setOutdoor(request.getOutdoor());
+        entity.setOrdinal(request.getOrdinal());
+
         applyRelations(request, levelCategory, entity);
 
         // Apply geometry conversion
@@ -76,6 +84,7 @@ public class LevelMapper {
     private void applyGeometry(LevelRequest request, Level entity) {
         MultiPolygon geom = normalizer.normalize(geometryConverter.toJts(request.getGeometry()));
 
+        geom.setSRID(4326);
         entity.setGeometry(geom);
 
         Point displayPoint;

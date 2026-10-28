@@ -11,4 +11,6 @@ public class UnitCategoryResponse {
     private Integer id;
 
     private String unitCategoryName;
+
+    private String unitCategoryVietnameseName;
 }

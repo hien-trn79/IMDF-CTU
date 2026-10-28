@@ -13,6 +13,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class UnitServiceImpl implements UnitService {
@@ -38,10 +40,18 @@ public class UnitServiceImpl implements UnitService {
     }
 
     @Override
-    public UnitResponse create(UnitRequest request) {
-        Feature feature = featureRepository.findById(request.getFeatureId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
+    public List<UnitResponse> getAllByLevelId(Integer levelId) {
+        // TODO: Implement this method
+        return repository.findAllByLevelId(levelId)
+                .stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
 
+    @Override
+    public UnitResponse create(UnitRequest request) {
+
+        // 1. Validate foreign keys: levelId, restrictionCategoryId, unitCategoryId
         Level level = levelRepository.findById(request.getLevelId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEVEL_NOT_FOUND, "Không tìm thấy Level với id = " + request.getLevelId()));
 
@@ -51,6 +61,20 @@ public class UnitServiceImpl implements UnitService {
         UnitCategory unitCategory = unitCategoryRepository.findById(request.getUnitCategoryId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNIT_CATEGORY_NOT_FOUND, "Không tìm thấy Unit Category với id = " + request.getUnitCategoryId()));
 
+        // 2. Xu ly feature co so: Kiem tra featureId truyen len hoac tu dong sinh Feature moi
+        Feature feature;
+        if (request.getFeatureId() != null) {
+            feature = featureRepository.findById(request.getFeatureId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
+        } else {
+            // Tự động tạo Feature mới nếu không có featureId
+            feature = new Feature();
+            feature.setFeatureId(java.util.UUID.randomUUID());
+            feature.setFeatureType("unit");
+            feature = featureRepository.save(feature);
+        }
+
+        // 3. Tạo Unit mới
         Unit entity = mapper.toEntity(
             request,
             unitCategory,

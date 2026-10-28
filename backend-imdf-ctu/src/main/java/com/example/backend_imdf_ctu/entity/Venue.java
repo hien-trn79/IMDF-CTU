@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 
@@ -31,6 +33,7 @@ public class Venue {
         }
     }
 
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "geometry", columnDefinition = "geometry(MultiPolygon, 4326)")
     private MultiPolygon geometry;
 
@@ -43,6 +46,7 @@ public class Venue {
     @Column(name = "website")
     private String website;
 
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "display_point", columnDefinition = "geometry(Point, 4326)")
     private Point displayPoint;
 

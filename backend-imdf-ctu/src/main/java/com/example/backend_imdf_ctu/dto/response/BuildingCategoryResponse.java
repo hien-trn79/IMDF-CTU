@@ -8,4 +8,5 @@ import lombok.Data;
 public class BuildingCategoryResponse {
     private Integer id;
     private String buildingCategoryName;
+    private String buildingCategoryVietnameseName;
 }

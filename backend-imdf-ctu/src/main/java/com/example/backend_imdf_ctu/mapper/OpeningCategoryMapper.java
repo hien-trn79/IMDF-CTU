@@ -10,13 +10,15 @@ public class OpeningCategoryMapper {
     public OpeningCategoryResponse toResponse(OpeningCategory entity) {
          return new OpeningCategoryResponse(
              entity.getId(),
-                entity.getOpeningCategoryName()
+                entity.getOpeningCategoryName(),
+                entity.getOpeningCategoryVietnameseName()
          );
     }
 
     public OpeningCategory toEntity(OpeningCategoryRequest request) {
         OpeningCategory entity = new OpeningCategory();
         entity.setOpeningCategoryName(request.getOpeningCategoryName());
+        entity.setOpeningCategoryVietnameseName(request.getOpeningCategoryVietnameseName());
         return entity;
     }
 

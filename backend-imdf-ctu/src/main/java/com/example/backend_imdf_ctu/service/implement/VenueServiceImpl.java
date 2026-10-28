@@ -68,8 +68,6 @@ public class VenueServiceImpl implements VenueService {
     @Override
     @Transactional
     public VenueResponse create(VenueRequest request) {
-        Feature feature = featureRepository.findById(request.getFeatureId())
-            .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
 
         RestrictionCategory restrictionCategory = restrictionCateRepository.findById(request.getRestrictionCategoryId())
             .orElseThrow(() -> new BusinessException(ErrorCode.RESTRICTION_CATEGORY_NOT_FOUND, "Không tìm thấy RestrictionCategory với id = " + request.getRestrictionCategoryId()));
@@ -79,6 +77,18 @@ public class VenueServiceImpl implements VenueService {
 
         Address address = addressRepository.findById(request.getAddressId())
             .orElseThrow(() -> new BusinessException(ErrorCode.ADDRESS_NOT_FOUND, "Không tìm thấy Address với id = " + request.getAddressId()));
+
+        Feature feature;
+        if (request.getFeatureId() != null) {
+            feature = featureRepository.findById(request.getFeatureId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
+        } else {
+            // Tự động tạo Feature mới nếu không có featureId
+            feature = new Feature();
+            feature.setFeatureId(java.util.UUID.randomUUID());
+            feature.setFeatureType("venue");
+            feature = featureRepository.save(feature);
+        }
 
         Venue venue = venueMapper.toEntity(
             request,

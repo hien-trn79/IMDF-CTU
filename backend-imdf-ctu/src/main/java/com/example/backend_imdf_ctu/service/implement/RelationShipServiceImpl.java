@@ -44,9 +44,17 @@ public class RelationShipServiceImpl implements RelationShipService {
 
     @Override
     public RelationShipResponse create(RelationShipRequest request) {
-        Feature feature = featureRepository.findById(request.getFeatureId())
-            .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND));
-
+        Feature feature;
+        if (request.getFeatureId() != null) {
+            feature = featureRepository.findById(request.getFeatureId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
+        } else {
+            // Tự động tạo Feature mới nếu không có featureId
+            feature = new Feature();
+            feature.setFeatureId(java.util.UUID.randomUUID());
+            feature.setFeatureType("relationship");
+            feature = featureRepository.save(feature);
+        }
         RelationShipCategory relationShipCategory = relationShipCateRepository.findById(request.getRelationShipCategoryId())
             .orElseThrow(() -> new BusinessException(ErrorCode.RELATIONSHIP_CATEGORY_NOT_FOUND));
 

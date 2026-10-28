@@ -6,4 +6,6 @@ import lombok.Data;
 public class LevelCategoryRequest {
 
     private String levelCategoryName;
+
+    private String levelCategoryVietnameseName;
 }

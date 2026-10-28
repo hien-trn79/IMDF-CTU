@@ -13,4 +13,6 @@ public class AmenityCateResponse {
     private Integer amenityCateId;
 
     private String amenityCateName;
+
+    private String amenityVietNameseName;
 }

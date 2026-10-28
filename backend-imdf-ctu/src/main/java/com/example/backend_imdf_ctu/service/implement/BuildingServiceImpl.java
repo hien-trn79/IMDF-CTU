@@ -36,9 +36,7 @@ public class BuildingServiceImpl implements BuildingService {
     @Override
     @Transactional
     public BuildingResponse create(BuildingRequest request) {
-        Feature feature = featureRepository.findById(request.getFeatureId())
-            .orElseThrow(() -> new RuntimeException("Feature not found with id: " + request.getFeatureId()));
-
+        // 1. Kiem tra cac entity lien quan
         Address address = addressRepository.findById(request.getAddressId())
             .orElseThrow(() -> new RuntimeException("Address not found with id: " + request.getAddressId()));
 
@@ -48,6 +46,20 @@ public class BuildingServiceImpl implements BuildingService {
         BuildingCategory buildingCategory = buildingCategoryRepository.findById(request.getBuildingCategoryId())
             .orElseThrow(() -> new RuntimeException("Building Category not found with id: " + request.getBuildingCategoryId()));
 
+        // 2. Xu ly feature co so: Kiem tra featureId truyen len hoac tu dong sinh Feature moi
+        Feature feature;
+        if (request.getFeatureId() != null) {
+            feature = featureRepository.findById(request.getFeatureId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
+        } else {
+            // Tự động tạo Feature mới nếu không có featureId
+            feature = new Feature();
+            feature.setFeatureId(java.util.UUID.randomUUID());
+            feature.setFeatureType("building");
+            feature = featureRepository.save(feature);
+        }
+
+        // 3. Tạo Building mới
         Building building = mapper.toEntity(request, feature, address, restrictionCategory, buildingCategory);
 
         return mapper.toResponse(repository.save(building));

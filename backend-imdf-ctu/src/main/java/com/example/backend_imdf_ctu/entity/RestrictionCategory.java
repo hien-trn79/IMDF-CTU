@@ -19,4 +19,7 @@ public class RestrictionCategory {
 
     @Column(name = "restriction_cate_name")
     private String restrictionCateName;
+
+    @Column(name = "restriction_cate_vietnamese_name")
+    private String restrictionCateVietnameseName;
 }

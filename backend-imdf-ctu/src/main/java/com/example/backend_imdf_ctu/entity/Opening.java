@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 
@@ -37,9 +39,11 @@ public class Opening {
     @Column(name = "opening_name", nullable = false)
     private String openingName;
 
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "geometry", nullable = false, columnDefinition = "geometry(LineString, 4326)")
     private LineString geometry;
 
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "display_point", nullable = false, columnDefinition = "geometry(Point, 4326)")
     private Point displayPoint;
 

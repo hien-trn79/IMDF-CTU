@@ -10,7 +10,8 @@ public class VenueCategoryMapper {
     public VenueCategoryResponse toResponse(VenueCategory entity) {
         return new VenueCategoryResponse(
             entity.getId(),
-            entity.getVenueCategoryName()
+            entity.getVenueCategoryName(),
+            entity.getVenueCategoryVietnameseName()
         );
     }
 
@@ -18,6 +19,7 @@ public class VenueCategoryMapper {
         VenueCategory entity = new VenueCategory();
 
         entity.setVenueCategoryName(request.getVenueCategoryName());
+        entity.setVenueCategoryVietnameseName(request.getVenueCategoryVietnameseName());
 
         return entity;
     }

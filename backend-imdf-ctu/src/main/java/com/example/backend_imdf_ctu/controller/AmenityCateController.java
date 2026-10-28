@@ -3,7 +3,6 @@ package com.example.backend_imdf_ctu.controller;
 import com.example.backend_imdf_ctu.dto.request.AmenityCateRequest;
 import com.example.backend_imdf_ctu.dto.response.AmenityCateResponse;
 import com.example.backend_imdf_ctu.service.interfaces.AmenityCategoryService;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

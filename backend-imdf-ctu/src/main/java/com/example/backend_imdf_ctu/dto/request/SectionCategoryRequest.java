@@ -5,4 +5,6 @@ import lombok.Data;
 @Data
 public class SectionCategoryRequest {
     private String sectionCategoryName;
+
+    private String sectionCategoryVietnameseName;
 }

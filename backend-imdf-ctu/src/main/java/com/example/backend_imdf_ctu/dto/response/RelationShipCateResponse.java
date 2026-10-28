@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 public class RelationShipCateResponse {
     private Integer id;
     private String relationshipCategoryName;
+    private String relationshipCategoryVietnameseName;
 }

@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 
@@ -32,9 +34,11 @@ public class Building {
         }
     }
 
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "display_point", nullable = false, columnDefinition = "geometry(Point, 4326)")
     private Point displayPoint;
 
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "geometry", nullable = false, columnDefinition = "geometry(MultiPolygon, 4326)")
     private MultiPolygon geometry;
 
