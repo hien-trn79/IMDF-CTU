@@ -94,6 +94,7 @@ public class UnitMapper {
         response.setId(entity.getId());
         response.setUnitId(entity.getUnitId().toString());
         response.setUnitName(entity.getUnitName());
+        response.setCreatedAt(entity.getCreatedAt());
 
         response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
         response.setDisplayPoint(geometryConverter.toGeoJson(entity.getDisplayPoint()));

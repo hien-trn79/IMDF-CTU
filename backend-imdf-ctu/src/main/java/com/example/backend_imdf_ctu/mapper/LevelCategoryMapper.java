@@ -10,13 +10,15 @@ public class LevelCategoryMapper {
     public LevelCategoryResponse toResponse(LevelCategory entity) {
         return new LevelCategoryResponse(
             entity.getId(),
-            entity.getLevelCategoryName()
+            entity.getLevelCategoryName(),
+            entity.getLevelCategoryVietnameseName()
         );
     }
 
     public LevelCategory toEntity(LevelCategoryRequest request) {
         LevelCategory entity = new LevelCategory();
         entity.setLevelCategoryName(request.getLevelCategoryName());
+        entity.setLevelCategoryVietnameseName(request.getLevelCategoryVietnameseName());
         return entity;
     }
 }

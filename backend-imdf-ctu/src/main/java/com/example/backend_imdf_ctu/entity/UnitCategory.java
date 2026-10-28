@@ -20,4 +20,7 @@ public class UnitCategory {
 
     @Column(name = "unit_category_name", nullable = false)
     private String unitCategoryName;
+
+    @Column(name = "unit_category_vietnamese_name", nullable = false)
+    private String unitCategoryVietnameseName;
 }

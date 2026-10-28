@@ -10,13 +10,15 @@ public class BuildingCategoryMapper {
     public BuildingCategory toEntity(BuildingCategoryRequest request) {
         BuildingCategory buildingCategory = new BuildingCategory();
         buildingCategory.setBuildingCategoryName(request.getBuildingCategoryName());
+        buildingCategory.setBuildingCategoryVietnameseName(request.getBuildingCategoryVietnameseName());
         return buildingCategory;
     }
 
     public BuildingCategoryResponse toResponse(BuildingCategory buildingCategory) {
         return new BuildingCategoryResponse(
             buildingCategory.getId(),
-            buildingCategory.getBuildingCategoryName()
+            buildingCategory.getBuildingCategoryName(),
+            buildingCategory.getBuildingCategoryVietnameseName()
         );
     }
 }

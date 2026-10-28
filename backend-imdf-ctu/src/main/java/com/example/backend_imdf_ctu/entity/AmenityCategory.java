@@ -17,7 +17,10 @@ public class AmenityCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "amenity_category_id")
-    @NotBlank(message = "Amenity Category cannot be blank")
+    @Column(name = "amenity_category_name")
     private String amenityCategoryName;
+
+    @Column(name = "amenity_vietnamese_name")
+    private String amenityVietNameseName;
+
 }

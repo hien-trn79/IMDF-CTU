@@ -12,7 +12,8 @@ public class RestrictionCateMapper {
 
         return new RestrictionCateResponse(
                 restrictionCategory.getId(),
-                restrictionCategory.getRestrictionCateName()
+                restrictionCategory.getRestrictionCateName(),
+                restrictionCategory.getRestrictionCateVietnameseName()
         );
     }
 
@@ -20,6 +21,7 @@ public class RestrictionCateMapper {
         RestrictionCategory entity = new RestrictionCategory();
 
         entity.setRestrictionCateName(request.getRestrictionCateName());
+        entity.setRestrictionCateVietnameseName(request.getRestrictionCateVietnameseName());
 
         return entity;
     }

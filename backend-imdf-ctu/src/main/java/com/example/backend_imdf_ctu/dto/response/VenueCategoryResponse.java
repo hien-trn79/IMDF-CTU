@@ -11,4 +11,6 @@ public class VenueCategoryResponse {
     private Integer id;
 
     private String venueCategoryName;
+
+    private String venueCategoryVietnameseName;
 }

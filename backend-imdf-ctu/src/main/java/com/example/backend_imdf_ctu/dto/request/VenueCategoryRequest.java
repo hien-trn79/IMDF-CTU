@@ -5,4 +5,6 @@ import lombok.Data;
 @Data
 public class VenueCategoryRequest {
     private String venueCategoryName;
+
+    private String venueCategoryVietnameseName;
 }

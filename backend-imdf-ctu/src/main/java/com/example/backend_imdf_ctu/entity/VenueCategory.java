@@ -20,5 +20,8 @@ public class VenueCategory {
 
     @Column(name = "venue_category_name")
     private String venueCategoryName;
+
+    @Column(name = "venue_category_vietnamese_name")
+    private String venueCategoryVietnameseName;
 }
 

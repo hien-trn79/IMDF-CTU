@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 
@@ -22,7 +24,7 @@ public class Level {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "level_name", nullable = false)
+    @Column(name = "level_id", nullable = false)
     private UUID levelId;
 
     @PrePersist
@@ -32,6 +34,7 @@ public class Level {
         }
     }
 
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "geometry", nullable = false, columnDefinition = "geometry(MultiPolygon, 4326)")
     private MultiPolygon geometry;
 
@@ -41,6 +44,7 @@ public class Level {
     @Column(name = "ordinal")
     private Integer ordinal;
 
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "display_point", columnDefinition = "geometry(Point, 4326)")
     private Point displayPoint;
 

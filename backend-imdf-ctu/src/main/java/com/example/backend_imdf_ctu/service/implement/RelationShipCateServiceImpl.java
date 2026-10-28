@@ -2,6 +2,7 @@ package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.RelationShipCateRequest;
 import com.example.backend_imdf_ctu.dto.response.RelationShipCateResponse;
+import com.example.backend_imdf_ctu.entity.RelationShipCategory;
 import com.example.backend_imdf_ctu.mapper.RelationShipCateMapper;
 import com.example.backend_imdf_ctu.repository.RelationShipCateRepository;
 import com.example.backend_imdf_ctu.service.interfaces.RelationShipCateService;
@@ -25,10 +26,8 @@ public class RelationShipCateServiceImpl implements RelationShipCateService {
 
     @Override
     public RelationShipCateResponse create(RelationShipCateRequest request) {
-        RelationShipCateResponse response = new RelationShipCateResponse();
+        RelationShipCategory entity = mapper.toEntity(request);
 
-        response.setRelationshipCategoryName(request.getRelationshipCategoryName());
-
-        return mapper.toResponse(repository.save(mapper.toEntity(response)));
+        return mapper.toResponse(repository.save(entity));
     }
 }

@@ -8,4 +8,5 @@ import lombok.Data;
 public class LevelCategoryResponse {
     private Integer id;
     private String levelCategoryName;
+    private String levelCategoryVietnameseName;
 }

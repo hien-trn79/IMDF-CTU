@@ -11,13 +11,15 @@ public class AmenityCategoryMapper {
     public AmenityCateResponse toResponse(AmenityCategory entity) {
         return new AmenityCateResponse(
                 entity.getId(),
-                entity.getAmenityCategoryName()
+                entity.getAmenityCategoryName(),
+                entity.getAmenityVietNameseName()
         );
     }
 
     public AmenityCategory toEntity(AmenityCateRequest request) {
         AmenityCategory entity = new AmenityCategory();
         entity.setAmenityCategoryName(request.getAmenityCateName());
+        entity.setAmenityVietNameseName(request.getAmenityVietNameseName());
         return entity;
     }
 }

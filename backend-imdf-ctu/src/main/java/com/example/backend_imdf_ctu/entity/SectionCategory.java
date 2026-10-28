@@ -17,6 +17,9 @@ public class SectionCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "section_category_name", nullable = false, unique = true)
+    @Column(name = "section_category_name", nullable = false)
     private String sectionCategoryName;
+
+    @Column(name = "section_category_vietnamese_name", nullable = false)
+    private String sectionCategoryVietnameseName;
 }

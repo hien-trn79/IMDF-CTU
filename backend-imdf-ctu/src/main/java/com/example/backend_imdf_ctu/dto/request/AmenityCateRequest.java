@@ -5,4 +5,6 @@ import lombok.Data;
 @Data
 public class AmenityCateRequest {
     private String amenityCateName;
+
+    private String amenityVietNameseName;
 }

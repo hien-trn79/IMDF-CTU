@@ -6,4 +6,6 @@ import lombok.Data;
 public class BuildingCategoryRequest {
 
     private String buildingCategoryName;
+
+    private String buildingCategoryVietnameseName;
 }

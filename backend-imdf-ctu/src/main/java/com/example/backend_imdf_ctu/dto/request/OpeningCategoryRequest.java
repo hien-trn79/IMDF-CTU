@@ -5,4 +5,6 @@ import lombok.Data;
 @Data
 public class OpeningCategoryRequest {
     private String openingCategoryName;
+
+    private String openingCategoryVietnameseName;
 }

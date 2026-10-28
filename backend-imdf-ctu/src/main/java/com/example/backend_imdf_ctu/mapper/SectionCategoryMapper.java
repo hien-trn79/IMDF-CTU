@@ -11,13 +11,15 @@ public class SectionCategoryMapper {
     public SectionCategoryResponse toResponse(SectionCategory entity) {
         return new SectionCategoryResponse(
                 entity.getId(),
-                entity.getSectionCategoryName()
+                entity.getSectionCategoryName(),
+                entity.getSectionCategoryVietnameseName()
         );
     }
 
     public SectionCategory toEntity(SectionCategoryRequest request) {
         SectionCategory entity = new SectionCategory();
         entity.setSectionCategoryName(request.getSectionCategoryName());
+        entity.setSectionCategoryVietnameseName(request.getSectionCategoryVietnameseName());
         return entity;
     }
 }

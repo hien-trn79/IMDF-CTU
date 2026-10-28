@@ -11,13 +11,15 @@ public class UnitCategoryMapper {
     public UnitCategoryResponse toResponse(UnitCategory entity) {
         return new UnitCategoryResponse(
             entity.getId(),
-            entity.getUnitCategoryName()
+            entity.getUnitCategoryName(),
+            entity.getUnitCategoryVietnameseName()
         );
     }
 
     public UnitCategory toEntity(UnitCategoryRequest request) {
         UnitCategory entity = new UnitCategory();
         entity.setUnitCategoryName(request.getUnitCategoryName());
+        entity.setUnitCategoryVietnameseName(request.getUnitCategoryVietnameseName());
         return entity;
     }
 }

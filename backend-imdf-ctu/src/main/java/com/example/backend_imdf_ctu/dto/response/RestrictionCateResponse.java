@@ -11,4 +11,6 @@ public class RestrictionCateResponse {
     private Integer id;
 
     private String restrictionCateName;
+
+    private String restrictionCateVietnameseName;
 }

@@ -17,6 +17,9 @@ public class RelationShipCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "relationship_category_name", nullable = false, unique = true)
+    @Column(name = "relationship_category_name", nullable = false)
     private String relationshipCategoryName;
+
+    @Column(name = "relationship_category_vietnamese_name", nullable = false)
+    private String relationshipCategoryVietnameseName;
 }

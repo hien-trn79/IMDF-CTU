@@ -11,4 +11,6 @@ public class OpeningCategoryResponse {
     private Integer id;
 
     private String openingCategoryName;
+
+    private String openingCategoryVietnameseName;
 }
