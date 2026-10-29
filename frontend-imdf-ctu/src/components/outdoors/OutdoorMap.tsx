@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -12,6 +12,7 @@ import { useLayer } from '../../context/LayerContext'
 import type { LayerFetchState } from './outdoorTypes'
 import CustomModal from '../map/CustomModal'
 import MapController from '../map/MapController'
+import { useLevel } from '../../context/LevelContext'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -33,16 +34,28 @@ export default function OutdoorMap({
 }: OutdoorMapProps) {
   const position: [number, number] = [10.03031, 105.76843]
 
-  const { selectedLayers, geoServerUrl } = useLayer()
+  const { selectedLayers, availableLayers, geoServerUrl } = useLayer()
+  const { unitGeoJson, isLoadingUnits, unitsError, selectedTable } = useLevel()
 
   const [layerData, setLayerData] = useState<Record<string, LayerFetchState>>({})
   const abortControllers = useRef<Record<string, AbortController>>({})
 
   const [selectedBuilding, setSelectedBuilding] = useState<any>(null)
   const [isOpenModal, setIsOpenModal] = useState(false)
+  const tableLayers = useMemo(() => {
+    if (selectedTable === 'unit') return []
+    const matches = (layer: { layerName: string }) =>
+      (() => {
+        const name = (layer.layerName.split(':').pop() ?? layer.layerName).toLowerCase()
+        const table = selectedTable.toLowerCase()
+        return name === table || name.startsWith(`${table}_`)
+      })()
+    const selectedMatches = selectedLayers.filter(matches)
+    return selectedMatches.length > 0 ? selectedMatches : availableLayers.filter(matches)
+  }, [availableLayers, selectedLayers, selectedTable])
 
   useEffect(() => {
-    const currentIds = new Set(selectedLayers.map((layer) => layer.id))
+    const currentIds = new Set(tableLayers.map((layer) => layer.id))
 
     // Huy fetch cua layer da bi bo tick
     Object.keys(abortControllers.current).forEach((id) => {
@@ -62,7 +75,7 @@ export default function OutdoorMap({
     })
 
     // Chi fetch nhung layer moi duoc tick
-    selectedLayers.forEach((layer) => {
+    tableLayers.forEach((layer) => {
       if (abortControllers.current[layer.id]) return // da fetch / dang fetch roi
 
       const controller = new AbortController()
@@ -107,17 +120,16 @@ export default function OutdoorMap({
           }))
         })
     })
-  }, [selectedLayers, geoServerUrl])
+  }, [geoServerUrl, tableLayers])
 
-  // Tinh toan so luong doi tuong tren ban do va cap nhat cho parent component
   useEffect(() => {
-    const count = Object.values(layerData).reduce((total, layerState) => {
+    const unitCount = selectedTable === 'unit' ? unitGeoJson?.features?.length ?? 0 : 0
+    const layerCount = Object.values(layerData).reduce((total, layerState) => {
       const features = layerState.data?.features
       return total + (Array.isArray(features) ? features.length : 0)
     }, 0)
-
-    setObjectCount(count)
-  }, [layerData, setObjectCount])
+    setObjectCount(unitCount + layerCount)
+  }, [layerData, selectedTable, unitGeoJson, setObjectCount])
 
   // Chi huy toan bo fetch khi component unmount
   useEffect(() => {
@@ -128,7 +140,7 @@ export default function OutdoorMap({
   }, [])
 
   const getLayerColor = (layerId: string) => {
-    const index = selectedLayers.findIndex((layer) => layer.id === layerId)
+    const index = tableLayers.findIndex((layer) => layer.id === layerId)
     return LAYER_COLORS[index % LAYER_COLORS.length]
   }
 
@@ -189,9 +201,19 @@ export default function OutdoorMap({
         <div className="absolute top-3 right-3 z-1000 bg-white/90 px-3 py-1.5 rounded-lg shadow text-sm text-red-600 max-w-xs">
           {anyError.map(([id, s]) => (
             <div key={id}>
-              {selectedLayers.find((l) => l.id === id)?.layerName}: {String(s.error)}
+              {tableLayers.find((l) => l.id === id)?.layerName}: {String(s.error)}
             </div>
           ))}
+        </div>
+      )}
+      {isLoadingUnits && (
+        <div className="absolute top-12 right-3 z-1000 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-blue-600 shadow">
+          Đang tải unit của tầng...
+        </div>
+      )}
+      {unitsError && (
+        <div className="absolute top-12 right-3 z-1000 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-red-600 shadow">
+          {unitsError}
         </div>
       )}
 
@@ -233,7 +255,7 @@ export default function OutdoorMap({
           />
         )}
 
-        {selectedLayers.map((layer) => {
+        {tableLayers.map((layer) => {
           const layerState = layerData[layer.id]
           if (!layerState?.data) return null
 
@@ -250,6 +272,20 @@ export default function OutdoorMap({
             />
           )
         })}
+
+        {unitGeoJson && (
+          <GeoJSON
+            key={`units-${unitGeoJson.features.length}`}
+            data={unitGeoJson}
+            style={() => ({
+              color: '#0f766e',
+              weight: 2,
+              fillColor: '#14b8a6',
+              fillOpacity: 0.35,
+            })}
+            pointToLayer={pointToLayer('#0f766e')}
+          />
+        )}
 
         {selectedBuilding && isOpenModal && (
           <CustomModal

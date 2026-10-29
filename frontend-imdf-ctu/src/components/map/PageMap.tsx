@@ -26,10 +26,7 @@ import ModalDirections from './ModalDirections'
 import FloorSelector from './FloorSelector'
 import { useMapNavigation } from '../../context/MapNavigationContext'
 import type { DestinationItem, RouteData } from '../../model/Navigation.model'
-import {
-  MAIN_ENTRANCE_POINT,
-  MAIN_ENTRANCE_HEX,
-} from '../../services/mapNavigationService'
+import { MAIN_ENTRANCE_POINT, MAIN_ENTRANCE_HEX } from '../../services/mapNavigationService'
 
 // Khởi tạo icon mặc định của Leaflet
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -112,9 +109,7 @@ function RouteMapCameraController({
   // Tự động fitBounds khi có lộ trình mới
   useEffect(() => {
     if (routeData && routeData.coordinates.length >= 2) {
-      const bounds = L.latLngBounds(
-        routeData.coordinates.map(([lat, lng]) => [lat, lng])
-      )
+      const bounds = L.latLngBounds(routeData.coordinates.map(([lat, lng]) => [lat, lng]))
       map.fitBounds(bounds, {
         padding: [60, 60],
         maxZoom: 18.5,
@@ -132,6 +127,7 @@ function RouteMapCameraController({
   return null
 }
 
+// Chuc năng quan sát sự thay đổi zoom của bản đồ và gọi callback
 function MapZoomObserver({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
   const map = useMap()
 
@@ -211,9 +207,7 @@ export default function PageMap() {
   const handleFitRoute = () => {
     if (!mapRef.current) return
     if (routeData && routeData.coordinates.length >= 2) {
-      const bounds = L.latLngBounds(
-        routeData.coordinates.map(([lat, lng]) => [lat, lng])
-      )
+      const bounds = L.latLngBounds(routeData.coordinates.map(([lat, lng]) => [lat, lng]))
       mapRef.current.fitBounds(bounds, {
         padding: [60, 60],
         maxZoom: 18.5,
@@ -427,9 +421,7 @@ export default function PageMap() {
                     Mã phòng: {selectedDestination.roomCode}
                   </span>
                 )}
-                <p className="text-xs text-slate-600 mt-1">
-                  {selectedDestination.address}
-                </p>
+                <p className="text-xs text-slate-600 mt-1">{selectedDestination.address}</p>
               </div>
             </Popup>
           </Marker>
@@ -467,10 +459,7 @@ export default function PageMap() {
         )}
 
         {/* CAMERA CONTROLLER */}
-        <RouteMapCameraController
-          routeData={routeData}
-          selectedDestination={selectedDestination}
-        />
+        <RouteMapCameraController routeData={routeData} selectedDestination={selectedDestination} />
       </MapContainer>
 
       {locationError && (
@@ -582,10 +571,7 @@ export default function PageMap() {
 
       {/* MODAL HIỂN THỊ CHI TIẾT ĐỊA ĐIỂM (THIẾT KẾ HIỆN CÓ ĐÃ ĐƯỢC NÂNG CẤP) */}
       {(showLocationModal || selectedDestination) && !isCloseModal && (
-        <ModalLocation
-          setIsCloseModal={setIsCloseModal}
-          onFitRoute={handleFitRoute}
-        />
+        <ModalLocation setIsCloseModal={setIsCloseModal} onFitRoute={handleFitRoute} />
       )}
       {showDirectionsModal && <ModalDirections />}
     </div>

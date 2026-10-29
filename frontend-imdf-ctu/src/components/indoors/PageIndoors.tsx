@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties } from 'react'
+﻿import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import IndoorMap from './IndoorMap'
 import IndoorSideBar from './IndoorSideBar'
 import { useGridLines } from './useGridLines'
+import { useImdfLayers } from './useImdfLayers'
 import type { IndoorFeatureItem } from './IndoorTable'
 import IndoorTable from '../indoors/IndoorTable'
 import FeatureDetailModal from '../outdoors/FeatureDetailModal'
@@ -19,24 +20,20 @@ import { useUser } from '../../context/UserContext'
 import { wkbHexToPoint } from '../../utils/wkbParser'
 import { parseWKBHexToCoords } from '../../utils/wkbUtils'
 
-const GRID_LINE_LAYER = { id: 'grid_line', layerName: 'Đường lưới (Grid lines)' }
+const GRID_LINE_LAYER = { id: 'grid_line', layerName: 'Duong luoi (Grid lines)' }
 const NODE_LAYER = { id: 'network_node', layerName: 'Network Node' }
 const EDGE_LAYER = { id: 'network_edge', layerName: 'Network Edge' }
 
 export default function PageIndoors() {
-  // Feature đang chọn (từ bảng hoặc từ click trên bản đồ)
   const [selectedFeature, setSelectedFeature] = useState<IndoorFeatureItem | null>(null)
   const [isOpenSelectedFeatureModal, setIsOpenSelectedFeatureModal] = useState(false)
 
-  // Mở rộng toàn bộ bản đồ (Fullscreen API)
   const mapCardRef = useRef<HTMLDivElement>(null)
   const [isMapFullscreen, setIsMapFullscreen] = useState(false)
 
-  // Chiều cao bảng nổi, dùng để đẩy attribution/scale của Leaflet lên trên bảng
   const panelRef = useRef<HTMLDivElement>(null)
   const [panelHeight, setPanelHeight] = useState(0)
 
-  // Dữ liệu grid line: gọi API ở một chỗ duy nhất rồi truyền cho sidebar, map và bảng
   const { geoJson, gridLines, isLoading, error, reload } = useGridLines()
   const [networkNodes, setNetworkNodes] = useState<NetworkNodeResponse[]>([])
   const [networkEdges, setNetworkEdges] = useState<NetworkEdgeResponse[]>([])
@@ -45,7 +42,7 @@ export default function PageIndoors() {
   const [snapEnabled, setSnapEnabled] = useState(true)
   const [drawCoordinates, setDrawCoordinates] = useState<[number, number][]>([])
 
-  // Layer visibility
+  // Topology layer visibility
   const [showGridLines, setShowGridLines] = useState(false)
   const [showNodes, setShowNodes] = useState(false)
   const [showEdges, setShowEdges] = useState(false)
@@ -58,10 +55,20 @@ export default function PageIndoors() {
   const { authData } = useUser()
   const token = authData?.token || ''
 
-  const reloadTopology = () => setTopologyReloadKey((key) => key + 1) // Muc dich: khi reloadTopology, key thay đổi => useEffect sẽ gọi lại API topology
+  // IMDF layers tu GeoServer /api/layers
+  const {
+    layers: imdfLayers,
+    isLoading: imdfLayersLoading,
+    error: imdfLayersError,
+    visibleLayerIds,
+    visibleLayers: visibleImdfLayers,
+    toggleLayer: toggleImdfLayer,
+    reload: reloadImdfLayers,
+  } = useImdfLayers()
+
+  const reloadTopology = () => setTopologyReloadKey((key) => key + 1)
 
   useEffect(() => {
-    // Gọi API topology khi token thay đổi hoặc topologyReloadKey thay đổi
     let cancelled = false
     if (!token) {
       setNetworkNodes([])
@@ -69,7 +76,6 @@ export default function PageIndoors() {
       return
     }
 
-    // Goi đồng thời 2 API: network nodes và network edges, sau đó set state nếu chưa bị huỷ
     Promise.all([networkNodeService.getAll(token), networkEdgeService.getAll(token)])
       .then(([nodes, edges]) => {
         if (!cancelled) {
@@ -78,14 +84,12 @@ export default function PageIndoors() {
         }
       })
       .catch((topologyError: unknown) => {
-        console.error('Lỗi tải topology:', topologyError)
+        console.error('Loi tai topology:', topologyError)
       })
     return () => {
       cancelled = true
     }
   }, [token, topologyReloadKey])
-
-  // ── Feature items cho bảng ──────────────────────────────────────────────────
 
   const gridLineFeatures = useMemo<IndoorFeatureItem[]>(
     () =>
@@ -103,7 +107,6 @@ export default function PageIndoors() {
     [geoJson, showGridLines]
   )
 
-  // Feature items cho network nodes
   const nodeFeatures = useMemo<IndoorFeatureItem[]>(
     () =>
       showNodes
@@ -159,16 +162,13 @@ export default function PageIndoors() {
     [networkEdges, showEdges]
   )
 
-  // Gộp tất cả feature items cho IndoorTable
   const allFeatures = useMemo<IndoorFeatureItem[]>(
     () => [...gridLineFeatures, ...nodeFeatures, ...edgeFeatures],
     [gridLineFeatures, nodeFeatures, edgeFeatures]
   )
 
-  // Khoảng đệm quanh bản đồ: 8px ở chế độ thường, 0 khi fullscreen
   const inset = isMapFullscreen ? 0 : 8
 
-  // Đồng bộ state khi người dùng thoát fullscreen bằng phím Esc
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsMapFullscreen(document.fullscreenElement === mapCardRef.current)
@@ -177,7 +177,6 @@ export default function PageIndoors() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
 
-  // Theo dõi chiều cao bảng (đổi khi thu gọn, đổi số dòng/trang...)
   useEffect(() => {
     const el = panelRef.current
     if (!el) return
@@ -196,11 +195,10 @@ export default function PageIndoors() {
         await mapCardRef.current?.requestFullscreen()
       }
     } catch (error) {
-      console.error('Không thể bật/tắt toàn màn hình:', error)
+      console.error('Khong the bat/tat toan man hinh:', error)
     }
   }
 
-  // Tắt layer thì bỏ chọn + đóng modal để không giữ feature không còn hiển thị
   const handleToggleGridLine = (visible: boolean) => {
     setShowGridLines(visible)
     if (!visible) {
@@ -226,20 +224,18 @@ export default function PageIndoors() {
   }
   const handleClearSelection = () => setSelectedFeature(null)
 
-  // Mở modal chi tiết. Modal render ở document.body nên phải thoát fullscreen trước
   const handleOpenDetailModal = async (item: IndoorFeatureItem | null) => {
     if (item) setSelectedFeature(item)
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen()
       } catch (error) {
-        console.error('Không thể thoát toàn màn hình:', error)
+        console.error('Khong the thoat toan man hinh:', error)
       }
     }
     setIsOpenSelectedFeatureModal(true)
   }
 
-  // ── Edit handlers ───────────────────────────────────────────────────────────
   const handleEditFeature = (item: IndoorFeatureItem) => {
     if (item.layer.id === GRID_LINE_LAYER.id) {
       setEditGridLineItem(item)
@@ -254,7 +250,6 @@ export default function PageIndoors() {
     }
   }
 
-  // ── Delete handlers ─────────────────────────────────────────────────────────
   const handleDeleteFeature = useCallback(
     async (item: IndoorFeatureItem) => {
       const id = Number(item.feature.id)
@@ -270,13 +265,12 @@ export default function PageIndoors() {
           reloadTopology()
         }
       } catch (err) {
-        console.error('Lỗi xóa đối tượng:', err)
+        console.error('Loi xoa doi tuong:', err)
       }
     },
     [token, reload]
   )
 
-  // ── Click topology from map ─────────────────────────────────────────────────
   const handleSelectNodeFromMap = useCallback((node: NetworkNodeResponse) => {
     setEditNodeItem(node)
   }, [])
@@ -284,18 +278,16 @@ export default function PageIndoors() {
     setEditEdgeItem(edge)
   }, [])
 
-  // INDOOR SIDE BAR: truyền thêm state modal để sidebar có thể mở modal thêm indoor
   const [isOpenAddIndoor, setIsOpenAddIndoor] = useState(false)
 
   return (
     <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-5 px-2">
-      {/* INDOOR MAIN MAP + BẢNG NỔI */}
+      {/* INDOOR MAIN MAP + BANG NOI */}
       <main className="page-outdoor-main min-w-0 lg:col-span-4">
         <div
           ref={mapCardRef}
           style={
             {
-              // bảng cách đáy card 16px, chừa thêm 4px khe hở
               '--map-bottom-offset': `${panelHeight + 20 - inset}px`,
             } as CSSProperties
           }
@@ -323,14 +315,15 @@ export default function PageIndoors() {
             showEdges={showEdges}
             onSelectNode={handleSelectNodeFromMap}
             onSelectEdge={handleSelectEdgeFromMap}
+            visibleImdfLayers={visibleImdfLayers}
           />
 
-          {/* Nút mở rộng bản đồ, nằm ngay dưới nút zoom +/- của Leaflet */}
+          {/* Nut mo rong ban do */}
           <button
             type="button"
             onClick={toggleMapFullscreen}
-            title={isMapFullscreen ? 'Thu nhỏ bản đồ' : 'Mở rộng toàn bộ bản đồ'}
-            aria-label={isMapFullscreen ? 'Thu nhỏ bản đồ' : 'Mở rộng toàn bộ bản đồ'}
+            title={isMapFullscreen ? 'Thu nho ban do' : 'Mo rong toan bo ban do'}
+            aria-label={isMapFullscreen ? 'Thu nho ban do' : 'Mo rong toan bo ban do'}
             style={{ left: 10 + inset, top: 84 + inset }}
             className="absolute z-1000 flex h-8.5 w-8.5 items-center justify-center rounded border-2 border-black/20 bg-white bg-clip-padding text-slate-700 hover:bg-slate-100"
           >
@@ -341,7 +334,7 @@ export default function PageIndoors() {
             )}
           </button>
 
-          {/* BẢNG NỔI TRÊN KHUNG MAP (kiểu bảng thuộc tính QGIS) */}
+          {/* BANG NOI */}
           <div ref={panelRef} className="absolute right-1 bottom-1 left-1 z-1000">
             <IndoorTable
               features={allFeatures}
@@ -356,7 +349,7 @@ export default function PageIndoors() {
         </div>
       </main>
 
-      {/* INDOOR ASIDE: chỉ là khung chứa, IndoorSideBar tự có card riêng nên không thêm viền/padding */}
+      {/* INDOOR ASIDE */}
       <aside className="outdoor_aside_map min-w-0 overflow-y-auto lg:col-span-1 lg:max-h-[min(85vh,720px)] justify-items-center">
         <IndoorSideBar
           isLoading={isLoading}
@@ -375,17 +368,23 @@ export default function PageIndoors() {
           edgeCount={networkEdges.length}
           isEdgeVisible={showEdges}
           onToggleEdge={handleToggleEdge}
+          imdfLayers={imdfLayers}
+          imdfLayersLoading={imdfLayersLoading}
+          imdfLayersError={imdfLayersError}
+          visibleLayerIds={visibleLayerIds}
+          onToggleImdfLayer={toggleImdfLayer}
+          onRefreshImdfLayers={reloadImdfLayers}
         />
       </aside>
 
-      {/* MODAL HIỂN THỊ THÔNG TIN CHI TIẾT */}
+      {/* MODAL CHI TIET */}
       <FeatureDetailModal
         isOpenSelectedFeatureModal={isOpenSelectedFeatureModal}
         onClose={() => setIsOpenSelectedFeatureModal(false)}
         data={selectedFeature}
       />
 
-      {/* MODAL THÊM DỮ LIỆU INDOOR MỚI */}
+      {/* MODAL THEM INDOOR */}
       {isOpenAddIndoor && (
         <ModalAddIndoor
           isOpen={isOpenAddIndoor}
@@ -413,7 +412,7 @@ export default function PageIndoors() {
         />
       )}
 
-      {/* MODAL CHỈNH SỬA GRIDLINE */}
+      {/* MODAL CHINH SUA GRIDLINE */}
       {editGridLineItem && (
         <ModalEditGridLine
           isOpen={!!editGridLineItem}
@@ -434,7 +433,7 @@ export default function PageIndoors() {
         />
       )}
 
-      {/* MODAL CHỈNH SỬA NODE */}
+      {/* MODAL CHINH SUA NODE */}
       <ModalEditNode
         isOpen={!!editNodeItem}
         onClose={() => setEditNodeItem(null)}
@@ -451,7 +450,7 @@ export default function PageIndoors() {
         }}
       />
 
-      {/* MODAL CHỈNH SỬA EDGE */}
+      {/* MODAL CHINH SUA EDGE */}
       <ModalEditEdge
         isOpen={!!editEdgeItem}
         onClose={() => setEditEdgeItem(null)}

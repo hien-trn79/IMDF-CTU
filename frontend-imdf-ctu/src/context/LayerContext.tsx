@@ -81,11 +81,10 @@ export const LayerProvider = ({ children }: { children: ReactNode }) => {
 
       setAvailableLayers(fetchedLayers)
 
-      // Đặt mặc định layer được chọn (ví dụ: layer 'imdf_ctu:cntt-outline' hoặc layer đầu tiên)
+      // Không tự động chọn layer nào. Người dùng chủ động bật layer cần hiển thị.
       setSelectedLayers((prev) => {
         if (prev.length > 0) return prev // Giữ lại lựa chọn hiện tại nếu có
-        const defaultLayer = fetchedLayers.find((l) => l.layerName === 'imdf_ctu:cntt-outline')
-        return defaultLayer ? [defaultLayer] : fetchedLayers.slice(0, 1)
+        return []
       })
     } catch (error: any) {
       // end try

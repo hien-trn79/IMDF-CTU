@@ -1,10 +1,16 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Modal, Progress, Tag, notification } from 'antd'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import OutdoorMap from './OutdoorMap'
 import OutdoorSidebar from './OutdoorSidebar'
 import OutdoorTable, { type OutdoorFeatureItem } from './OutdoorTable'
 import { useOutdoorFeatures } from './useOutdoorFeatures'
 import FeatureDetailModal from './FeatureDetailModal'
+import type { LevelGeoJson } from '../../model/geoJsonEntity.model'
+import { useLevel } from '../../context/LevelContext'
+import { useUser } from '../../context/UserContext'
+import { unitService } from '../../services/unitService'
+import UnitEditModal from './UnitEditModal'
 
 export default function PageOutdoor() {
   const [objectCount, setObjectCount] = useState(0)
@@ -14,6 +20,13 @@ export default function PageOutdoor() {
 
   // State quản lý modal chi tiết feature geometry được chọn
   const [isOpenSelectedFeatureModal, setIsOpenSelectedFeatureModal] = useState(false)
+  const [isOpenUnitEditModal, setIsOpenUnitEditModal] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
+  const [importFeatures, setImportFeatures] = useState<any[]>([])
+  const [importFileName, setImportFileName] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
+  const [duplicateCount, setDuplicateCount] = useState(0)
 
   // Mở rộng toàn bộ bản đồ (Fullscreen API)
   const mapCardRef = useRef<HTMLDivElement>(null)
@@ -24,6 +37,9 @@ export default function PageOutdoor() {
   const [panelHeight, setPanelHeight] = useState(0)
 
   const { features, isLoading } = useOutdoorFeatures()
+  const { setSelectedLevelId, selectedLevelId, reloadUnits, selectedTable, setSelectedTable } =
+    useLevel()
+  const { token } = useUser()
 
   // Đồng bộ state khi người dùng thoát fullscreen bằng phím Esc
   useEffect(() => {
@@ -65,6 +81,176 @@ export default function PageOutdoor() {
   // Callback khi người dùng click vào row hoặc nút "Xem trên bản đồ" ở Table
   const handleSelectFeature = (item: OutdoorFeatureItem) => {
     setSelectedFeature(item)
+  }
+
+  const canonicalGeometry = (value: unknown): string => {
+    if (typeof value === 'number') return String(Number(value.toFixed(8)))
+    if (Array.isArray(value)) return `[${value.map(canonicalGeometry).join(',')}]`
+    if (value && typeof value === 'object') {
+      return `{${Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, child]) => `${JSON.stringify(key)}:${canonicalGeometry(child)}`)
+        .join(',')}}`
+    }
+    return JSON.stringify(value)
+  }
+
+  const existingGeometryKeys = useMemo(
+    () =>
+      new Set(
+        features
+          .filter((item) => item.layer.id === 'api-units')
+          .map((item) => canonicalGeometry(item.feature.geometry))
+      ),
+    [features]
+  )
+
+  const handleEditFeature = (item: OutdoorFeatureItem) => {
+    if (item.layer.id !== 'api-units') {
+      notification.info({
+        message: 'Không thể chỉnh sửa lớp này',
+        description: 'Chỉ có thể chỉnh sửa Unit được tải từ API.',
+      })
+      return
+    }
+
+    setSelectedFeature(item)
+    setIsOpenUnitEditModal(true)
+  }
+
+  const getFirstCoordinate = (coordinates: unknown): [number, number] | null => {
+    if (!Array.isArray(coordinates)) return null
+    if (typeof coordinates[0] === 'number' && typeof coordinates[1] === 'number') {
+      return [coordinates[0], coordinates[1]]
+    }
+    for (const child of coordinates) {
+      const coordinate = getFirstCoordinate(child)
+      if (coordinate) return coordinate
+    }
+    return null
+  }
+
+  const handleImportGeoJson = async (file: File) => {
+    if (!selectedLevelId) {
+      notification.warning({
+        message: 'Chưa chọn tầng',
+        description: 'Vui lòng chọn tầng trước khi thêm dữ liệu GeoJSON.',
+      })
+      return
+    }
+    try {
+      const parsed = JSON.parse(await file.text())
+      const sourceFeatures = Array.isArray(parsed.features) ? parsed.features : [parsed]
+      const validFeatures = sourceFeatures.filter((feature: any) => feature?.geometry)
+      const seen = new Set(existingGeometryKeys)
+      let duplicates = 0
+      const uniqueFeatures = validFeatures.filter((feature: any) => {
+        const key = canonicalGeometry(feature.geometry)
+        if (seen.has(key)) {
+          duplicates += 1
+          return false
+        }
+        seen.add(key)
+        return true
+      })
+      setImportFeatures(uniqueFeatures)
+      setDuplicateCount(duplicates)
+      setImportFileName(file.name)
+      setImportProgress(0)
+      setImportModalOpen(true)
+    } catch (error) {
+      notification.error({
+        message: 'Không thể đọc GeoJSON',
+        description: error instanceof Error ? error.message : 'File không hợp lệ.',
+      })
+    }
+  }
+
+  const confirmImport = async () => {
+    if (!selectedLevelId) return
+    if (selectedTable !== 'unit') {
+      notification.info({
+        message: 'Bảng chưa hỗ trợ nhập GeoJSON',
+        description: 'Hiện tại dữ liệu GeoJSON được lưu vào bảng Unit - Phòng.',
+      })
+      return
+    }
+    setIsImporting(true)
+    setImportProgress(0)
+    let imported = 0
+    try {
+      for (const feature of importFeatures) {
+        const coordinate = getFirstCoordinate(feature.geometry.coordinates)
+        if (!coordinate) throw new Error('Một feature không có tọa độ hợp lệ.')
+        const properties = feature.properties ?? {}
+        await unitService.create(
+          {
+            unitName: String(
+              properties.name_vi ??
+                properties.name ??
+                properties.id ??
+                `Unit ${properties.fid ?? imported + 1}`
+            ),
+            geometry: feature.geometry,
+            displayPoint: properties.displayPoint ?? { type: 'Point', coordinates: coordinate },
+            featureId: null,
+            levelId: Number(selectedLevelId),
+            unitCategoryId: Number(properties.unitCategoryId) || 1,
+            restrictionCategoryId: Number(properties.restrictionCategoryId) || 1,
+          },
+          token ?? undefined
+        )
+        imported += 1
+        setImportProgress(Math.round((imported / importFeatures.length) * 100))
+      }
+      reloadUnits()
+      setImportModalOpen(false)
+      notification.success({
+        message: 'Thêm GeoJSON thành công',
+        description: `Đã thêm ${imported} Unit vào cơ sở dữ liệu.`,
+      })
+    } catch (error) {
+      notification.error({
+        message: 'Thêm GeoJSON chưa hoàn tất',
+        description: error instanceof Error ? error.message : 'Không thể lưu Unit.',
+      })
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  const handleDeleteFeature = (item: OutdoorFeatureItem) => {
+    if (item.layer.id !== 'api-units') return
+    Modal.confirm({
+      title: 'Xóa Unit này?',
+      content: `Unit "${item.feature.properties?.unitName ?? item.feature.id}" sẽ bị xóa khỏi cơ sở dữ liệu. Thao tác này không thể hoàn tác.`,
+      okText: 'Xóa Unit',
+      cancelText: 'Hủy',
+      okButtonProps: { danger: true },
+      centered: true,
+      onOk: async () => {
+        try {
+          await unitService.delete(item.feature.id, token ?? undefined)
+          setSelectedFeature(null)
+          reloadUnits()
+          notification.success({ message: 'Đã xóa Unit', description: 'Dữ liệu đã được cập nhật.' })
+        } catch (error) {
+          notification.error({
+            message: 'Xóa Unit thất bại',
+            description: error instanceof Error ? error.message : 'Không thể xóa Unit.',
+          })
+        }
+      },
+    })
+  }
+
+  // Xử lý level tầng
+  const [levelsOfBuilding, setLevelsOfBuilding] = useState<LevelGeoJson['features'] | []>([])
+
+  const [selectedBuilding, setSelectedBuilding] = useState<number | 1>(1)
+
+  const handleLevelChange = (levelId: string | null) => {
+    setSelectedLevelId(levelId)
   }
 
   // Mở modal chi tiết feature. Modal render ở document.body nên phải thoát fullscreen trước
@@ -127,6 +313,8 @@ export default function PageOutdoor() {
               selectedFeature={selectedFeature}
               onSelectFeature={handleSelectFeature}
               onOpenDetailModal={handleOpenDetailModal}
+              onEditFeature={handleEditFeature}
+              onDeleteFeature={handleDeleteFeature}
             />
           </div>
         </div>
@@ -134,14 +322,84 @@ export default function PageOutdoor() {
 
       {/* OUTDOOR ASIDE: chỉ là khung chứa, OutdoorSidebar tự có card riêng nên không thêm viền/padding */}
       <aside className="outdoor_aside_map min-w-0 overflow-y-auto lg:col-span-1 lg:max-h-[min(85vh,720px)] justify-items-center">
-        <OutdoorSidebar objectCount={objectCount} onCreate={handleCreate} />
+        <OutdoorSidebar
+          objectCount={objectCount}
+          onCreate={handleCreate}
+          selectedBuildingId={selectedBuilding}
+          setSelectedBuildingId={setSelectedBuilding}
+          levels={levelsOfBuilding}
+          setLevels={setLevelsOfBuilding}
+          onLevelChange={handleLevelChange}
+          onImportGeoJson={handleImportGeoJson}
+          selectedTable={selectedTable}
+          onTableChange={setSelectedTable}
+        />
       </aside>
+
+      <Modal
+        title="Thêm dữ liệu từ GeoJSON"
+        open={importModalOpen}
+        onCancel={() => !isImporting && setImportModalOpen(false)}
+        onOk={confirmImport}
+        okText={isImporting ? 'Đang xử lý...' : 'Bắt đầu thêm dữ liệu'}
+        cancelText="Hủy"
+        confirmLoading={isImporting}
+        closable={!isImporting}
+        maskClosable={!isImporting}
+        centered
+      >
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold text-slate-700">
+            Bảng lưu dữ liệu
+            <select
+              value={selectedTable}
+              onChange={(event) => setSelectedTable(event.target.value)}
+              disabled={isImporting}
+              className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+            >
+              <option value="anchor">Anchor - Điểm neo</option>
+              <option value="amenity">Amenity - Tiện ích</option>
+              <option value="unit">Unit - Phòng</option>
+              <option value="level">Level - Tầng</option>
+            </select>
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              File GeoJSON sẽ được chuyển thành bản ghi trong bảng `unit`.
+            </span>
+          </label>
+          <p className="text-sm text-slate-600">
+            File: <strong>{importFileName}</strong>
+          </p>
+          <div className="flex items-center gap-2">
+            <Tag color="blue">{importFeatures.length} geometry mới</Tag>
+            <Tag color={duplicateCount ? 'warning' : 'success'}>
+              {duplicateCount} geometry trùng đã bỏ qua
+            </Tag>
+          </div>
+          {isImporting && (
+            <div>
+              <p className="mb-1 text-sm text-slate-600">Đang lưu dữ liệu vào cơ sở dữ liệu...</p>
+              <Progress percent={importProgress} status="active" />
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* MODAL HIỂN THỊ THÔNG TIN CHI TIẾT */}
       <FeatureDetailModal
         isOpenSelectedFeatureModal={isOpenSelectedFeatureModal}
         onClose={() => setIsOpenSelectedFeatureModal(false)}
         data={selectedFeature}
+      />
+      <UnitEditModal
+        open={isOpenUnitEditModal}
+        item={selectedFeature?.layer.id === 'api-units' ? selectedFeature : null}
+        levelId={selectedLevelId}
+        token={token}
+        onClose={() => setIsOpenUnitEditModal(false)}
+        onSaved={() => {
+          reloadUnits()
+          notification.success({ message: 'Cập nhật Unit thành công' })
+        }}
       />
     </div>
   )

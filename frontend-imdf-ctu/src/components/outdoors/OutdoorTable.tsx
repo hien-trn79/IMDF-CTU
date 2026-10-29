@@ -8,6 +8,7 @@ export interface OutdoorFeatureItem {
   feature: {
     id: string
     properties: Record<string, any>
+    geometry: GeoJSON.Geometry
   }
   layer: {
     id: string
@@ -25,6 +26,8 @@ interface OutdoorTableProps {
   onSelectFeature?: (item: OutdoorFeatureItem) => void
   // Double-click dòng hoặc nút "Chi tiết"
   onOpenDetailModal?: (item: OutdoorFeatureItem | null) => void
+  onEditFeature?: (item: OutdoorFeatureItem) => void
+  onDeleteFeature?: (item: OutdoorFeatureItem) => void
 }
 
 interface RowData {
@@ -68,6 +71,8 @@ export default function OutdoorTable({
   selectedFeature = null,
   onSelectFeature,
   onOpenDetailModal,
+  onEditFeature,
+  onDeleteFeature,
 }: OutdoorTableProps) {
   const [current, setCurrent] = useState(1)
   const [pageSize, setPageSize] = useState(VISIBLE_ROWS)
@@ -174,19 +179,30 @@ export default function OutdoorTable({
                 onClick={() => onOpenDetailModal?.(record.item)}
               />
             </Tooltip>
-            <Tooltip title="Chỉnh sửa">
-              <Button type="text" size="small" icon={<Edit3 className="h-3.5 w-3.5" />} />
+            <Tooltip title="Chỉnh sửa Unit">
+              <Button
+                type="text"
+                size="small"
+                icon={<Edit3 className="h-3.5 w-3.5" />}
+                onClick={() => onEditFeature?.(record.item)}
+                aria-label="Chỉnh sửa Unit"
+              />
             </Tooltip>
-            <Tooltip title="Xoá">
-              <Button type="text" size="small" danger icon={<Trash2 className="h-3.5 w-3.5" />} />
+            <Tooltip title="Xóa Unit">
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<Trash2 className="h-3.5 w-3.5" />}
+                aria-label="Xóa Unit"
+                onClick={() => onDeleteFeature?.(record.item)}
+              />
             </Tooltip>
           </Space>
         ),
       },
     ]
-  }, [dynamicKeys, onSelectFeature, onOpenDetailModal])
-
-  console.log('OutdoorTable render', { features, selectedFeature, dataSource, columns })
+  }, [dynamicKeys, onSelectFeature, onOpenDetailModal, onEditFeature, onDeleteFeature])
 
   return (
     <section className="outdoor_table qgis-table overflow-hidden rounded-lg border border-slate-300 bg-white shadow-2xl">
