@@ -11,6 +11,8 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -19,7 +21,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Unit {
+public class Unit implements GeoJson{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -63,4 +65,21 @@ public class Unit {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "restriction_category_id", nullable = false)
     private RestrictionCategory restrictionCategory;
+
+    // === Triển khai các phương thức từ GeoJsonEntity ===
+
+    @Override
+    public Map<String, Object> getProperties() {
+        Map<String, Object> props = new HashMap<>();
+        props.put("unitName", this.unitName);
+        props.put("featureId", this.feature.getFeatureId());
+        props.put("levelId", this.level.getId());
+        props.put("levelOrdinal", this.level.getOrdinal());
+        props.put("unitCategoryId", this.unitCategory.getId());
+        props.put("unitCategory", this.unitCategory.getUnitCategoryName());
+        props.put("restrictionCategoryId", this.restrictionCategory.getId());
+        props.put("displayPoint", this.displayPoint); // Sẽ được GeometryConverter xử lý nếu cần
+
+        return props;
+    }
 }

@@ -15,6 +15,8 @@ public class BuildingResponse {
 
     private UUID buildingId;
 
+    private String buildingName;
+
     private GeoJsonGeometry displayPoint; // WKT representation of Point
 
     private GeoJsonGeometry geometry; // WKT representation of MultiPolygon

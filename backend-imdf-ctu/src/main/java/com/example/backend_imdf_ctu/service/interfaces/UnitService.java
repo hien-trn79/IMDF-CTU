@@ -1,22 +1,22 @@
 package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.UnitRequest;
-import com.example.backend_imdf_ctu.dto.response.UnitResponse;
+import com.example.backend_imdf_ctu.entity.Unit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
 public interface UnitService {
-    Page<UnitResponse> getAll(Pageable pageable);
+    Page<Unit> getAll(Pageable pageable);
 
-    List<UnitResponse> getAllByLevelId(Integer levelId);
+    List<Unit> getAllByLevelId(Integer levelId);
 
-    UnitResponse getById(Integer id);
+    Unit getById(Integer id);
 
-    UnitResponse create(UnitRequest request);
+    Unit create(UnitRequest request);
 
-    UnitResponse update(Integer id, UnitRequest request);
+    Unit update(Integer id, UnitRequest request);
 
     void delete(Integer id);
 }

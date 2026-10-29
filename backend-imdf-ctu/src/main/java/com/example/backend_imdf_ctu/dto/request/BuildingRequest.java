@@ -5,6 +5,8 @@ import lombok.Data;
 
 @Data
 public class BuildingRequest {
+    private String buildingName;
+
     private GeoJsonGeometry displayPoint; // WKT representation of Point
 
     private GeoJsonGeometry geometry; // WKT representation of MultiPolygon

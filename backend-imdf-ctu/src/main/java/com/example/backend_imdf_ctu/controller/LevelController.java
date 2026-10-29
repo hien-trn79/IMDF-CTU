@@ -1,17 +1,18 @@
 package com.example.backend_imdf_ctu.controller;
 
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeature;
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeatureCollection;
 import com.example.backend_imdf_ctu.dto.request.LevelRequest;
-import com.example.backend_imdf_ctu.dto.response.LevelResponse;
+import com.example.backend_imdf_ctu.entity.Level;
+import com.example.backend_imdf_ctu.mapper.GenericGeoJsonMapper;
 import com.example.backend_imdf_ctu.service.interfaces.LevelService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/levels")
@@ -20,42 +21,35 @@ import org.springframework.web.bind.annotation.*;
 public class LevelController {
 
     private final LevelService service;
+    private final GenericGeoJsonMapper geoJsonMapper;
 
-    // [GET] /levels
     @GetMapping
-    public Page<LevelResponse> getAll(
-        @ParameterObject
-        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
-        Pageable pageable) {
-         return service.list(pageable);
+    public ResponseEntity<GeoJsonFeatureCollection> getAll(
+        @RequestParam(name = "buildingId", required = false)
+        Integer buildingId
+    ) {
+        List<Level> levels = service.getAll(buildingId);
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(levels));
     }
-
-//    // [GET] /levels/{id}
-//    @GetMapping("/{id}")
-//    public LevelResponse getById(@PathVariable Integer id) {
-//        return service.getById(id);
-//    }
 
     // [POST] /levels
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public LevelResponse create(@Valid @RequestBody LevelRequest request) {
-        return service.create(request);
+    public ResponseEntity<GeoJsonFeature> create(
+        @Valid @RequestBody LevelRequest request
+    ) {
+        Level level = service.create(request);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(level));
     }
 
-//    // [PUT] /levels/{id}
-//    @PutMapping("/{id}")
-//    public LevelResponse update(
-//        @PathVariable Integer id,
-//        @Valid @RequestBody LevelRequest request
-//    ) {
-//        return service.update(id, request);
-//    }
-//
-//    // [DELETE] /levels/{id}
-//    @DeleteMapping("/{id}")
-//    @ResponseStatus(HttpStatus.NO_CONTENT)
-//    public void delete(@PathVariable Integer id) {
-//        service.delete(id);
-//    }
+    // [PUT] /levels/{id}
+    @PutMapping("/{id}")
+    public ResponseEntity<GeoJsonFeature> update(
+        @PathVariable Integer id,
+        @Valid @RequestBody LevelRequest request
+    ) {
+        Level level = service.update(id, request);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(level));
+    }
+
 }

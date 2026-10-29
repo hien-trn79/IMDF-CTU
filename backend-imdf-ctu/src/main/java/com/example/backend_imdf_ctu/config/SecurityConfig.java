@@ -98,6 +98,10 @@ public class SecurityConfig {
                 // ========== ROLE_ADMIN ONLY =========
                 .requestMatchers("/admin/**").hasRole("ADMIN")
 
+                // ========== SPATIAL & LAYERS =========
+                .requestMatchers("/spatial/**").permitAll()
+                .requestMatchers("/layers/**").permitAll()
+
                 // ========== PUBLIC =========
                 .requestMatchers(HttpMethod.GET, "/grid-lines/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/network-nodes/**").permitAll()
@@ -106,6 +110,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/units/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/anchors/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/openings/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/buildings/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/levels/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/unit-categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/level-categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/building-categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/opening-categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/restriction-categories/**").permitAll()
 
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

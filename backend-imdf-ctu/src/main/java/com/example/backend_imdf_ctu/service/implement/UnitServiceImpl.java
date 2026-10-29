@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.UnitRequest;
-import com.example.backend_imdf_ctu.dto.response.UnitResponse;
 import com.example.backend_imdf_ctu.entity.*;
 import com.example.backend_imdf_ctu.exception.BusinessException;
 import com.example.backend_imdf_ctu.exception.ErrorCode;
@@ -28,28 +27,27 @@ public class UnitServiceImpl implements UnitService {
     private final RestrictionCateRepository restrictionCateRepository;
 
     @Override
-    public Page<UnitResponse> getAll(Pageable pageable) {
-        return repository.findAll(pageable).map(mapper::toResponse);
+    public Page<Unit> getAll(Pageable pageable) {
+
+        return repository.findAll(pageable);
     }
 
     @Override
-    public UnitResponse getById(Integer id) {
+    public Unit getById(Integer id) {
         return repository.findById(id)
-                .map(mapper::toResponse)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNIT_NOT_FOUND));
     }
 
     @Override
-    public List<UnitResponse> getAllByLevelId(Integer levelId) {
+    public List<Unit> getAllByLevelId(Integer levelId) {
         // TODO: Implement this method
         return repository.findAllByLevelId(levelId)
                 .stream()
-                .map(mapper::toResponse)
                 .toList();
     }
 
     @Override
-    public UnitResponse create(UnitRequest request) {
+    public Unit create(UnitRequest request) {
 
         // 1. Validate foreign keys: levelId, restrictionCategoryId, unitCategoryId
         Level level = levelRepository.findById(request.getLevelId())
@@ -83,14 +81,11 @@ public class UnitServiceImpl implements UnitService {
             level
         );
 
-        return mapper.toResponse(repository.save(entity));
+        return repository.save(entity);
     }
 
     @Override
-    public UnitResponse update(Integer id, UnitRequest request) {
-        Feature feature = featureRepository.findById(request.getFeatureId())
-            .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
-
+    public Unit update(Integer id, UnitRequest request) {
         Level level = levelRepository.findById(request.getLevelId())
             .orElseThrow(() -> new BusinessException(ErrorCode.LEVEL_NOT_FOUND, "Không tìm thấy Level với id = " + request.getLevelId()));
 
@@ -103,6 +98,12 @@ public class UnitServiceImpl implements UnitService {
         Unit entity = repository.findById(id)
             .orElseThrow(() -> new BusinessException(ErrorCode.UNIT_NOT_FOUND, "Không tìm thấy Unit với id = " + id));
 
+        Feature feature = entity.getFeature();
+        if (request.getFeatureId() != null) {
+            feature = featureRepository.findById(request.getFeatureId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
+        }
+
         mapper.update(
             request,
             unitCategory,
@@ -112,7 +113,7 @@ public class UnitServiceImpl implements UnitService {
             entity
         );
 
-        return mapper.toResponse(repository.save(entity));
+        return repository.save(entity);
     }
 
     @Override

@@ -2,17 +2,18 @@ package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.BuildingRequest;
 import com.example.backend_imdf_ctu.dto.response.BuildingResponse;
+import com.example.backend_imdf_ctu.entity.Building;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface BuildingService {
-    BuildingResponse create(BuildingRequest request);
+    Building create(BuildingRequest request);
 
-    BuildingResponse getById(Integer id);
+    Building getById(Integer id);
 
-    Page<BuildingResponse> list(Pageable pageable);
+    Page<Building> list(Pageable pageable);
 
-    BuildingResponse update(Integer id, BuildingRequest request);
+    Building update(Integer id, BuildingRequest request);
 
     void delete(Integer id);
 }
