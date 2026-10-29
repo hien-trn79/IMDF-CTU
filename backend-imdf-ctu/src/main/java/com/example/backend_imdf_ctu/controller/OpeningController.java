@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +22,9 @@ public class OpeningController {
 
     // [GET] /openings
     @GetMapping
-    public Page<OpeningResponse> getAll(Pageable pageable) {
+    public Page<OpeningResponse> getAll(
+        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
+        Pageable pageable) {
         return service.getAll(pageable);
     }
 

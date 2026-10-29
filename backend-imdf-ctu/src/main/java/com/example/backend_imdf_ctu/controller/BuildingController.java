@@ -1,13 +1,20 @@
 package com.example.backend_imdf_ctu.controller;
 
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeature;
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeatureCollection;
 import com.example.backend_imdf_ctu.dto.request.BuildingRequest;
-import com.example.backend_imdf_ctu.dto.response.BuildingResponse;
+import com.example.backend_imdf_ctu.entity.Building;
+import com.example.backend_imdf_ctu.mapper.GenericGeoJsonMapper;
 import com.example.backend_imdf_ctu.service.interfaces.BuildingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,31 +22,42 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin
 @RequiredArgsConstructor
 public class BuildingController {
+
     private final BuildingService service;
+    private final GenericGeoJsonMapper geoJsonMapper;
 
     // [GET] /buildings
-    @GetMapping
-    public Page<BuildingResponse> list(Pageable pageable) {
-        return service.list(pageable);
+    @GetMapping(produces = "application/geo+json")
+    public ResponseEntity<GeoJsonFeatureCollection> list(
+        @ParameterObject
+        @PageableDefault(sort = "id", direction = Sort.Direction.ASC) Pageable pageable
+    ) {
+        Page<Building> buildings = service.list(pageable);
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(buildings));
     }
 
     // [GET] /buildings/{id}
-    @GetMapping("/{id}")
-    public BuildingResponse getById(@PathVariable Integer id) {
-        return service.getById(id);
+    @GetMapping(value = "/{id}", produces = "application/geo+json")
+    public ResponseEntity<GeoJsonFeature> getById(@PathVariable Integer id) {
+        Building building = service.getById(id);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(building));
     }
 
     // [POST] /buildings
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public BuildingResponse create(@Valid @RequestBody BuildingRequest request) {
-        return service.create(request);
+    @PostMapping(produces = "application/geo+json")
+    public ResponseEntity<GeoJsonFeature> create(@Valid @RequestBody BuildingRequest request) {
+        Building building = service.create(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(geoJsonMapper.toFeature(building));
     }
 
     // [PUT] /buildings/{id}
-    @PutMapping("/{id}")
-    public BuildingResponse update(@PathVariable Integer id, @Valid @RequestBody BuildingRequest request) {
-        return service.update(id, request);
+    @PutMapping(value = "/{id}", produces = "application/geo+json")
+    public ResponseEntity<GeoJsonFeature> update(
+        @PathVariable Integer id,
+        @Valid @RequestBody BuildingRequest request
+    ) {
+        Building building = service.update(id, request);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(building));
     }
 
     // [DELETE] /buildings/{id}

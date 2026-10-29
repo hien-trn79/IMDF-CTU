@@ -15,7 +15,6 @@ public class UnitRequest {
     @NotNull(message = "Display point is required")
     private GeoJsonGeometry displayPoint;
 
-    @NotNull(message = "Feature ID is required")
     private Integer featureId;
 
     @NotNull(message = "Level ID is required")
