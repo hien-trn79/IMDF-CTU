@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, useMap } from 'react-leaflet'
+﻿import { MapContainer, TileLayer, WMSTileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import type { FeatureCollection } from 'geojson'
@@ -13,6 +13,7 @@ import DrawRouteLayer from './DrawRouteLayer'
 import TopologyLayers from './TopologyLayers'
 import type { NetworkNodeResponse } from '../../model/NetworkNode.model'
 import type { NetworkEdgeResponse } from '../../model/NetworkEdge.model'
+import type { SysPublishedLayer } from '../../model/IMDF.model'
 import { wkbHexToPoint } from '../../utils/wkbParser'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -40,6 +41,8 @@ interface IndoorMapProps {
   showEdges?: boolean
   onSelectNode?: (node: NetworkNodeResponse) => void
   onSelectEdge?: (edge: NetworkEdgeResponse) => void
+  // IMDF GeoServer layers
+  visibleImdfLayers: SysPublishedLayer[]
 }
 
 function DrawingAndTopology({
@@ -76,11 +79,10 @@ function DrawingAndTopology({
 
       const sourcePx = map.latLngToLayerPoint(point)
       let nearestLatLng = point
-      let minDistancePx = 18 // Ngưỡng hút (pixels)
+      let minDistancePx = 18
       let snapType: 'node' | 'vertex' | 'edge' | 'none' = 'none'
       let label = ''
 
-      // 1. Ưu tiên Hút vào NetworkNodes
       networkNodes.forEach((node) => {
         const coord = wkbHexToPoint(node.geom)
         if (!coord) return
@@ -94,7 +96,6 @@ function DrawingAndTopology({
         }
       })
 
-      // 2. Hút vào các đỉnh (vertices) của GridLines & Edges hiện tại
       gridLineData.features.forEach((feature) => {
         const checkVertex = (lng: number, lat: number) => {
           const vLatLng = L.latLng(lat, lng)
@@ -103,7 +104,7 @@ function DrawingAndTopology({
             minDistancePx = distPx
             nearestLatLng = vLatLng
             snapType = 'vertex'
-            label = 'Đỉnh đường'
+            label = 'Dinh duong'
           }
         }
         if (feature.geometry.type === 'LineString') {
@@ -113,7 +114,6 @@ function DrawingAndTopology({
         }
       })
 
-      // 3. Hút vào đoạn thẳng (edge segment) của GridLines
       const snapToSegments = (line: number[][]) => {
         for (let index = 1; index < line.length; index++) {
           const startPx = map.latLngToLayerPoint([line[index - 1][1], line[index - 1][0]])
@@ -129,8 +129,7 @@ function DrawingAndTopology({
               1,
               ((sourcePx.x - startPx.x) * deltaX + (sourcePx.y - startPx.y) * deltaY) / lengthSquared
             )
-          ) // Tính toán điểm chiếu vuông góc từ sourcePx lên đoạn thẳng
-
+          )
 
           const projPx = L.point(startPx.x + ratio * deltaX, startPx.y + ratio * deltaY)
           const distPx = sourcePx.distanceTo(projPx)
@@ -138,7 +137,7 @@ function DrawingAndTopology({
             minDistancePx = distPx
             nearestLatLng = map.layerPointToLatLng(projPx)
             snapType = 'edge'
-            label = 'Cạnh đường (Edge)'
+            label = 'Canh duong (Edge)'
           }
         }
       }
@@ -194,6 +193,7 @@ export default function IndoorMap({
   showEdges,
   onSelectNode,
   onSelectEdge,
+  visibleImdfLayers,
 }: IndoorMapProps) {
   const position: [number, number] = [10.03031, 105.76843]
 
@@ -206,12 +206,34 @@ export default function IndoorMap({
         maxZoom={22}
         style={{ height: '100%', width: '100%', minHeight: '100%' }}
       >
+        {/* Base map: OpenStreetMap */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           maxNativeZoom={19}
           maxZoom={22}
         />
+
+        {/* WMS layers tu GeoServer - chi hien thi layer duoc chon */}
+        {visibleImdfLayers.map((layer) => {
+          const workspace = layer.workspace || 'imdf_ctu'
+          const wmsUrl = layer.wmsUrl || `/geoserver/${workspace}/wms`
+          const layerParam = layer.layerName.includes(':')
+            ? layer.layerName
+            : `${workspace}:${layer.layerName}`
+          return (
+            <WMSTileLayer
+              key={`wms-${layer.layerId}-${layer.layerName}`}
+              url={wmsUrl}
+              layers={layerParam}
+              format="image/png"
+              transparent={true}
+              version="1.1.1"
+              opacity={0.85}
+              maxZoom={22}
+            />
+          )
+        })}
 
         {showGridLines && (
           <GridLineLayer

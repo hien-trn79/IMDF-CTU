@@ -38,6 +38,7 @@ export default function PageSignIn() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [showPassword, setShowPassword] = useState(false)
   const [submitMessage, setSubmitMessage] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { setAuthData } = useUser()
 
@@ -62,27 +63,48 @@ export default function PageSignIn() {
 
     const { email, password } = values
 
-    const response = await fetch('http://localhost:8081/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-      },
-      body: JSON.stringify({ email, password }),
-    })
+    setIsSubmitting(true)
+    setSubmitMessage('')
 
-    if (response.ok) {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim(), password }),
+      })
+
+      if (!response.ok) {
+        let message = 'Dữ liệu nhập vào không hợp lệ hoặc email / mật khẩu không chính xác.'
+        try {
+          const error = await response.json()
+          if (typeof error?.message === 'string' && error.message.trim()) {
+            message = error.message
+          }
+        } catch {
+          // Keep the generic message for non-JSON responses.
+        }
+        setSubmitMessage(message)
+        return
+      }
+
       const data = await response.json()
+      if (!data?.token || !data?.email || !data?.role) {
+        setSubmitMessage('Phản hồi đăng nhập không hợp lệ. Vui lòng thử lại.')
+        return
+      }
+
       setAuthData({ user: data })
       setSubmitMessage('Đăng nhập thành công.')
       navigate('/map')
-    } else {
-      console.error('Đăng nhập thất bại')
-      setSubmitMessage('Đăng nhập thất bại. Vui lòng kiểm tra thông tin và thử lại.')
-      return
+    } catch (error) {
+      console.error('Không thể kết nối đến máy chủ đăng nhập:', error)
+      setSubmitMessage('Không thể kết nối đến hệ thống. Vui lòng thử lại sau.')
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setSubmitMessage('Thông tin đăng nhập hợp lệ.')
   }
 
   return (
@@ -228,16 +250,17 @@ export default function PageSignIn() {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-secondary focus:outline-none focus:ring-4 focus:ring-blue-200"
               >
-                Đăng nhập
-                <ArrowRight className="h-5 w-5" />
+                {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                {!isSubmitting && <ArrowRight className="h-5 w-5" />}
               </button>
 
               {submitMessage && (
                 <p
                   role="status"
-                  className="rounded-lg bg-green-50 px-3 py-2 text-center text-sm text-green-700"
+                  className={`rounded-lg px-3 py-2 text-center text-sm ${submitMessage === 'Đăng nhập thành công.' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
                 >
                   {submitMessage}
                 </p>
