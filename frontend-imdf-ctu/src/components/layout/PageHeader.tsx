@@ -9,6 +9,7 @@ import {
   Search,
   Sparkles,
   X,
+  LogOut,
 } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -31,6 +32,18 @@ export default function PageHeader() {
       role: ['ADMIN'],
     },
     {
+      label: 'Outdoor',
+      to: '/outdoor',
+      icon: (<MapPin className="w-4 h-4" />) as ReactNode,
+      role: ['ADMIN'],
+    },
+    {
+      label: 'Account',
+      to: '/account',
+      icon: (<CircleUser className="w-4 h-4" />) as ReactNode,
+      role: ['USER', 'ADMIN'],
+    },
+    {
       label: 'Map',
       to: '/map',
       icon: (<Map className="w-4 h-4" />) as ReactNode,
@@ -38,7 +51,7 @@ export default function PageHeader() {
     },
   ]
 
-  const { authData } = useUser()
+  const { authData, logout } = useUser()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -296,21 +309,36 @@ export default function PageHeader() {
         </div>
 
         <div className="signInArea">
-          <div
-            onClick={() => {
-              navigate(authData ? '/me' : '/signin')
-            }}
-            className="group flex cursor-pointer items-center gap-2 rounded-2xl border border-blue-100 p-2.5 font-semibold shadow-sm transition-all duration-300 ease-out hover:border-sky-300 hover:shadow-md"
-          >
-            <CircleUser className="h-5 w-5 text-primary transition-colors duration-500 group-hover:text-sky-700" />
-            {authData ? (
-              <span className="bg-linear-to-r from-primary to-sky-700 bg-clip-text text-transparent transition-all duration-500 text-sm">
-                {authData.email.split('@')[0]}
-              </span>
-            ) : (
-              <span className="bg-linear-to-r from-primary to-sky-700 bg-clip-text text-transparent transition-all duration-500 text-sm">
-                Sign In
-              </span>
+          <div className="flex items-center gap-1 rounded-2xl border border-blue-100 p-1.5 font-semibold shadow-sm">
+            <button
+              type="button"
+              onClick={() => navigate(authData ? '/account' : '/signin')}
+              className="group flex cursor-pointer items-center gap-2 rounded-xl p-1.5 transition-all duration-300 ease-out hover:bg-blue-50"
+            >
+              <CircleUser className="h-5 w-5 text-primary transition-colors duration-500 group-hover:text-sky-700" />
+              {authData ? (
+                <span className="bg-linear-to-r from-primary to-sky-700 bg-clip-text text-transparent transition-all duration-500 text-sm">
+                  {authData.email.split('@')[0]}
+                </span>
+              ) : (
+                <span className="bg-linear-to-r from-primary to-sky-700 bg-clip-text text-transparent transition-all duration-500 text-sm">
+                  Sign In
+                </span>
+              )}
+            </button>
+            {authData && (
+              <button
+                type="button"
+                onClick={() => {
+                  logout()
+                  navigate('/map', { replace: true })
+                }}
+                className="rounded-xl p-1.5 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                title="Đăng xuất"
+                aria-label="Đăng xuất"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             )}
           </div>
         </div>

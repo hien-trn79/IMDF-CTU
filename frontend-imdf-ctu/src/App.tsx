@@ -6,20 +6,27 @@ import PageIndoors from './components/indoors/PageIndoors'
 import PageMap from './components/map/PageMap'
 import PageOutdoor from './components/outdoors/PageOutdoor'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
-import AccountDetail from './components/account/AccountDetail'
+import PageAccount from './components/account/PageAccount'
+import AuthSessionGuard from './components/auth/AuthSessionGuard'
+import ProtectedRoute from './components/auth/ProtectedRoute'
 
 function App() {
   return (
     <BrowserRouter>
+      <AuthSessionGuard />
       <div className="min-h-screen">
         <Routes>
           <Route element={<Page />}>
-            <Route index element={<Navigate to="/indoors" replace />} />
-            <Route path="indoors" element={<PageIndoorManagement />} />
-            <Route path="outdoor" element={<PageOutdoor />} />
-            <Route path="route" element={<PageIndoors />} />
+            <Route index element={<Navigate to="/map" replace />} />
             <Route path="map" element={<PageMap />} />
-            <Route path="me" element={<AccountDetail />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
+                <Route path="indoors" element={<PageIndoorManagement />} />
+                <Route path="outdoor" element={<PageOutdoor />} />
+                <Route path="route" element={<PageIndoors />} />
+              </Route>
+              <Route path="account" element={<PageAccount />} />
+            </Route>
           </Route>
           <Route path="signin" element={<PageSignIn />} />
           <Route path="*" element={<Navigate to="/map" replace />} />

@@ -1,6 +1,7 @@
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, MapPin } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { useUser } from '../../context/UserContext'
 
 type FormValues = {
@@ -43,6 +44,15 @@ export default function PageSignIn() {
   const { setAuthData } = useUser()
 
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    const authMessage = (location.state as { authMessage?: string } | null)?.authMessage
+    if (authMessage) {
+      setSubmitMessage(authMessage)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.pathname, location.state, navigate])
 
   const handleChange = (field: keyof FormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }))

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { authHeaders } from '../services/authHeaders'
 import type { UnitGeoJson } from '../model/geoJsonEntity.model'
 import { useUser } from './UserContext'
@@ -10,6 +10,7 @@ interface LevelContextValue {
   isLoadingUnits: boolean
   unitsError: string | null
   reloadUnits: () => void
+  reloadData: () => void
   selectedTable: string
   setSelectedTable: (table: string) => void
 }
@@ -24,6 +25,8 @@ export function LevelProvider({ children }: { children: ReactNode }) {
   const [unitsError, setUnitsError] = useState<string | null>(null)
   const [reloadVersion, setReloadVersion] = useState(0)
   const [selectedTable, setSelectedTable] = useState('unit')
+  const reloadUnits = useCallback(() => setReloadVersion((version) => version + 1), [])
+  const reloadData = useCallback(() => setReloadVersion((version) => version + 1), [])
 
   useEffect(() => {
     if (!selectedLevelId) {
@@ -73,7 +76,8 @@ export function LevelProvider({ children }: { children: ReactNode }) {
         unitGeoJson,
         isLoadingUnits,
         unitsError,
-        reloadUnits: () => setReloadVersion((version) => version + 1),
+        reloadUnits,
+        reloadData,
         selectedTable,
         setSelectedTable,
       }}
