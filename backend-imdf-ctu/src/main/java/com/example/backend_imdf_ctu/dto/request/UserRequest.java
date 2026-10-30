@@ -19,4 +19,9 @@ public class UserRequest {
     private String email;
 
     private Role role;
+
+    private boolean isActive;
+
+    private String numberPhone;
+
 }

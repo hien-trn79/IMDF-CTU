@@ -8,6 +8,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class UserMapper {
 
+    public User toEntity(UserRequest request) {
+        return User.builder()
+                .fullName(request.getFullName())
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .role(request.getRole())
+                .isActive(request.isActive())
+                .build();
+    }
+
     public UserResponse toResponse(User user) {
         return UserResponse.builder()
                 .id(user.getUserId())
@@ -15,6 +25,7 @@ public class UserMapper {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .role(user.getRole().name())
+                .isActive(user.isActive())
                 .build();
     }
 
@@ -22,5 +33,7 @@ public class UserMapper {
         user.setFullName(request.getFullName());
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
+        user.setRole(request.getRole());
+        user.setActive(request.isActive());
     }
 }
