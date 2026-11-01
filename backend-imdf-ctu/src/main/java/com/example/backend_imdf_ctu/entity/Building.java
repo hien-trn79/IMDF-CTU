@@ -27,6 +27,9 @@ public class Building {
     @Column(name = "building_id", nullable = false, unique = true)
     private UUID buildingId;
 
+    @Column(name = "building_name", nullable = false)
+    private String buildingName;
+
     @PrePersist
     public void autofill() {
         if (this.buildingId == null) {

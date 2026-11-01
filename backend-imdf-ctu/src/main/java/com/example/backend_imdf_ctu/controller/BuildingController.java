@@ -5,8 +5,11 @@ import com.example.backend_imdf_ctu.dto.response.BuildingResponse;
 import com.example.backend_imdf_ctu.service.interfaces.BuildingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,7 +22,10 @@ public class BuildingController {
 
     // [GET] /buildings
     @GetMapping
-    public Page<BuildingResponse> list(Pageable pageable) {
+    public Page<BuildingResponse> list(
+        @ParameterObject
+        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
+        Pageable pageable) {
         return service.list(pageable);
     }
 

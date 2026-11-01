@@ -30,6 +30,7 @@ public class BuildingMapper {
         BuildingCategory buildingCategory
     ) {
         Building entity = new Building();
+        entity.setBuildingName(request.getBuildingName());
 
         applyRelations(
             feature,
@@ -50,6 +51,7 @@ public class BuildingMapper {
 
         response.setId(entity.getId());
         response.setBuildingId(entity.getBuildingId());
+        response.setBuildingName(entity.getBuildingName());
 
         response.setDisplayPoint(geometryConverter.toGeoJson(entity.getDisplayPoint()));
         response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
@@ -81,6 +83,8 @@ public class BuildingMapper {
         BuildingCategory buildingCategory,
         Building entity
     ) {
+        entity.setBuildingName(request.getBuildingName());
+
         // apply Relations
         applyRelations(
             feature,
