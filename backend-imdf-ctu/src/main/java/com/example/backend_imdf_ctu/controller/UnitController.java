@@ -1,16 +1,24 @@
 package com.example.backend_imdf_ctu.controller;
 
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeature;
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeatureCollection;
 import com.example.backend_imdf_ctu.dto.request.UnitRequest;
 import com.example.backend_imdf_ctu.dto.response.UnitResponse;
+import com.example.backend_imdf_ctu.entity.Unit;
+import com.example.backend_imdf_ctu.mapper.GenericGeoJsonMapper;
 import com.example.backend_imdf_ctu.service.interfaces.UnitService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/units")
@@ -19,54 +27,60 @@ import org.springframework.web.bind.annotation.*;
 public class UnitController {
 
     private final UnitService service;
+    private final GenericGeoJsonMapper geoJsonMapper;
 
 //    // [GET] /units
     @GetMapping
-    public Page<UnitResponse> getAll(
+    public ResponseEntity<GeoJsonFeatureCollection> getAll(
+        @ParameterObject
         @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
         Pageable pageable) {
-        return service.getAll(pageable);
+        Page<Unit> list =  service.getAll(pageable);
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(list));
     }
 //
     // [GET] /units/{id}
     @GetMapping("/{id}")
-    public UnitResponse getById(@PathVariable Integer id) {
-        return service.getById(id);
+    public ResponseEntity<GeoJsonFeature> getById(@PathVariable Integer id) {
+        Unit unit =  service.getById(id);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(unit));
     }
 
     // [GET] /units?levelId={levelId}
     @GetMapping(params = "levelId")
-    public Page<UnitResponse> getAllByLevelId(
-        @RequestParam Integer levelId,
-        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
-        Pageable pageable) {
-        return service.getAllByLevelId(levelId)
-                .stream()
-                .sorted((u1, u2) -> u1.getId().compareTo(u2.getId())) // Sort by ID in ascending order
-                .collect(java.util.stream.Collectors.collectingAndThen(java.util.stream.Collectors.toList(), list -> {
-                    int start = (int) pageable.getOffset();
-                    int end = Math.min((start + pageable.getPageSize()), list.size());
-                    return new org.springframework.data.domain.PageImpl<>(list.subList(start, end), pageable, list.size());
-                }));
+    public ResponseEntity<GeoJsonFeatureCollection> getAllByLevelId(
+        @RequestParam Integer levelId){
+        List<Unit> units= service.getAllByLevelId(levelId);
+
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(units));
     }
 
     // [POST] /units
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public UnitResponse create(@Valid @RequestBody UnitRequest request) {
-        return service.create(request);
+    public ResponseEntity<GeoJsonFeature> create(@Valid @RequestBody UnitRequest request) {
+
+        Unit unit = service.create(request);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(geoJsonMapper.toFeature(unit));
     }
-//
-//    // [PUT] /units/{id}
-//    @PutMapping("/{id}")
-//    public UnitResponse update(@PathVariable Integer id, @Valid @RequestBody UnitRequest request) {
-//        return service.update(id, request);
-//    }
-//
-//    // [DELETE] /units/{id}
-//    @DeleteMapping("/{id}")
-//    @ResponseStatus(HttpStatus.NO_CONTENT)
-//    public void delete(@PathVariable Integer id) {
-//        service.delete(id);
-//    }
+
+    // [PUT] /units/{id}
+    @PutMapping("/{id}")
+    public ResponseEntity<GeoJsonFeature> update(
+        @PathVariable Integer id,
+        @Valid @RequestBody UnitRequest request) {
+
+        Unit unit = service.update(id, request);
+
+        return ResponseEntity.ok(geoJsonMapper.toFeature(unit));
+    }
+
+    // [DELETE] /units/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Integer id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
 }

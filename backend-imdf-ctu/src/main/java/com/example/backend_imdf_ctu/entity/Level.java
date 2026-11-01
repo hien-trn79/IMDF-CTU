@@ -10,6 +10,8 @@ import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -18,7 +20,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Level {
+public class Level implements GeoJson {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,4 +53,35 @@ public class Level {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "level_category_id", nullable = false)
     private LevelCategory levelCategory;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "restriction_category_id", nullable = false, referencedColumnName = "id")
+    private RestrictionCategory restrictionCategory;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "building_id", nullable = false, referencedColumnName = "id")
+    private Building building;
+
+    // === Triển khai các phương thức từ GeoJsonEntity ===
+
+    @Override
+    public Map<String, Object> getProperties() {
+        Map<String, Object> props = new HashMap<>();
+        props.put("levelId", this.levelId);
+        props.put("outdoor", this.outdoor);
+        props.put("ordinal", this.ordinal);
+        props.put("displayPoint", this.displayPoint); // Sẽ được GeometryConverter xử lý nếu cần
+
+        if (this.levelCategory != null) {
+            props.put("levelCategoryId", this.levelCategory.getId());
+        }
+        if (this.restrictionCategory != null) {
+            props.put("restrictionCategoryId", this.restrictionCategory.getId());
+        }
+        if (this.building != null) {
+            props.put("buildingId", this.building.getId());
+        }
+        return props;
+    }
 }

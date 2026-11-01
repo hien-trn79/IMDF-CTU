@@ -16,4 +16,8 @@ public class LevelRequest {
 
     @NotNull(message = "Level category ID cannot be null")
     private Integer levelCategoryId;
+
+    private Integer restrictionCategoryId;
+
+    private Integer buildingId;
 }

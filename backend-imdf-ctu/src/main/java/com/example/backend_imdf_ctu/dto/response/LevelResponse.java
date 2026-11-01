@@ -25,4 +25,10 @@ public class LevelResponse {
 
     private Integer levelCategoryId;
     private String levelCategoryName;
+
+    private Integer restrictionCategoryId;
+    private String restrictionCategoryName;
+
+    private Integer buildingId;
+    private String buildingName;
 }

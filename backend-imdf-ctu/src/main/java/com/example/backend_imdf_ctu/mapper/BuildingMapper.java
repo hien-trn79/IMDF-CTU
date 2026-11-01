@@ -32,6 +32,8 @@ public class BuildingMapper {
         Building entity = new Building();
         entity.setBuildingName(request.getBuildingName());
 
+        entity.setBuildingName(request.getBuildingName());
+
         applyRelations(
             feature,
             address,
@@ -84,7 +86,6 @@ public class BuildingMapper {
         Building entity
     ) {
         entity.setBuildingName(request.getBuildingName());
-
         // apply Relations
         applyRelations(
             feature,

@@ -10,6 +10,8 @@ import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -18,7 +20,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Building {
+public class Building implements GeoJson {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,4 +62,20 @@ public class Building {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "building_category_id", referencedColumnName = "id")
     private BuildingCategory buildingCategory;
+
+    // === Triển khai các phương thức từ GeoJsonEntity ===
+
+    @Override
+    public Map<String, Object> getProperties() {
+        Map<String, Object> props = new HashMap<>();
+        props.put("featureId", this.feature.getFeatureId());
+        props.put("addressId", this.address.getId());
+        props.put("buildingName", this.buildingName);
+        props.put("buildingCategoryId", this.buildingCategory.getId());
+        props.put("buildingCategoryName", this.buildingCategory.getBuildingCategoryVietnameseName());
+        props.put("restrictionCategoryId", this.restrictionCategory.getId());
+        props.put("displayPoint", this.displayPoint); // Sẽ được GeometryConverter xử lý nếu cần
+
+        return props;
+    }
 }
