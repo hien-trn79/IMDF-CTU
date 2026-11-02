@@ -1,0 +1,351 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Luồng nghiệp vụ CTUMapping",
+    "subtitle": "Đăng nhập, khám phá bản đồ và quản lý topology trong nhà",
+    "locale": "vi",
+    "output": "luong-nghiep-vu-ctumapping.html",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "standard",
+    "repository": {
+      "url": "https://github.com/hien-trn79/IMDF-CTU.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "5ac4d23a9285122890ac6060d75d37a0019167b5"
+    }
+  },
+  "lanes": [
+    { "id": "nguoi_dung", "label": "Người dùng" },
+    { "id": "giao_dien", "label": "Frontend React" },
+    { "id": "dich_vu", "label": "Backend API" },
+    { "id": "du_lieu", "label": "Dữ liệu & topology" },
+    { "id": "ngoai_le", "label": "Trường hợp rẽ nhánh", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "xac_thuc", "label": "Xác thực", "fromCol": 0, "toCol": 1 },
+    { "id": "khai_thac", "label": "Khai thác bản đồ", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "bien_tap", "label": "Biên tập topology", "fromCol": 4, "toCol": 5, "variant": "emphasis" }
+  ],
+  "groups": [
+    { "id": "quan_ly_topology", "label": "Thêm đường đi và chuẩn hóa topology", "lane": "giao_dien", "fromCol": 3, "toCol": 5, "variant": "emphasis" },
+    { "id": "loi_nguoi_dung", "label": "Nhánh cần người dùng xử lý", "lane": "ngoai_le", "fromCol": 0, "toCol": 2, "variant": "security" },
+    { "id": "loi_he_thong", "label": "Nhánh lỗi tải/lưu", "lane": "ngoai_le", "fromCol": 3, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": [
+    "mo_ung_dung",
+    "nhap_dang_nhap",
+    "xac_thuc_dang_nhap",
+    "cap_token",
+    "tai_ban_do",
+    "hien_thi_layer",
+    "mo_quan_ly_noi_khu",
+    "ve_duong",
+    "chon_tuyen",
+    "chuan_hoa_topology",
+    "luu_duong_di",
+    "tai_lai_du_lieu"
+  ],
+  "semanticChecks": {
+    "allowedRoots": ["mo_ung_dung"],
+    "allowedTerminals": ["tai_lai_du_lieu", "dang_nhap_lai", "sua_du_lieu", "thu_lai_tai", "kiem_tra_lai"],
+    "requiredEdges": [
+      { "from": "xac_thuc_dang_nhap", "to": "cap_token" },
+      { "from": "chuan_hoa_topology", "to": "luu_duong_di" }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "mo_ung_dung",
+      "lane": "nguoi_dung",
+      "col": 0,
+      "type": "external",
+      "icon": "start",
+      "label": "Mở CTUMapping",
+      "sublabel": "vào /map hoặc /route",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/App.tsx", "line": 10, "end_line": 24, "label": "định tuyến ứng dụng" }
+      ]
+    },
+    {
+      "id": "nhap_dang_nhap",
+      "lane": "nguoi_dung",
+      "col": 1,
+      "type": "frontend",
+      "icon": "person",
+      "label": "Nhập email & mật khẩu",
+      "sublabel": "màn hình đăng nhập",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/account/PageSignIn.tsx", "line": 7, "end_line": 18, "label": "form đăng nhập" }
+      ]
+    },
+    {
+      "id": "xac_thuc_dang_nhap",
+      "lane": "dich_vu",
+      "col": 1,
+      "type": "security",
+      "icon": "decision",
+      "label": "Xác thực tài khoản",
+      "sublabel": "POST /api/auth/login",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/account/PageSignIn.tsx", "line": 43, "end_line": 65, "label": "gọi API login" },
+        { "path": "backend-imdf-ctu/src/main/java/com/example/backend_imdf_ctu/controller/AuthController.java", "line": 14, "end_line": 22, "label": "AuthController" }
+      ]
+    },
+    {
+      "id": "cap_token",
+      "lane": "du_lieu",
+      "col": 2,
+      "type": "database",
+      "icon": "success",
+      "label": "Cấp JWT",
+      "sublabel": "trả email, role, token",
+      "sources": [
+        { "path": "backend-imdf-ctu/src/main/java/com/example/backend_imdf_ctu/service/implement/AuthServiceImpl.java", "line": 45, "end_line": 71, "label": "tạo token đăng nhập" }
+      ]
+    },
+    {
+      "id": "tai_ban_do",
+      "lane": "giao_dien",
+      "col": 2,
+      "type": "frontend",
+      "label": "Mở bản đồ",
+      "sublabel": "điều hướng đến /map",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/account/PageSignIn.tsx", "line": 67, "end_line": 73, "label": "điều hướng sau login" },
+        { "path": "frontend-imdf-ctu/src/App.tsx", "line": 13, "end_line": 18, "label": "route bản đồ" }
+      ]
+    },
+    {
+      "id": "tai_layer",
+      "lane": "dich_vu",
+      "col": 3,
+      "type": "backend",
+      "label": "Tải grid line & topology",
+      "sublabel": "GET grid-lines, nodes, edges",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/useGridLines.ts", "line": 11, "end_line": 37, "label": "tải grid lines" },
+        { "path": "frontend-imdf-ctu/src/components/indoors/PageIndoors.tsx", "line": 52, "end_line": 78, "label": "tải nodes và edges" }
+      ]
+    },
+    {
+      "id": "du_lieu_layer",
+      "lane": "du_lieu",
+      "col": 3,
+      "type": "database",
+      "label": "Kho dữ liệu bản đồ",
+      "sublabel": "GridLine / NetworkNode / NetworkEdge",
+      "sources": [
+        { "path": "backend-imdf-ctu/src/main/java/com/example/backend_imdf_ctu/controller/GridLineController.java", "line": 12, "end_line": 28, "label": "API grid-lines" },
+        { "path": "backend-imdf-ctu/src/main/java/com/example/backend_imdf_ctu/controller/NetworkNodesController.java", "line": 11, "end_line": 27, "label": "API network-nodes" }
+      ]
+    },
+    {
+      "id": "hien_thi_layer",
+      "lane": "nguoi_dung",
+      "col": 3,
+      "type": "frontend",
+      "label": "Bật/tắt các layer",
+      "sublabel": "Grid lines, Nodes, Edges",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/IndoorSideBar.tsx", "line": 31, "end_line": 83, "label": "quản lý layer" },
+        { "path": "frontend-imdf-ctu/src/components/indoors/PageIndoors.tsx", "line": 80, "end_line": 150, "label": "chuẩn bị feature hiển thị" }
+      ]
+    },
+    {
+      "id": "mo_quan_ly_noi_khu",
+      "lane": "nguoi_dung",
+      "col": 4,
+      "type": "external",
+      "icon": "briefcase",
+      "label": "Chọn quản lý nội khu",
+      "sublabel": "Thêm đối tượng",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/IndoorSideBar.tsx", "line": 22, "end_line": 44, "label": "mở modal tạo mới" }
+      ]
+    },
+    {
+      "id": "ve_duong",
+      "lane": "giao_dien",
+      "col": 4,
+      "yOffset": -52,
+      "type": "frontend",
+      "icon": "active",
+      "label": "Vẽ đường đi",
+      "sublabel": "click bản đồ + Snap tùy chọn",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/ModalAddIndoor.tsx", "line": 103, "end_line": 145, "label": "điều khiển vẽ và snap" }
+      ]
+    },
+    {
+      "id": "chon_tuyen",
+      "lane": "giao_dien",
+      "col": 4,
+      "yOffset": 52,
+      "type": "frontend",
+      "icon": "decision",
+      "label": "Chọn Indoor Route",
+      "sublabel": "tuyến liên kết bắt buộc",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/ModalAddIndoor.tsx", "line": 34, "end_line": 48, "label": "tải danh sách tuyến" },
+        { "path": "frontend-imdf-ctu/src/components/indoors/ModalAddIndoor.tsx", "line": 67, "end_line": 77, "label": "kiểm tra route" }
+      ]
+    },
+    {
+      "id": "chuan_hoa_topology",
+      "lane": "giao_dien",
+      "col": 5,
+      "type": "backend",
+      "icon": "backend",
+      "label": "Chuẩn hóa topology",
+      "sublabel": "cắt giao cắt, tạo node/edge",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/ModalAddIndoor.tsx", "line": 81, "end_line": 126, "label": "normalizeTopology và CRUD" }
+      ]
+    },
+    {
+      "id": "luu_duong_di",
+      "lane": "dich_vu",
+      "col": 5,
+      "type": "backend",
+      "label": "Lưu GridLine",
+      "sublabel": "POST /grid-lines",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/services/gridLineService.ts", "line": 26, "end_line": 35, "label": "tạo grid line" },
+        { "path": "backend-imdf-ctu/src/main/java/com/example/backend_imdf_ctu/controller/GridLineController.java", "line": 24, "end_line": 28, "label": "endpoint create" }
+      ]
+    },
+    {
+      "id": "tai_lai_du_lieu",
+      "lane": "nguoi_dung",
+      "col": 5,
+      "type": "frontend",
+      "icon": "success",
+      "label": "Cập nhật bản đồ",
+      "sublabel": "reload sau khi lưu",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/PageIndoors.tsx", "line": 235, "end_line": 285, "label": "refresh topology/layer" }
+      ]
+    },
+    {
+      "id": "dang_nhap_lai",
+      "lane": "ngoai_le",
+      "col": 0,
+      "type": "security",
+      "icon": "failure",
+      "label": "Sửa thông tin",
+      "sublabel": "email/mật khẩu không hợp lệ",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/account/PageSignIn.tsx", "line": 20, "end_line": 38, "label": "validate form" }
+      ]
+    },
+    {
+      "id": "sua_du_lieu",
+      "lane": "ngoai_le",
+      "col": 2,
+      "type": "security",
+      "icon": "failure",
+      "label": "Đăng nhập thất bại",
+      "sublabel": "kiểm tra lại thông tin",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/account/PageSignIn.tsx", "line": 67, "end_line": 73, "label": "nhánh response lỗi" },
+        { "path": "backend-imdf-ctu/src/main/java/com/example/backend_imdf_ctu/service/implement/AuthServiceImpl.java", "line": 56, "end_line": 64, "label": "sai thông tin xác thực" }
+      ]
+    },
+    {
+      "id": "thu_lai_tai",
+      "lane": "ngoai_le",
+      "col": 3,
+      "type": "messagebus",
+      "icon": "failure",
+      "label": "Báo lỗi tải dữ liệu",
+      "sublabel": "hiển thị lỗi, làm mới lại",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/useGridLines.ts", "line": 22, "end_line": 33, "label": "xử lý lỗi tải" },
+        { "path": "frontend-imdf-ctu/src/components/indoors/IndoorSideBar.tsx", "line": 75, "end_line": 83, "label": "hiển thị lỗi" }
+      ]
+    },
+    {
+      "id": "kiem_tra_lai",
+      "lane": "ngoai_le",
+      "col": 4,
+      "type": "security",
+      "icon": "failure",
+      "label": "Bổ sung dữ liệu",
+      "sublabel": "ít nhất 2 điểm + chọn tuyến",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/ModalAddIndoor.tsx", "line": 67, "end_line": 77, "label": "kiểm tra đầu vào" }
+      ]
+    },
+    {
+      "id": "loi_luu_topology",
+      "lane": "ngoai_le",
+      "col": 5,
+      "type": "messagebus",
+      "icon": "failure",
+      "label": "Báo lỗi lưu",
+      "sublabel": "không thể lưu topology",
+      "sources": [
+        { "path": "frontend-imdf-ctu/src/components/indoors/ModalAddIndoor.tsx", "line": 128, "end_line": 138, "label": "catch lỗi lưu" }
+      ]
+    }
+  ],
+  "edges": [
+    { "from": "mo_ung_dung", "to": "nhap_dang_nhap", "label": "truy cập", "role": "main", "variant": "emphasis" },
+    { "from": "nhap_dang_nhap", "to": "xac_thuc_dang_nhap", "label": "gửi thông tin", "role": "main" },
+    { "from": "xac_thuc_dang_nhap", "to": "cap_token", "label": "hợp lệ", "role": "main", "variant": "emphasis" },
+    { "from": "cap_token", "to": "tai_ban_do", "label": "JWT + role", "role": "return" },
+    { "from": "tai_ban_do", "to": "hien_thi_layer", "label": "hiển thị bản đồ", "role": "main", "variant": "emphasis" },
+    { "from": "xac_thuc_dang_nhap", "to": "dang_nhap_lai", "label": "sai định dạng", "role": "error", "variant": "security" },
+    { "from": "xac_thuc_dang_nhap", "to": "sua_du_lieu", "label": "401 / sai mật khẩu", "role": "error", "variant": "security" },
+    { "from": "dang_nhap_lai", "to": "nhap_dang_nhap", "label": "nhập lại", "role": "return" },
+    { "from": "sua_du_lieu", "to": "nhap_dang_nhap", "label": "thử lại", "role": "return" },
+    { "from": "tai_ban_do", "to": "tai_layer", "label": "yêu cầu dữ liệu", "role": "main", "variant": "emphasis" },
+    { "from": "tai_layer", "to": "du_lieu_layer", "label": "GET + Authorization", "role": "main" },
+    { "from": "du_lieu_layer", "to": "hien_thi_layer", "label": "trả features", "role": "return", "variant": "emphasis" },
+    { "from": "tai_layer", "to": "thu_lai_tai", "label": "request lỗi", "role": "error", "variant": "security" },
+    { "from": "thu_lai_tai", "to": "tai_layer", "label": "làm mới", "role": "return" },
+    { "from": "hien_thi_layer", "to": "mo_quan_ly_noi_khu", "label": "thêm đối tượng", "role": "main", "variant": "emphasis" },
+    { "from": "mo_quan_ly_noi_khu", "to": "ve_duong", "label": "mở modal", "role": "main" },
+    { "from": "ve_duong", "to": "chon_tuyen", "label": "đủ hình học", "role": "main" },
+    { "from": "ve_duong", "to": "kiem_tra_lai", "label": "< 2 điểm", "role": "error", "variant": "security" },
+    { "from": "chon_tuyen", "to": "chuan_hoa_topology", "label": "route hợp lệ", "role": "main", "variant": "emphasis" },
+    { "from": "chon_tuyen", "to": "kiem_tra_lai", "label": "chưa chọn route", "role": "error", "variant": "security" },
+    { "from": "kiem_tra_lai", "to": "ve_duong", "label": "bổ sung và vẽ lại", "role": "return" },
+    { "from": "chuan_hoa_topology", "to": "luu_duong_di", "label": "tạo/xóa node-edge", "role": "main", "variant": "emphasis" },
+    { "from": "luu_duong_di", "to": "tai_lai_du_lieu", "label": "lưu thành công", "role": "return", "variant": "emphasis" },
+    { "from": "luu_duong_di", "to": "loi_luu_topology", "label": "API lỗi", "role": "error", "variant": "security" },
+    { "from": "loi_luu_topology", "to": "ve_duong", "label": "sửa và thử lại", "role": "return" },
+    { "from": "tai_lai_du_lieu", "to": "tai_layer", "label": "reload", "role": "async" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Luồng chính",
+      "items": [
+        "Người dùng đăng nhập thành công để nhận JWT và đi tới bản đồ.",
+        "Frontend tải grid lines, network nodes và network edges rồi hiển thị theo layer.",
+        "Khi thêm đường đi, hệ thống chuẩn hóa topology trước khi lưu GridLine."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Điểm kiểm tra đầu vào",
+      "items": [
+        "Email phải đúng định dạng và mật khẩu phải đạt điều kiện kiểm tra ở form.",
+        "Đường vẽ phải có ít nhất hai điểm.",
+        "Indoor Route là lựa chọn bắt buộc trước khi lưu."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Nhánh lỗi và phục hồi",
+      "items": [
+        "Sai thông tin đăng nhập quay lại form để thử lại.",
+        "Lỗi tải layer hiển thị thông báo và cho phép làm mới.",
+        "Lỗi lưu topology giữ người dùng ở quy trình biên tập để sửa và thử lại."
+      ]
+    }
+  ]
+}

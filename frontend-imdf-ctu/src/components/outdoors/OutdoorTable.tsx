@@ -179,13 +179,31 @@ export default function OutdoorTable({
                 onClick={() => onOpenDetailModal?.(record.item)}
               />
             </Tooltip>
-            <Tooltip title="Chỉnh sửa Unit">
+            <Tooltip
+              title={
+                record.item.layer.id === 'api-anchors'
+                  ? 'Chỉnh sửa Anchor'
+                  : record.item.layer.id === 'api-amenities'
+                    ? 'Chỉnh sửa Amenity'
+                    : record.item.layer.id === 'api-level'
+                      ? 'Chỉnh sửa Level'
+                      : 'Chỉnh sửa Unit'
+              }
+            >
               <Button
                 type="text"
                 size="small"
                 icon={<Edit3 className="h-3.5 w-3.5" />}
                 onClick={() => onEditFeature?.(record.item)}
-                aria-label="Chỉnh sửa Unit"
+                aria-label={
+                  record.item.layer.id === 'api-anchors'
+                    ? 'Chỉnh sửa Anchor'
+                    : record.item.layer.id === 'api-amenities'
+                      ? 'Chỉnh sửa Amenity'
+                      : record.item.layer.id === 'api-level'
+                        ? 'Chỉnh sửa Level'
+                        : 'Chỉnh sửa Unit'
+                }
               />
             </Tooltip>
             <Tooltip title="Xóa Unit">

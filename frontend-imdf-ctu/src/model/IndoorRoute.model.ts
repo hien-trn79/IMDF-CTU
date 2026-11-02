@@ -26,3 +26,11 @@ export const GridlineType = {
 }
 
 export type GridlineType = (typeof GridlineType)[keyof typeof GridlineType]
+
+// Cac thuc the trong IMDF
+export interface AnchorRequestPayload {
+  anchorName: string
+  geometry: GeoJSON.Geometry
+  featureId: number | null
+  unitId: number
+}

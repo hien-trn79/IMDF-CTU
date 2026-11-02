@@ -30,6 +30,7 @@ public class BuildingMapper {
         BuildingCategory buildingCategory
     ) {
         Building entity = new Building();
+        entity.setBuildingName(request.getBuildingName());
 
         entity.setBuildingName(request.getBuildingName());
 

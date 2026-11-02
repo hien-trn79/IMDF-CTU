@@ -2,22 +2,20 @@ package com.example.backend_imdf_ctu.mapper;
 
 import com.example.backend_imdf_ctu.dto.request.AmenityRequest;
 import com.example.backend_imdf_ctu.dto.response.AmenityResponse;
-import com.example.backend_imdf_ctu.entity.Amenity;
-import com.example.backend_imdf_ctu.entity.AmenityCategory;
-import com.example.backend_imdf_ctu.entity.Feature;
-import org.locationtech.jts.geom.GeometryFactory;
+import com.example.backend_imdf_ctu.entity.*;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
-import org.locationtech.jts.io.WKBReader;
-import org.locationtech.jts.io.WKBWriter;
 import org.springframework.stereotype.Component;
 
 
 @Component
 public class AmenityMapper {
 
-    private final GeometryFactory geometryFactory = new GeometryFactory();
-    private final WKBReader wkbReader = new WKBReader(geometryFactory);
-    private final WKBWriter wkbWriter = new WKBWriter();
+    private final GeometryConverter geometryConverter;
+
+    public AmenityMapper(GeometryConverter geometryConverter) {
+        this.geometryConverter = geometryConverter;
+    }
 
     public AmenityResponse toResponse(
         Amenity entity) {
@@ -26,12 +24,7 @@ public class AmenityMapper {
          response.setId(entity.getId());
          response.setAmenityId(entity.getAmenityId().toString());
 
-         // Chuyen Point sang WKT String
-         if (entity.getGeometry() != null) {
-             // Chuyen Geometry sang WKB
-             byte[] wkb = wkbWriter.write(entity.getGeometry());
-             response.setGeometry(WKBWriter.toHex(wkb));
-         }
+         response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
 
          response.setHours(entity.getHours());
          response.setPhone(entity.getPhone());
@@ -39,31 +32,38 @@ public class AmenityMapper {
          response.setCorrelationId(entity.getCorrelationId().toString());
 
          response.setAmenityCategoryId(entity.getAmenityCategory().getId());
+            response.setAmenityCategoryName(entity.getAmenityCategory().getAmenityCategoryName());
+
          response.setFeatureId(entity.getFeature().getId());
+         response.setFeatureType(entity.getFeature().getFeatureType());
+
+         response.setUnitId(entity.getUnit().getId());
+         response.setUnitName(entity.getUnit().getUnitName());
          return response;
     }
 
     public Amenity toEntity(
         AmenityRequest request,
         AmenityCategory amenityCategory,
-        Feature feature
+        Feature feature,
+        Unit unit,
+        Level level
     ) {
         Amenity entity = new Amenity();
 
         entity.setAmenityId(java.util.UUID.randomUUID());
         entity.setCorrelationId(java.util.UUID.randomUUID());
+        entity.setAmenityName(request.getAmenityName());
 
-        // Chuyen WKT String sang Point
-        Point pointGeometry;
-        if (request.getGeometry() != null) {
-            try {
-                byte[] bytes = WKBReader.hexToBytes(request.getGeometry());
-                pointGeometry = (Point) wkbReader.read(bytes);
-                entity.setGeometry(pointGeometry);
-            } catch (Exception e) {
-                throw new IllegalArgumentException("Định dạng geometry WKT không hợp lệ: " + e.getMessage());
-            }
+        Geometry geom = geometryConverter.toJts(request.getGeometry());
+        if(!(geom instanceof Point point)) {
+            throw new IllegalArgumentException("Amenity chỉ chấp nhận Point, nhận được: " + geom.getGeometryType());
         }
+        if (Math.abs(point.getX()) > 180 || Math.abs(point.getY()) > 90) {
+            throw new IllegalArgumentException("Tọa độ không hợp lệ: x: " + point.getX() + ", y: " + point.getY());
+        }
+
+        entity.setGeometry(point);
 
         entity.setHours(request.getHours());
         entity.setPhone(request.getPhone());
@@ -71,6 +71,40 @@ public class AmenityMapper {
 
         entity.setAmenityCategory(amenityCategory);
         entity.setFeature(feature);
+        entity.setUnit(unit);
+        entity.setLevel(level);
+
+        return entity;
+    }
+
+    public Amenity updateEntity(
+        Amenity entity,
+        AmenityRequest request,
+        AmenityCategory amenityCategory,
+        Feature feature,
+        Unit unit,
+        Level level
+    ) {
+        entity.setAmenityName(request.getAmenityName());
+
+        Geometry geom = geometryConverter.toJts(request.getGeometry());
+        if(!(geom instanceof Point point)) {
+            throw new IllegalArgumentException("Amenity chỉ chấp nhận Point, nhận được: " + geom.getGeometryType());
+        }
+        if (Math.abs(point.getX()) > 180 || Math.abs(point.getY()) > 90) {
+            throw new IllegalArgumentException("Tọa độ không hợp lệ: x: " + point.getX() + ", y: " + point.getY());
+        }
+
+        entity.setGeometry(point);
+
+        entity.setHours(request.getHours());
+        entity.setPhone(request.getPhone());
+        entity.setWebsite(request.getWebsite());
+
+        entity.setAmenityCategory(amenityCategory);
+        entity.setFeature(feature);
+        entity.setUnit(unit);
+        entity.setLevel(level);
 
         return entity;
     }

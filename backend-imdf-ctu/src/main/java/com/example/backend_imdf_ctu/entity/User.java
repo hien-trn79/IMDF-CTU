@@ -4,6 +4,9 @@ import com.example.backend_imdf_ctu.enums.Role;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
@@ -36,4 +39,14 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
     private Role role;
+
+    @Column(name = "is_active", columnDefinition = "boolean default true")
+    private boolean isActive;
+
+    @Column(name = "number_phone")
+    private String numberPhone;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 }

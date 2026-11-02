@@ -2,17 +2,20 @@ package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.AnchorRequest;
 import com.example.backend_imdf_ctu.dto.response.AnchorResponse;
+import com.example.backend_imdf_ctu.entity.Anchor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 public interface AnchorService {
-    Page<AnchorResponse> getAll(Pageable pageable);
+    List<Anchor> getAllByUnitLevelId(Integer unitLevelId);
 
-    AnchorResponse getById(Integer id);
+    Anchor getById(Integer id);
 
-    AnchorResponse create(AnchorRequest request);
+    Anchor create(AnchorRequest request);
 
-    AnchorResponse update(Integer id, AnchorRequest request);
+    Anchor update(Integer id, AnchorRequest request);
 
     void delete(Integer id);
 }

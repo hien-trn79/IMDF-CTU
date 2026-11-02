@@ -45,29 +45,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             final String userEmail = jwtService.extractUsername(jwt);
+            User user = userEmail == null ? null : userRepository.findByEmail(userEmail).orElse(null);
 
-            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                User user = userRepository.findByEmail(userEmail).orElse(null);
+            if (user == null || !user.isActive() || !jwtService.isTokenValid(jwt, user)) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Phiên đăng nhập không hợp lệ");
+                return;
+            }
 
-                if (user != null && jwtService.isTokenValid(jwt, user)) {
-                    // Thêm tiền tố ROLE_ để Spring Security nhận diện role chính xác
-                    List<SimpleGrantedAuthority> authorities = List.of(
-                        new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
-                    );
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                // Thêm tiền tố ROLE_ để Spring Security nhận diện role chính xác
+                List<SimpleGrantedAuthority> authorities = List.of(
+                    new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
+                );
 
-                    // Truyền object user làm principal
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        user.getEmail(),
-                        null,
-                        authorities
-                    );
+                // Truyền object user làm principal
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    user.getEmail(),
+                    null,
+                    authorities
+                );
 
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         } catch (Exception e) {
-            log.error("Không thể xác thực JWT Token: {}", e.getMessage());
+            log.warn("JWT Token không hợp lệ: {}", e.getMessage());
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Phiên đăng nhập không hợp lệ");
+            return;
         }
 
         filterChain.doFilter(request, response);

@@ -19,4 +19,10 @@ public class UserResponse {
     private String email;
 
     private String role;
+
+    private boolean isActive;
+
+    private String numberPhone;
+
+    private String createdAt;
 }

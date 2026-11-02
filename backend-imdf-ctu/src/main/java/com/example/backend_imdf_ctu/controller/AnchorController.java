@@ -1,14 +1,18 @@
 package com.example.backend_imdf_ctu.controller;
 
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeature;
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeatureCollection;
 import com.example.backend_imdf_ctu.dto.request.AnchorRequest;
-import com.example.backend_imdf_ctu.dto.response.AnchorResponse;
+import com.example.backend_imdf_ctu.entity.Anchor;
+import com.example.backend_imdf_ctu.mapper.GenericGeoJsonMapper;
 import com.example.backend_imdf_ctu.service.interfaces.AnchorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/anchors")
@@ -17,30 +21,39 @@ import org.springframework.web.bind.annotation.*;
 public class AnchorController {
 
     private final AnchorService service;
+    private final GenericGeoJsonMapper geoJsonMapper;
 
     // [GET] /anchors
     @GetMapping
-    public Page<AnchorResponse> getAll(Pageable pageable) {
-        return service.getAll(pageable);
+    public ResponseEntity<GeoJsonFeatureCollection> getAll(
+        @RequestParam(name = "levelId", required = false) Integer levelId
+    ) {
+        List<Anchor> anchors = service.getAllByUnitLevelId(levelId);
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(anchors));
     }
 
     // [GET] /anchors/{id}
     @GetMapping("/{id}")
-    public AnchorResponse getById(@PathVariable Integer id) {
-        return service.getById(id);
+    public ResponseEntity<GeoJsonFeature> getById(@PathVariable Integer id) {
+        Anchor anchor = service.getById(id);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(anchor));
     }
 
     // [POST] /anchors
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AnchorResponse create(@Valid @RequestBody AnchorRequest request) {
-        return service.create(request);
+    public ResponseEntity<GeoJsonFeature> create(
+        @Valid @RequestBody AnchorRequest request
+    ) {
+        Anchor anchor = service.create(request);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(anchor));
     }
 
     // [PUT] /anchors/{id}
     @PutMapping("/{id}")
-    public AnchorResponse update(@PathVariable Integer id,@Valid @RequestBody AnchorRequest request) {
-        return service.update(id, request);
+    public ResponseEntity<GeoJsonFeature> update(@PathVariable Integer id,@Valid @RequestBody AnchorRequest request) {
+        Anchor anchor = service.update(id, request);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(anchor));
     }
 
     // [DELETE] /anchors/{id}
