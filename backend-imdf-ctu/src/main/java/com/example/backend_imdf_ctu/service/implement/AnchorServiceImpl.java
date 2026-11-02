@@ -17,6 +17,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AnchorServiceImpl implements AnchorService {
@@ -28,33 +30,40 @@ public class AnchorServiceImpl implements AnchorService {
     private final UnitRepository unitRepository;
 
     @Override
-    public Page<AnchorResponse> getAll(Pageable pageable) {
-        return repository.findAll(pageable)
-            .map(mapper::toResponse);
+    public List<Anchor> getAllByUnitLevelId(
+        Integer unitLevelId
+       ) {
+        return repository.findAllByUnitLevelId(unitLevelId);
     }
 
     @Override
-    public AnchorResponse getById(Integer id) {
+    public Anchor getById(Integer id) {
         return repository.findById(id)
-            .map(mapper::toResponse)
             .orElseThrow(() -> new BusinessException(ErrorCode.ANCHOR_NOT_FOUND));
     }
 
     @Override
-    public AnchorResponse create(AnchorRequest request) {
-        Feature feature = featureRepository.findById(request.getFeatureId())
-            .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND));
-
+    public Anchor create(AnchorRequest request) {
         Unit unit = unitRepository.findById(request.getUnitId())
             .orElseThrow(() -> new BusinessException(ErrorCode.UNIT_NOT_FOUND));
 
+        Feature feature;
+        if(request.getFeatureId() != null) {
+            feature = featureRepository.findById(request.getFeatureId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND));
+        } else {
+            feature = new Feature();
+            feature.setFeatureId(java.util.UUID.randomUUID());
+            feature.setFeatureType("anchor");
+            feature = featureRepository.save(feature);
+        }
         Anchor entity = mapper.toEntity(request, feature, unit);
 
-        return mapper.toResponse(repository.save(entity));
+        return repository.save(entity);
     }
 
     @Override
-    public AnchorResponse update(Integer id, AnchorRequest request) {
+    public Anchor update(Integer id, AnchorRequest request) {
         Anchor entity = repository.findById(id)
             .orElseThrow(() -> new BusinessException(ErrorCode.ANCHOR_NOT_FOUND));
 
@@ -66,7 +75,7 @@ public class AnchorServiceImpl implements AnchorService {
 
         mapper.update(entity, request, feature, unit);
 
-        return mapper.toResponse(repository.save(entity));
+        return repository.save(entity);
     }
 
     @Override

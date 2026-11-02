@@ -12,6 +12,9 @@ import { useUser } from '../../context/UserContext'
 import { unitService } from '../../services/unitService'
 import UnitEditModal from './UnitEditModal'
 import { outdoorTableService } from '../../services/outdoorTableService'
+import AnchorEditModal from './AnchorEditModal'
+import AmenityEditModal from './AmenityEditModal'
+import LevelEditModal from './LevelEditModal'
 
 export default function PageOutdoor() {
   const [objectCount, setObjectCount] = useState(0)
@@ -22,6 +25,12 @@ export default function PageOutdoor() {
   // State quản lý modal chi tiết feature geometry được chọn
   const [isOpenSelectedFeatureModal, setIsOpenSelectedFeatureModal] = useState(false)
   const [isOpenUnitEditModal, setIsOpenUnitEditModal] = useState(false)
+
+  // State quản lý modal chỉnh sửa anchor
+  const [isOpenAnchorEditModal, setIsOpenAnchorEditModal] = useState(false)
+  const [isOpenAmenityEditModal, setIsOpenAmenityEditModal] = useState(false)
+  const [isOpenLevelEditModal, setIsOpenLevelEditModal] = useState(false)
+
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [importFeatures, setImportFeatures] = useState<any[]>([])
   const [importFileName, setImportFileName] = useState('')
@@ -37,8 +46,17 @@ export default function PageOutdoor() {
   const panelRef = useRef<HTMLDivElement>(null)
   const [panelHeight, setPanelHeight] = useState(0)
 
-  const { setSelectedLevelId, selectedLevelId, reloadUnits, reloadData, selectedTable, setSelectedTable } =
-    useLevel()
+  const {
+    setSelectedLevelId,
+    selectedLevelId,
+    unitGeoJson,
+    reloadUnits,
+    reloadData,
+    selectedTable,
+    setSelectedTable,
+    selectedTables,
+    toggleTable,
+  } = useLevel()
   const [selectedBuilding, setSelectedBuilding] = useState<number | 1>(1)
   const [levelsOfBuilding, setLevelsOfBuilding] = useState<LevelGeoJson['features'] | []>([])
   const selectedLevelOrdinal = levelsOfBuilding.find(
@@ -118,25 +136,41 @@ export default function PageOutdoor() {
   }
 
   const existingGeometryKeys = useMemo(
-    () =>
-      new Set(
-        features
-          .map((item) => canonicalGeometry(item.feature.geometry))
-      ),
+    () => new Set(features.map((item) => canonicalGeometry(item.feature.geometry))),
     [features]
   )
 
   const handleEditFeature = (item: OutdoorFeatureItem) => {
-    if (item.layer.id !== 'api-units') {
-      notification.info({
-        message: 'Không thể chỉnh sửa lớp này',
-        description: 'Chỉ có thể chỉnh sửa Unit được tải từ API.',
-      })
+    if (item.layer.id === 'api-units') {
+      setSelectedFeature(item)
+      setIsOpenUnitEditModal(true)
       return
     }
 
-    setSelectedFeature(item)
-    setIsOpenUnitEditModal(true)
+    if (item.layer.id === 'api-anchors') {
+      setSelectedFeature(item)
+      setIsOpenAnchorEditModal(true)
+      return
+    }
+
+    if (item.layer.id === 'api-amenities') {
+      setSelectedFeature(item)
+      setIsOpenAmenityEditModal(true)
+      return
+    }
+
+    if (item.layer.id === 'api-level') {
+      setSelectedFeature(item)
+      setIsOpenLevelEditModal(true)
+      return
+    }
+
+    if (item.layer.id !== 'api-units' && item.layer.id !== 'api-anchors') {
+      notification.info({
+        message: 'Không thể chỉnh sửa lớp này',
+        description: 'Lớp dữ liệu này chưa hỗ trợ chỉnh sửa.',
+      })
+    }
   }
 
   const getFirstCoordinate = (coordinates: unknown): [number, number] | null => {
@@ -187,6 +221,7 @@ export default function PageOutdoor() {
     }
   }
 
+  // Xác nhận import GeoJSON vào cơ sở dữ liệu
   const confirmImport = async () => {
     if (!selectedLevelId) return
     setIsImporting(true)
@@ -198,22 +233,30 @@ export default function PageOutdoor() {
         if (!coordinate) throw new Error('Một feature không có tọa độ hợp lệ.')
         const properties = feature.properties ?? {}
         if (selectedTable === 'unit') {
-          await unitService.create({
-            unitName: String(
-              properties.name_vi ??
-                properties.name ??
-                properties.id ??
-                `Unit ${properties.fid ?? imported + 1}`
-            ),
-            geometry: feature.geometry,
-            displayPoint: properties.displayPoint ?? { type: 'Point', coordinates: coordinate },
-            featureId: null,
-            levelId: Number(selectedLevelId),
-            unitCategoryId: Number(properties.unitCategoryId) || 1,
-            restrictionCategoryId: Number(properties.restrictionCategoryId) || 1,
-          }, token ?? undefined)
+          await unitService.create(
+            {
+              unitName: String(
+                properties.name_vi ??
+                  properties.name ??
+                  properties.id ??
+                  `Unit ${properties.fid ?? imported + 1}`
+              ),
+              geometry: feature.geometry,
+              displayPoint: properties.displayPoint ?? { type: 'Point', coordinates: coordinate },
+              featureId: null,
+              levelId: Number(selectedLevelId),
+              unitCategoryId: Number(properties.unitCategoryId) || 1,
+              restrictionCategoryId: Number(properties.restrictionCategoryId) || 1,
+            },
+            token ?? undefined
+          )
         } else {
-          await outdoorTableService.create(selectedTable, feature, Number(selectedLevelId), token ?? undefined)
+          await outdoorTableService.create(
+            selectedTable,
+            feature,
+            Number(selectedLevelId),
+            token ?? undefined
+          )
         }
         imported += 1
         setImportProgress(Math.round((imported / importFeatures.length) * 100))
@@ -347,11 +390,13 @@ export default function PageOutdoor() {
           setLevels={setLevelsOfBuilding}
           onLevelChange={handleLevelChange}
           onImportGeoJson={handleImportGeoJson}
-          selectedTable={selectedTable}
+          selectedTables={selectedTables}
           onTableChange={setSelectedTable}
+          onTableToggle={toggleTable}
         />
       </aside>
 
+      {/* MODAL IMPORT GEOJSON */}
       <Modal
         title="Thêm dữ liệu từ GeoJSON"
         open={importModalOpen}
@@ -406,6 +451,8 @@ export default function PageOutdoor() {
         onClose={() => setIsOpenSelectedFeatureModal(false)}
         data={selectedFeature}
       />
+
+      {/* MODAL SỬA ĐỔI UNIT */}
       <UnitEditModal
         open={isOpenUnitEditModal}
         item={selectedFeature?.layer.id === 'api-units' ? selectedFeature : null}
@@ -415,6 +462,45 @@ export default function PageOutdoor() {
         onSaved={() => {
           reloadUnits()
           notification.success({ message: 'Cập nhật Unit thành công' })
+        }}
+      />
+
+      {/* MODAL SỬA ĐỔI ANCHOR */}
+      <AnchorEditModal
+        open={isOpenAnchorEditModal}
+        item={selectedFeature?.layer.id === 'api-anchors' ? selectedFeature : null}
+        anchorId={selectedFeature?.feature.id ?? null}
+        token={token}
+        units={unitGeoJson?.features ?? []}
+        onClose={() => setIsOpenAnchorEditModal(false)}
+        onSaved={() => {
+          reloadData()
+          notification.success({ message: 'Cập nhật Anchor thành công' })
+        }}
+      />
+
+      <AmenityEditModal
+        open={isOpenAmenityEditModal}
+        item={selectedFeature?.layer.id === 'api-amenities' ? selectedFeature : null}
+        token={token}
+        units={unitGeoJson?.features ?? []}
+        levels={levelsOfBuilding}
+        selectedLevelId={selectedLevelId}
+        onClose={() => setIsOpenAmenityEditModal(false)}
+        onSaved={() => {
+          reloadData()
+          notification.success({ message: 'Cập nhật Amenity thành công' })
+        }}
+      />
+
+      <LevelEditModal
+        open={isOpenLevelEditModal}
+        item={selectedFeature?.layer.id === 'api-level' ? selectedFeature : null}
+        token={token}
+        onClose={() => setIsOpenLevelEditModal(false)}
+        onSaved={() => {
+          reloadData()
+          notification.success({ message: 'Cập nhật Level thành công' })
         }}
       />
     </div>

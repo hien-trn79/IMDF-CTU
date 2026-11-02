@@ -64,7 +64,7 @@ public class BuildingServiceImpl implements BuildingService {
 
     @Override
     public Page<Building> list(Pageable pageable) {
-        return repository.findAll(pageable);
+            return repository.findAll(pageable);
     }
 
     @Override

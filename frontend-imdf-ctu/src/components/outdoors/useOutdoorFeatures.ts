@@ -8,13 +8,13 @@ export function useOutdoorFeatures(
   selectedLevelOrdinal?: number,
   selectedLevelGeometry?: GeoJSON.Geometry
 ) {
-  const { unitGeoJson, isLoadingUnits, selectedTable, selectedLevelId, reloadData } = useLevel()
+  const { unitGeoJson, isLoadingUnits, selectedTables, selectedLevelId, dataVersion } = useLevel()
   const { token } = useUser()
   const [tableFeatures, setTableFeatures] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (selectedTable === 'unit') {
+    if (!selectedLevelId || selectedTables.length === 0) {
       setTableFeatures([])
       return
     }
@@ -23,41 +23,45 @@ export function useOutdoorFeatures(
     const fetchRows = async () => {
       setIsLoading(true)
       try {
-        const endpoint = selectedTable === 'level' ? 'levels' : `${selectedTable}s`
-        const query = new URLSearchParams({ page: '0', size: '100', sort: 'id,ASC' })
-        if (selectedTable === 'level' && selectedBuildingId) {
-          query.set('buildingId', String(selectedBuildingId))
-        }
-        const response = await fetch(`/api/${endpoint}?${query.toString()}`, {
-          headers: authHeaders(token ?? ''),
-          signal: controller.signal,
-        })
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        const data = await response.json()
-        const rows = Array.isArray(data)
-          ? data
-          : data.content ?? data.data?.content ?? data.features ?? data.data?.features ?? []
-        const filteredRows =
-          selectedTable === 'level'
-            ? rows.filter((row: any) => String(row?.id) === String(selectedLevelId))
-            : rows.filter((row: any) =>
+        const apiTables = selectedTables.filter((table) => table !== 'unit')
+        const tableResults = await Promise.all(
+          apiTables.map(async (table) => {
+            const query =
+              table === 'level'
+                ? `?buildingId=${selectedBuildingId}&page=0&size=100&sort=id,ASC`
+                : `?levelId=${selectedLevelId}`
+            const endpoint = table === 'level' ? 'levels' : table
+            const response = await fetch(`http://localhost:8081/api/${endpoint}${query}`, {
+              headers: authHeaders(token ?? ''),
+              signal: controller.signal,
+            })
+            if (!response.ok) throw new Error(`HTTP ${response.status} khi tải ${table}`)
+
+            const data = await response.json()
+            const rows = Array.isArray(data)
+              ? data
+              : (data.content ?? data.data?.content ?? data.features ?? data.data?.features ?? [])
+            return rows
+              .filter((row: any) =>
                 belongsToSelectedLevel(
                   row,
+                  table,
                   selectedLevelId,
                   selectedLevelOrdinal,
                   selectedLevelGeometry
                 )
               )
-        setTableFeatures(
-          filteredRows.map((row: any, index: number) => ({
-            feature: toGeoJsonFeature(selectedTable, row),
-            layer: { id: `api-${selectedTable}`, layerName: selectedTable },
-            index,
-          }))
+              .map((row: any, index: number) => ({
+                feature: toGeoJsonFeature(table, row),
+                layer: { id: `api-${table}`, layerName: table },
+                index,
+              }))
+          })
         )
+        setTableFeatures(tableResults.flat())
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
-          console.error(`Lỗi khi tải bảng ${selectedTable}:`, error)
+          console.error('Lỗi khi tải các bảng outdoor:', error)
           setTableFeatures([])
         }
       } finally {
@@ -67,23 +71,26 @@ export function useOutdoorFeatures(
     fetchRows()
     return () => controller.abort()
   }, [
-    selectedTable,
+    selectedTables,
     selectedLevelId,
     selectedLevelOrdinal,
     selectedLevelGeometry,
-    reloadData,
+    dataVersion,
     token,
     selectedBuildingId,
   ])
 
   const features = useMemo(() => {
-    if (selectedTable !== 'unit') return tableFeatures
-    return (unitGeoJson?.features ?? []).map((feature, index) => ({
-      feature,
-      layer: { id: 'api-units', layerName: 'unit' },
-      index,
-    }))
-  }, [selectedTable, tableFeatures, unitGeoJson])
+    const unitFeatures =
+      selectedTables.includes('unit')
+        ? (unitGeoJson?.features ?? []).map((feature, index) => ({
+            feature,
+            layer: { id: 'api-units', layerName: 'unit' },
+            index,
+          }))
+        : []
+    return [...unitFeatures, ...tableFeatures]
+  }, [selectedTables, tableFeatures, unitGeoJson])
 
   return { features, isLoading: isLoading || isLoadingUnits }
 }
@@ -92,7 +99,7 @@ function toGeoJsonFeature(table: string, row: any) {
   if (row?.type === 'Feature' && row.geometry) {
     return { ...row, id: String(row.id), properties: row.properties ?? {} }
   }
-  const geometry = table === 'amenity' ? parseWktPoint(row.geometry) : row.geometry
+  const geometry = table === 'amenity' || table === 'amenities' ? parseWktPoint(row.geometry) : row.geometry
   return {
     type: 'Feature',
     id: String(row.id),
@@ -103,12 +110,19 @@ function toGeoJsonFeature(table: string, row: any) {
 
 function belongsToSelectedLevel(
   row: any,
+  table: string,
   selectedLevelId: string | null,
   selectedLevelOrdinal?: number,
   selectedLevelGeometry?: GeoJSON.Geometry
 ) {
   if (!selectedLevelId) return false
   const properties = row?.properties ?? row
+  const ordinal = properties?.ordinal ?? row?.ordinal
+
+  if (table === 'level') {
+    return selectedLevelOrdinal !== undefined && Number(ordinal) === Number(selectedLevelOrdinal)
+  }
+
   const candidates = [
     row?.levelId,
     row?.level,
@@ -130,8 +144,8 @@ function belongsToSelectedLevel(
 function geometryIsInside(candidate: any, boundary: GeoJSON.Geometry) {
   const point = firstCoordinate(candidate?.coordinates)
   if (!point) return false
-  return ringsOf((boundary as GeoJSON.Geometry & { coordinates?: unknown }).coordinates).some((ring) =>
-    pointInRing(point, ring)
+  return ringsOf((boundary as GeoJSON.Geometry & { coordinates?: unknown }).coordinates).some(
+    (ring) => pointInRing(point, ring)
   )
 }
 
@@ -149,7 +163,10 @@ function firstCoordinate(value: any): [number, number] | null {
 
 function ringsOf(value: any): number[][][] {
   if (!Array.isArray(value)) return []
-  if (value.length > 2 && value.every((point: any) => Array.isArray(point) && typeof point[0] === 'number')) {
+  if (
+    value.length > 2 &&
+    value.every((point: any) => Array.isArray(point) && typeof point[0] === 'number')
+  ) {
     return [value]
   }
   return value.flatMap((child: any) => ringsOf(child))
@@ -161,8 +178,7 @@ function pointInRing(point: [number, number], ring: number[][]) {
     const [xi, yi] = ring[i]
     const [xj, yj] = ring[j]
     const intersects =
-      yi > point[1] !== yj > point[1] &&
-      point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi
+      yi > point[1] !== yj > point[1] && point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi
     if (intersects) inside = !inside
   }
   return inside
@@ -171,7 +187,5 @@ function pointInRing(point: [number, number], ring: number[][]) {
 function parseWktPoint(value: unknown) {
   if (typeof value !== 'string') return value
   const match = value.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i)
-  return match
-    ? { type: 'Point', coordinates: [Number(match[1]), Number(match[2])] }
-    : undefined
+  return match ? { type: 'Point', coordinates: [Number(match[1]), Number(match[2])] } : undefined
 }

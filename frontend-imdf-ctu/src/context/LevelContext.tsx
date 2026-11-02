@@ -11,8 +11,11 @@ interface LevelContextValue {
   unitsError: string | null
   reloadUnits: () => void
   reloadData: () => void
+  dataVersion: number
   selectedTable: string
   setSelectedTable: (table: string) => void
+  selectedTables: string[]
+  toggleTable: (table: string) => void
 }
 
 const LevelContext = createContext<LevelContextValue | undefined>(undefined)
@@ -25,8 +28,15 @@ export function LevelProvider({ children }: { children: ReactNode }) {
   const [unitsError, setUnitsError] = useState<string | null>(null)
   const [reloadVersion, setReloadVersion] = useState(0)
   const [selectedTable, setSelectedTable] = useState('unit')
+  const [selectedTables, setSelectedTables] = useState<string[]>(['unit'])
   const reloadUnits = useCallback(() => setReloadVersion((version) => version + 1), [])
   const reloadData = useCallback(() => setReloadVersion((version) => version + 1), [])
+  const toggleTable = useCallback((table: string) => {
+    setSelectedTables((tables) =>
+      tables.includes(table) ? tables.filter((value) => value !== table) : [...tables, table]
+    )
+    setSelectedTable(table)
+  }, [])
 
   useEffect(() => {
     if (!selectedLevelId) {
@@ -78,8 +88,11 @@ export function LevelProvider({ children }: { children: ReactNode }) {
         unitsError,
         reloadUnits,
         reloadData,
+        dataVersion: reloadVersion,
         selectedTable,
         setSelectedTable,
+        selectedTables,
+        toggleTable,
       }}
     >
       {children}

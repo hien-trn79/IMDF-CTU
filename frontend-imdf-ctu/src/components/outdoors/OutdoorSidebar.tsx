@@ -1,15 +1,7 @@
-import {
-  Building2,
-  ChevronDown,
-  Compass,
-  Layers3,
-  Loader2,
-  Plus,
-  RotateCcw,
-  UploadCloud,
-} from 'lucide-react'
+import { Building2, ChevronDown, Compass, Layers3, Loader2, Plus, RotateCcw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLayer } from '../../context/LayerContext'
+import { useLevel } from '../../context/LevelContext'
 import { useUser } from '../../context/UserContext'
 import type { BuildingGeoJson, LevelGeoJson } from '../../model/geoJsonEntity.model'
 
@@ -24,8 +16,9 @@ interface OutdoorSidebarProps {
   setLevels: (levels: LevelGeoJson['features'] | []) => void
   onLevelChange?: (levelId: string | null) => void
   onImportGeoJson?: (file: File) => void
-  selectedTable: string
+  selectedTables: string[]
   onTableChange: (table: string) => void
+  onTableToggle: (table: string) => void
   onPublish?: () => void
   isPublishing?: boolean
   roleLabel?: string
@@ -39,14 +32,21 @@ export default function OutdoorSidebar({
   levels,
   setLevels,
   onLevelChange,
-  onImportGeoJson,
-  selectedTable,
+  onImportGeoJson: _onImportGeoJson,
+  selectedTables,
   onTableChange,
-  onPublish,
-  isPublishing = false,
+  onTableToggle,
+  onPublish: _onPublish,
+  isPublishing: _isPublishing = false,
   roleLabel = 'ADMIN',
 }: OutdoorSidebarProps) {
-  const { refreshLayers, isLoadingLayers, layerCatalogError, availableLayers } = useLayer()
+  const {
+    refreshLayers,
+    isLoadingLayers,
+    layerCatalogError: _layerCatalogError,
+    availableLayers: _availableLayers,
+  } = useLayer()
+  const { dataVersion } = useLevel()
   const { token } = useUser()
 
   const [buildings, setBuildings] = useState<BuildingGeoJson['features'] | []>([])
@@ -56,6 +56,10 @@ export default function OutdoorSidebar({
   const [isLoadingLevels, setIsLoadingLevels] = useState(false)
   const [levelsError, setLevelsError] = useState<string | null>(null)
   const [activeLevelId, setActiveLevelId] = useState<string>('')
+
+  const [isBuildingOpen, setIsBuildingOpen] = useState(false)
+
+  const selectedBuilding = buildings.find((b) => String(b.id) === String(selectedBuildingId))
 
   const authHeaders: HeadersInit = {
     'Content-Type': 'application/json',
@@ -142,13 +146,7 @@ export default function OutdoorSidebar({
     fetchLevels()
     return () => controller.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBuildingId, token, setLevels])
-
-  const handleBuildingClick = (buildingId: string | number) => {
-    const id = Number(buildingId)
-    if (Number.isNaN(id) || id === selectedBuildingId) return
-    setSelectedBuildingId(id)
-  }
+  }, [selectedBuildingId, token, setLevels, dataVersion])
 
   const handleLevelChange = (levelId: string) => {
     setActiveLevelId(levelId)
@@ -156,22 +154,22 @@ export default function OutdoorSidebar({
   }
 
   const tableOptions = [
-    { value: 'anchor', label: 'Anchor - Điểm neo' },
-    { value: 'amenity', label: 'Amenity - Tiện ích' },
+    { value: 'anchors', label: 'Anchor - Điểm neo' },
+    { value: 'amenities', label: 'Amenity - Tiện ích' },
     { value: 'unit', label: 'Unit - Phòng' },
     { value: 'level', label: 'Level - Tầng' },
-    ...availableLayers
-      .map((layer) => layer.layerName.split(':').pop() ?? layer.layerName)
-      .filter(
-        (name, index, names) =>
-          name &&
-          !['anchor', 'amenity', 'unit', 'level'].includes(name) &&
-          names.indexOf(name) === index
-      )
-      .map((name) => ({
-        value: name,
-        label: `${name.charAt(0).toUpperCase()}${name.slice(1)} - Dữ liệu bản đồ`,
-      })),
+    // ...availableLayers
+    //   .map((layer) => layer.layerName.split(':').pop() ?? layer.layerName)
+    //   .filter(
+    //     (name, index, names) =>
+    //       name &&
+    //       !['anchor', 'amenity', 'unit', 'level'].includes(name) &&
+    //       names.indexOf(name) === index
+    //   )
+    //   .map((name) => ({
+    //     value: name,
+    //     label: `${name.charAt(0).toUpperCase()}${name.slice(1)} - Dữ liệu bản đồ`,
+    //   })),
   ]
 
   return (
@@ -251,7 +249,9 @@ export default function OutdoorSidebar({
             Vẽ đối tượng
           </button>
         </div>
-        <label className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-sm font-bold text-emerald-700 shadow-sm hover:border-emerald-400 hover:bg-emerald-100">
+
+        {/* NUT THEM DU LIEU GEOJSON */}
+        {/* <label className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-sm font-bold text-emerald-700 shadow-sm hover:border-emerald-400 hover:bg-emerald-100">
           <UploadCloud className="h-4 w-4" />
           Thêm dữ liệu GeoJSON
           <input
@@ -264,9 +264,10 @@ export default function OutdoorSidebar({
               event.target.value = ''
             }}
           />
-        </label>
+        </label> */}
 
-        <button
+        {/* NUT PUSHLISH LÊN GEOSERVER */}
+        {/* <button
           onClick={onPublish}
           disabled={!onPublish || isPublishing}
           className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-sm font-bold text-white shadow-sm shadow-emerald-600/30 transition hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
@@ -283,10 +284,11 @@ export default function OutdoorSidebar({
           <p className="mt-3 rounded-lg bg-red-50 px-2.5 py-2 text-[11px] text-red-600">
             Không đọc được danh sách layer: {layerCatalogError}
           </p>
-        )}
+        )} */}
       </section>
 
       {/* ============ CARD 2: DANH MỤC TÒA NHÀ CHỨA DỮ LIỆU NỘI KHU ============ */}
+      {/* DANH MUC TOA NHA; FROM BACKEND */}
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-start justify-between gap-3 px-0.5">
           <span className="flex items-start gap-2 text-sm font-semibold leading-snug text-slate-700">
@@ -297,86 +299,84 @@ export default function OutdoorSidebar({
             {buildings.length} tòa nhà
           </span>
         </div>
-        <div className="max-h-80 space-y-2 overflow-y-auto rounded-2xl bg-slate-50 p-2">
-          {isLoadingBuildings ? (
-            <p className="flex items-center gap-2 px-2 py-2 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
-            </p>
-          ) : buildingsError ? (
-            <p className="rounded-lg bg-red-50 px-2.5 py-2 text-xs text-red-600">
-              {buildingsError}
-            </p>
-          ) : buildings.length > 0 ? (
-            buildings.map((building) => {
-              const isActive = String(building.id) === String(selectedBuildingId)
-              return (
-                <div
-                  key={building.id}
-                  className={`rounded-xl border transition-all duration-150 ${
-                    isActive
-                      ? 'border-sky-300 bg-sky-50 shadow-sm ring-1 ring-sky-200'
-                      : 'border-transparent bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
-                  }`}
-                >
-                  <button
-                    onClick={() => handleBuildingClick(building.id)}
-                    role="radio"
-                    aria-checked={isActive}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150
-                    ${isActive ? 'text-sky-800' : 'text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    {/* radio indicator */}
-                    <span
-                      className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                        isActive ? 'border-sky-500 bg-sky-500' : 'border-slate-300 bg-white'
+
+        {isLoadingBuildings ? (
+          <p className="flex items-center gap-2 px-2 py-2 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+          </p>
+        ) : buildingsError ? (
+          <p className="rounded-lg bg-red-50 px-2.5 py-2 text-xs text-red-600">{buildingsError}</p>
+        ) : buildings.length === 0 ? (
+          <p className="px-2 py-2 text-sm text-slate-500">Không có tòa nhà nào.</p>
+        ) : (
+          <div>
+            {/* ===== Tab building lớn (giả lập select) ===== */}
+            <button
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={isBuildingOpen}
+              onClick={() => setIsBuildingOpen((v) => !v)}
+              className={`flex w-full items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-left transition-all duration-150 ${
+                isBuildingOpen
+                  ? 'border-sky-300 ring-2 ring-sky-100'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-semibold text-slate-400">Tòa nhà</span>
+                <span className="block truncate text-sm font-bold text-slate-800">
+                  {selectedBuilding?.properties.buildingName ?? 'Chọn tòa nhà'}
+                </span>
+              </span>
+
+              {selectedBuilding && (
+                <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-700">
+                  {isLoadingLevels ? '…' : `${levels.length} tầng`}
+                </span>
+              )}
+
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 ${
+                  isBuildingOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            {/* ===== Danh sách building con (chỉ đóng khi bấm lại ô lớn) ===== */}
+            {isBuildingOpen && (
+              <ul
+                role="listbox"
+                aria-label="Danh sách tòa nhà"
+                className="mt-2 ml-2 max-h-68 space-y-0.5 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5"
+              >
+                {tableOptions.map((option) => {
+                  const isTabActive = selectedTables.includes(option.value)
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={isTabActive}
+                      onClick={() => {
+                        onTableToggle(option.value)
+                        onTableChange(option.value)
+                      }}
+                      className={`relative flex shrink-0 whitespace-nowrap px-2.5 py-2 text-xs font-semibold transition-colors ${
+                        isTabActive ? 'text-sky-700' : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-                    </span>
-
-                    <span className="flex-1 truncate text-xs font-semibold">
-                      {building.properties.buildingName}
-                    </span>
-
-                    {/* badge số tầng (chỉ tòa nhà đang chọn mới biết số tầng) */}
-                    {isActive && (
-                      <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-700">
-                        {isLoadingLevels ? '…' : `${levels.length} tầng`}
-                      </span>
-                    )}
-                  </button>
-                  {isActive && (
-                    <div className="border-t border-sky-200 px-3 pb-3 pt-2">
-                      <label
-                        htmlFor={`data-table-select-${building.id}`}
-                        className="mb-1 block text-[11px] font-semibold text-slate-500"
-                      >
-                        Bảng dữ liệu của tòa nhà
-                      </label>
-                      <div className="relative">
-                        <select
-                          id={`data-table-select-${building.id}`}
-                          value={selectedTable}
-                          onChange={(event) => onTableChange(event.target.value)}
-                          className="h-9 w-full appearance-none rounded-lg border border-sky-200 bg-white px-2.5 pr-8 text-xs font-bold text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                        >
-                          {tableOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          ) : (
-            <p className="px-2 py-2 text-sm text-slate-500">Không có tòa nhà nào.</p>
-          )}
-        </div>
+                      {option.label}
+                      <span
+                        className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-colors ${
+                          isTabActive ? 'bg-sky-500' : 'bg-transparent'
+                        }`}
+                      />
+                    </button>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </section>
     </aside>
   )

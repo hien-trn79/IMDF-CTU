@@ -27,13 +27,13 @@ public class BuildingController {
     private final GenericGeoJsonMapper geoJsonMapper;
 
     // [GET] /buildings
-    @GetMapping
-    public Page<BuildingResponse> list(
+    @GetMapping(produces = "application/geo+json")
+    public ResponseEntity<GeoJsonFeatureCollection> list(
         @ParameterObject
-        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
-        Pageable pageable) {
-        return service.list(pageable);
-
+        @PageableDefault(sort = "id", direction = Sort.Direction.ASC) Pageable pageable
+    ) {
+        Page<Building> buildings = service.list(pageable);
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(buildings));
     }
 
     // [GET] /buildings/{id}
