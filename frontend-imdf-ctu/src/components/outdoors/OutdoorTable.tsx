@@ -206,13 +206,27 @@ export default function OutdoorTable({
                 }
               />
             </Tooltip>
-            <Tooltip title="Xóa Unit">
+            <Tooltip
+              title={
+                record.item.layer.id === 'api-anchors'
+                  ? 'Xóa Anchor'
+                  : record.item.layer.id === 'api-amenities'
+                    ? 'Xóa Amenity'
+                    : 'Xóa Unit'
+              }
+            >
               <Button
                 type="text"
                 size="small"
                 danger
                 icon={<Trash2 className="h-3.5 w-3.5" />}
-                aria-label="Xóa Unit"
+                aria-label={
+                  record.item.layer.id === 'api-anchors'
+                    ? 'Xóa Anchor'
+                    : record.item.layer.id === 'api-amenities'
+                      ? 'Xóa Amenity'
+                      : 'Xóa Unit'
+                }
                 onClick={() => onDeleteFeature?.(record.item)}
               />
             </Tooltip>

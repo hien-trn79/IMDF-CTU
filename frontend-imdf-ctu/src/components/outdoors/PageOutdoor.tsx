@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Modal, Progress, Tag, notification } from 'antd'
+import { Modal, notification } from 'antd'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import OutdoorMap from './OutdoorMap'
 import OutdoorSidebar from './OutdoorSidebar'
@@ -11,10 +11,13 @@ import { useLevel } from '../../context/LevelContext'
 import { useUser } from '../../context/UserContext'
 import { unitService } from '../../services/unitService'
 import UnitEditModal from './UnitEditModal'
-import { outdoorTableService } from '../../services/outdoorTableService'
 import AnchorEditModal from './AnchorEditModal'
 import AmenityEditModal from './AmenityEditModal'
 import LevelEditModal from './LevelEditModal'
+import ImportGeoJsonModal from './ImportGeoJsonModal'
+import type { AnchorRequestPayload } from '../../model/IndoorRoute.model'
+import { authHeaders } from '../../services/authHeaders'
+import { outdoorTableService } from '../../services/outdoorTableService'
 
 export default function PageOutdoor() {
   const [objectCount, setObjectCount] = useState(0)
@@ -185,6 +188,7 @@ export default function PageOutdoor() {
     return null
   }
 
+  // Xử lý chức năng import GeoJSON: đọc file, lọc feature hợp lệ, loại bỏ trùng lặp, hiển thị modal xác nhận
   const handleImportGeoJson = async (file: File) => {
     if (!selectedLevelId) {
       notification.warning({
@@ -198,7 +202,12 @@ export default function PageOutdoor() {
       const sourceFeatures = Array.isArray(parsed.features) ? parsed.features : [parsed]
       const validFeatures = sourceFeatures.filter((feature: any) => feature?.geometry)
       const seen = new Set(existingGeometryKeys)
-      let duplicates = 0
+
+      console.log('sourceFeatures', sourceFeatures)
+      console.log('validFeatures', validFeatures)
+      console.log('existingGeometryKeys', existingGeometryKeys)
+
+      let duplicates = 0 // dùng để đếm số lượng feature trùng lặp đã bị loại bỏ
       const uniqueFeatures = validFeatures.filter((feature: any) => {
         const key = canonicalGeometry(feature.geometry)
         if (seen.has(key)) {
@@ -208,6 +217,7 @@ export default function PageOutdoor() {
         seen.add(key)
         return true
       })
+      console.log('uniqueFeatures', uniqueFeatures)
       setImportFeatures(uniqueFeatures)
       setDuplicateCount(duplicates)
       setImportFileName(file.name)
@@ -232,7 +242,9 @@ export default function PageOutdoor() {
         const coordinate = getFirstCoordinate(feature.geometry.coordinates)
         if (!coordinate) throw new Error('Một feature không có tọa độ hợp lệ.')
         const properties = feature.properties ?? {}
-        if (selectedTable === 'unit') {
+        console.log('selectedTable', selectedTable)
+        // Neu selectedTable là 'unit' thì gọi unitService.create
+        if (selectedTable === 'units') {
           await unitService.create(
             {
               unitName: String(
@@ -250,13 +262,52 @@ export default function PageOutdoor() {
             },
             token ?? undefined
           )
-        } else {
-          await outdoorTableService.create(
-            selectedTable,
-            feature,
-            Number(selectedLevelId),
-            token ?? undefined
-          )
+        } else if (selectedTable === 'anchors') {
+          const unitIdTemp = selectedLevelId === '4' ? 58 : 5
+
+          const payload: AnchorRequestPayload = {
+            anchorName: String(properties.anchorName ?? `Anchor ${properties.fid ?? imported + 1}`),
+            geometry: feature.geometry,
+            featureId: 63,
+            unitId: unitIdTemp,
+          }
+          const response = await fetch(`http://localhost:8081/api/anchors`, {
+            method: 'POST',
+            headers: {
+              ...authHeaders(token ?? '', true),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          })
+          if (!response.ok) throw new Error(`Thêm Anchor thất bại (HTTP ${response.status}).`)
+        } else if (selectedTable === 'amenities') {
+          const unitIdTemp = selectedLevelId === '4' ? 58 : 5
+          const payload: any = {
+            amenityName: String(
+              properties.amenityName ?? `Amenity ${properties.fid ?? imported + 1}`
+            ),
+            phone: String(properties.phone ?? ''),
+            website: String(properties.website ?? ''),
+            hours: properties.hours ? String(properties.hours).slice(0, 16) : '',
+            geometry: feature.geometry,
+            amenityCategoryId: Number(
+              properties.amenityCategoryId ?? properties.amenityCateId ?? 12
+            ),
+            featureId: 64,
+            unitId: unitIdTemp,
+            levelId: Number(selectedLevelId),
+          }
+
+          console.log('amenity payload', payload)
+          const response = await fetch(`http://localhost:8081/api/amenities`, {
+            method: 'POST',
+            headers: {
+              ...authHeaders(token ?? '', true),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          })
+          if (!response.ok) throw new Error(`Thêm Amenity thất bại (HTTP ${response.status}).`)
         }
         imported += 1
         setImportProgress(Math.round((imported / importFeatures.length) * 100))
@@ -266,7 +317,7 @@ export default function PageOutdoor() {
       setImportModalOpen(false)
       notification.success({
         message: 'Thêm GeoJSON thành công',
-        description: `Đã thêm ${imported} Unit vào cơ sở dữ liệu.`,
+        description: `Đã thêm ${imported} ${selectedTable} vào cơ sở dữ liệu.`,
       })
     } catch (error) {
       notification.error({
@@ -279,24 +330,35 @@ export default function PageOutdoor() {
   }
 
   const handleDeleteFeature = (item: OutdoorFeatureItem) => {
-    if (item.layer.id !== 'api-units') return
+    const tableByLayer: Record<string, { table: string; label: string }> = {
+      'api-units': { table: 'units', label: 'Unit' },
+      'api-anchors': { table: 'anchor', label: 'Anchor' },
+      'api-amenities': { table: 'amenity', label: 'Amenity' },
+    }
+    const target = tableByLayer[item.layer.id]
+    if (!target) return
+
     Modal.confirm({
-      title: 'Xóa Unit này?',
-      content: `Unit "${item.feature.properties?.unitName ?? item.feature.id}" sẽ bị xóa khỏi cơ sở dữ liệu. Thao tác này không thể hoàn tác.`,
-      okText: 'Xóa Unit',
+      title: `Xóa ${target.label} này?`,
+      content: `${target.label} "${item.feature.properties?.unitName ?? item.feature.properties?.anchorName ?? item.feature.id}" sẽ bị xóa khỏi cơ sở dữ liệu. Thao tác này không thể hoàn tác.`,
+      okText: `Xóa ${target.label}`,
       cancelText: 'Hủy',
       okButtonProps: { danger: true },
       centered: true,
       onOk: async () => {
         try {
-          await unitService.delete(item.feature.id, token ?? undefined)
+          await outdoorTableService.delete(target.table, item.feature.id, token ?? undefined)
           setSelectedFeature(null)
-          reloadUnits()
-          notification.success({ message: 'Đã xóa Unit', description: 'Dữ liệu đã được cập nhật.' })
+          if (item.layer.id === 'api-units') reloadUnits()
+          reloadData()
+          notification.success({
+            message: `Đã xóa ${target.label}`,
+            description: 'Dữ liệu đã được cập nhật.',
+          })
         } catch (error) {
           notification.error({
-            message: 'Xóa Unit thất bại',
-            description: error instanceof Error ? error.message : 'Không thể xóa Unit.',
+            message: `Xóa ${target.label} thất bại`,
+            description: error instanceof Error ? error.message : `Không thể xóa ${target.label}.`,
           })
         }
       },
@@ -396,54 +458,20 @@ export default function PageOutdoor() {
         />
       </aside>
 
-      {/* MODAL IMPORT GEOJSON */}
-      <Modal
-        title="Thêm dữ liệu từ GeoJSON"
+      {/* MODAL NHẬP DỮ LIỆU TỪ GEOJSON */}
+      <ImportGeoJsonModal
         open={importModalOpen}
-        onCancel={() => !isImporting && setImportModalOpen(false)}
-        onOk={confirmImport}
-        okText={isImporting ? 'Đang xử lý...' : 'Bắt đầu thêm dữ liệu'}
-        cancelText="Hủy"
-        confirmLoading={isImporting}
-        closable={!isImporting}
-        maskClosable={!isImporting}
-        centered
-      >
-        <div className="space-y-3">
-          <label className="block text-sm font-semibold text-slate-700">
-            Bảng lưu dữ liệu
-            <select
-              value={selectedTable}
-              onChange={(event) => setSelectedTable(event.target.value)}
-              disabled={isImporting}
-              className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-            >
-              <option value="anchor">Anchor - Điểm neo</option>
-              <option value="amenity">Amenity - Tiện ích</option>
-              <option value="unit">Unit - Phòng</option>
-              <option value="level">Level - Tầng</option>
-            </select>
-            <span className="mt-1 block text-xs font-normal text-slate-500">
-              File GeoJSON sẽ được chuyển thành bản ghi trong bảng `unit`.
-            </span>
-          </label>
-          <p className="text-sm text-slate-600">
-            File: <strong>{importFileName}</strong>
-          </p>
-          <div className="flex items-center gap-2">
-            <Tag color="blue">{importFeatures.length} geometry mới</Tag>
-            <Tag color={duplicateCount ? 'warning' : 'success'}>
-              {duplicateCount} geometry trùng đã bỏ qua
-            </Tag>
-          </div>
-          {isImporting && (
-            <div>
-              <p className="mb-1 text-sm text-slate-600">Đang lưu dữ liệu vào cơ sở dữ liệu...</p>
-              <Progress percent={importProgress} status="active" />
-            </div>
-          )}
-        </div>
-      </Modal>
+        setOpen={setImportModalOpen}
+        confirmImport={confirmImport}
+        isImporting={isImporting}
+        selectedTable={selectedTable}
+        setSelectedTable={setSelectedTable}
+        importFileName={importFileName}
+        importFeatures={importFeatures}
+        duplicateCount={duplicateCount}
+        importProgress={importProgress}
+        selectedLevelOrdinal={selectedLevelOrdinal}
+      />
 
       {/* MODAL HIỂN THỊ THÔNG TIN CHI TIẾT */}
       <FeatureDetailModal

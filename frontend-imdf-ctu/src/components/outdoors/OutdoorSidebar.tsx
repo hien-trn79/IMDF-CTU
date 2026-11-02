@@ -1,4 +1,13 @@
-import { Building2, ChevronDown, Compass, Layers3, Loader2, Plus, RotateCcw } from 'lucide-react'
+import {
+  Building2,
+  ChevronDown,
+  Compass,
+  Layers3,
+  Loader2,
+  Plus,
+  RotateCcw,
+  UploadCloud,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLayer } from '../../context/LayerContext'
 import { useLevel } from '../../context/LevelContext'
@@ -158,18 +167,6 @@ export default function OutdoorSidebar({
     { value: 'amenities', label: 'Amenity - Tiện ích' },
     { value: 'unit', label: 'Unit - Phòng' },
     { value: 'level', label: 'Level - Tầng' },
-    // ...availableLayers
-    //   .map((layer) => layer.layerName.split(':').pop() ?? layer.layerName)
-    //   .filter(
-    //     (name, index, names) =>
-    //       name &&
-    //       !['anchor', 'amenity', 'unit', 'level'].includes(name) &&
-    //       names.indexOf(name) === index
-    //   )
-    //   .map((name) => ({
-    //     value: name,
-    //     label: `${name.charAt(0).toUpperCase()}${name.slice(1)} - Dữ liệu bản đồ`,
-    //   })),
   ]
 
   return (
@@ -251,7 +248,7 @@ export default function OutdoorSidebar({
         </div>
 
         {/* NUT THEM DU LIEU GEOJSON */}
-        {/* <label className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-sm font-bold text-emerald-700 shadow-sm hover:border-emerald-400 hover:bg-emerald-100">
+        <label className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-sm font-bold text-emerald-700 shadow-sm hover:border-emerald-400 hover:bg-emerald-100">
           <UploadCloud className="h-4 w-4" />
           Thêm dữ liệu GeoJSON
           <input
@@ -260,11 +257,11 @@ export default function OutdoorSidebar({
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0]
-              if (file) onImportGeoJson?.(file)
+              if (file) _onImportGeoJson?.(file)
               event.target.value = ''
             }}
           />
-        </label> */}
+        </label>
 
         {/* NUT PUSHLISH LÊN GEOSERVER */}
         {/* <button

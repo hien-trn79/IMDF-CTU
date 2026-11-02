@@ -44,6 +44,19 @@ export const outdoorTableService = {
     }
     throw new Error(`Bảng ${table} chưa được hỗ trợ.`)
   },
+
+  async delete(table: string, id: string | number, token?: string) {
+    const endpoint = table === 'anchor' ? 'anchors' : table === 'amenity' ? 'amenities' : table
+    if (!['anchors', 'amenities', 'units'].includes(endpoint)) {
+      throw new Error(`Bảng ${table} chưa được hỗ trợ xóa.`)
+    }
+
+    const response = await fetch(`/api/${endpoint}/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(token ?? ''),
+    })
+    if (!response.ok) throw new Error(`Xóa ${table} thất bại (HTTP ${response.status}).`)
+  },
 }
 
 function numberOrNull(value: unknown) {
