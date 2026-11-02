@@ -94,7 +94,6 @@ export default function OutdoorMap({
         </div>
       )}
 
-
       <MapContainer
         center={position}
         minZoom={1}
@@ -113,13 +112,16 @@ export default function OutdoorMap({
         {/* ĐỔI MÀU (HIGHLIGHT) GEOMETRY ĐƯỢC CHỌN */}
         {layerData.map(({ feature, layer }: any, index: number) => {
           const isSelected =
+            selectedFeature?.layer?.id === layer.id &&
             selectedFeature?.feature?.id != null &&
             String(selectedFeature.feature.id) === String(feature.id)
           const color = isSelected
             ? '#f97316'
             : layer.layerName === 'unit'
               ? '#0f766e'
-              : LAYER_COLORS[index % LAYER_COLORS.length]
+              : layer.id === 'api-anchors'
+                ? '#2563eb'
+                : LAYER_COLORS[index % LAYER_COLORS.length]
           const style = isSelected
             ? () => ({
                 color: '#f97316',
