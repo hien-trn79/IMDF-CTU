@@ -51,13 +51,12 @@ export default function IndoorSideBar({
 }: IndoorSideBarProps) {
   return (
     <aside className="page-ourdoor-sidebar w-full shrink-0 space-y-4 sm:w-70 lg:w-72.5">
-
       {/* Panel 1: Layer khong gian IMDF */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between border-b border-slate-300 pb-3">
           <span className="flex items-center gap-2 text-sm font-bold text-indigo-700">
             <Layers className="h-4 w-4" />
-            Lop du lieu khong gian
+            Quản lý layer nội tuyến từ GeoServer
           </span>
           <button
             onClick={onRefreshImdfLayers}
@@ -78,13 +77,13 @@ export default function IndoorSideBar({
         {imdfLayersLoading && (
           <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
             <RotateCcw className="h-3.5 w-3.5 animate-spin" />
-            Dang tai danh sach layer...
+            Đang tải danh sách layer từ GeoServer...
           </div>
         )}
 
         {!imdfLayersLoading && imdfLayers.length === 0 && !imdfLayersError && (
           <p className="py-3 text-center text-xs text-slate-400">
-            Chua co layer nao duoc xuat ban
+            Chưa có layer nào được xuất bản từ GeoServer
           </p>
         )}
 
@@ -102,7 +101,7 @@ export default function IndoorSideBar({
         )}
 
         <p className="mt-2 px-1 text-[10px] text-slate-400">
-          Chon checkbox de bat/tat layer tren ban do.
+          Chọn checkbox để hiển thị hoặc ẩn các layer nội tuyến từ GeoServer.
           {imdfLayers.length > 0 && ` Tong: ${imdfLayers.length} layer.`}
         </p>
       </section>
@@ -111,8 +110,8 @@ export default function IndoorSideBar({
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between border-b border-slate-300 pb-3 text-sm font-bold text-blue-700">
           <span className="flex items-center gap-2">
-            <Waypoints className="h-4 w-4 fill-slate-300 text-slate-300" />
-            Topology (Topo mang)
+            <Waypoints className="h-4 w-4 fill-slate-300 text-blue-700" />
+            Topology (Đồ thị đường đi)
           </span>
         </div>
 
@@ -122,13 +121,13 @@ export default function IndoorSideBar({
             disabled={isLoading}
             className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-500 hover:border-blue-300 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60"
           >
-            <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Lam moi
+            <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Làm mới
           </button>
           <button
             onClick={() => setIsOpenAddIndoor(true)}
             className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-xs font-bold text-white hover:bg-emerald-600"
           >
-            <Plus className="h-4 w-4" /> Them doi tuong
+            <Plus className="h-4 w-4" /> Thêm đối tượng
           </button>
         </div>
 
@@ -138,8 +137,8 @@ export default function IndoorSideBar({
             disabled={isLoading}
             onChange={onToggleGridLine}
             color={GRID_LINE_COLOR}
-            label="Duong luoi (Grid lines)"
-            count={isLoading ? 'Dang tai...' : String(gridLineCount)}
+            label="Đồ thị đường đi (PreTopology)"
+            count={isLoading ? 'Đang tải...' : String(gridLineCount)}
             visible={isGridLineVisible}
           />
           <LayerRow
@@ -147,7 +146,7 @@ export default function IndoorSideBar({
             disabled={isLoading}
             onChange={onToggleNode}
             color="#dc2626"
-            label="Nodes (Dinh)"
+            label="Đỉnh (Nodes)"
             count={isLoading ? '...' : String(nodeCount)}
             visible={isNodeVisible}
             dot
@@ -157,7 +156,7 @@ export default function IndoorSideBar({
             disabled={isLoading}
             onChange={onToggleEdge}
             color="#7c3aed"
-            label="Edges (Canh)"
+            label="Cạnh (Edges)"
             count={isLoading ? '...' : String(edgeCount)}
             visible={isEdgeVisible}
           />
@@ -165,7 +164,7 @@ export default function IndoorSideBar({
 
         {error && (
           <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-2 text-[11px] text-red-600">
-            Khong doc duoc danh sach grid line: {error}
+            Không đọc được danh sách từ preTopology Table: {error}
           </p>
         )}
       </section>
@@ -198,11 +197,17 @@ function ImdfLayerRow({ layer, checked, onChange }: ImdfLayerRowProps) {
           className="h-4 w-4 accent-indigo-600"
         />
         {isPolygon ? (
-          <Square className={`h-3.5 w-3.5 shrink-0 ${checked ? 'text-indigo-600' : 'text-slate-400'}`} />
+          <Square
+            className={`h-3.5 w-3.5 shrink-0 ${checked ? 'text-indigo-600' : 'text-slate-400'}`}
+          />
         ) : isLine ? (
-          <Database className={`h-3.5 w-3.5 shrink-0 ${checked ? 'text-indigo-600' : 'text-slate-400'}`} />
+          <Database
+            className={`h-3.5 w-3.5 shrink-0 ${checked ? 'text-indigo-600' : 'text-slate-400'}`}
+          />
         ) : (
-          <Layers className={`h-3.5 w-3.5 shrink-0 ${checked ? 'text-indigo-600' : 'text-slate-400'}`} />
+          <Layers
+            className={`h-3.5 w-3.5 shrink-0 ${checked ? 'text-indigo-600' : 'text-slate-400'}`}
+          />
         )}
         <span className="truncate text-xs font-medium text-slate-700">
           {layer.displayName || layer.layerName}
@@ -246,7 +251,16 @@ interface LayerRowProps {
   dot?: boolean
 }
 
-function LayerRow({ checked, disabled, onChange, color, label, count, visible, dot }: LayerRowProps) {
+function LayerRow({
+  checked,
+  disabled,
+  onChange,
+  color,
+  label,
+  count,
+  visible,
+  dot,
+}: LayerRowProps) {
   return (
     <label
       className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border-l-4 px-3 py-3 shadow-sm transition ${

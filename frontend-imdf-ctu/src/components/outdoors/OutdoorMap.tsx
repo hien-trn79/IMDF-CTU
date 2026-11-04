@@ -10,6 +10,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import CustomModal from '../map/CustomModal'
 import MapController from '../map/MapController'
+import OutdoorDrawingLayer from './OutdoorDrawingLayer'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -24,6 +25,11 @@ interface OutdoorMapProps {
   features: any[]
   isLoading?: boolean
   onFeatureClick?: (feature: any) => void
+  drawing: boolean
+  snapEnabled: boolean
+  coordinates: [number, number][]
+  onCoordinatesChange: (coordinates: [number, number][]) => void
+  pointMode: boolean
 }
 
 export default function OutdoorMap({
@@ -32,6 +38,11 @@ export default function OutdoorMap({
   features,
   isLoading = false,
   onFeatureClick,
+  drawing,
+  snapEnabled,
+  coordinates,
+  onCoordinatesChange,
+  pointMode,
 }: OutdoorMapProps) {
   const position: [number, number] = [10.03031, 105.76843]
 
@@ -145,6 +156,14 @@ export default function OutdoorMap({
             />
           )
         })}
+        <OutdoorDrawingLayer
+          drawing={drawing}
+          snapEnabled={snapEnabled}
+          coordinates={coordinates}
+          features={features}
+          onCoordinatesChange={onCoordinatesChange}
+          pointMode={pointMode}
+        />
 
         {selectedBuilding && isOpenModal && (
           <CustomModal

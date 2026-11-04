@@ -1,7 +1,8 @@
 import { Modal } from 'antd'
 import { useEffect, useState } from 'react'
 import type { OutdoorFeatureItem } from './OutdoorTable'
-import { unitService, type UnitRequestPayload } from '../../services/unitService'
+import type { UnitRequestPayload } from '../../model/imdf models/Unit.model'
+import { unitService } from '../../services/unitService'
 
 interface UnitEditModalProps {
   open: boolean

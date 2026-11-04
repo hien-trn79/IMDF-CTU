@@ -81,14 +81,13 @@ export function useOutdoorFeatures(
   ])
 
   const features = useMemo(() => {
-    const unitFeatures =
-      selectedTables.includes('unit')
-        ? (unitGeoJson?.features ?? []).map((feature, index) => ({
-            feature,
-            layer: { id: 'api-units', layerName: 'unit' },
-            index,
-          }))
-        : []
+    const unitFeatures = selectedTables.includes('unit')
+      ? (unitGeoJson?.features ?? []).map((feature, index) => ({
+          feature,
+          layer: { id: 'api-units', layerName: 'unit' },
+          index,
+        }))
+      : []
     return [...unitFeatures, ...tableFeatures]
   }, [selectedTables, tableFeatures, unitGeoJson])
 
@@ -99,7 +98,8 @@ function toGeoJsonFeature(table: string, row: any) {
   if (row?.type === 'Feature' && row.geometry) {
     return { ...row, id: String(row.id), properties: row.properties ?? {} }
   }
-  const geometry = table === 'amenity' || table === 'amenities' ? parseWktPoint(row.geometry) : row.geometry
+  const geometry =
+    table === 'amenity' || table === 'amenities' ? parseWktPoint(row.geometry) : row.geometry
   return {
     type: 'Feature',
     id: String(row.id),
@@ -127,9 +127,11 @@ function belongsToSelectedLevel(
     row?.levelId,
     row?.level,
     row?.level_id,
+    row?.ordinal,
     properties?.levelId,
     properties?.level,
     properties?.level_id,
+    properties?.ordinal,
   ]
     .filter((value) => value !== undefined && value !== null)
     .map(String)
@@ -137,7 +139,9 @@ function belongsToSelectedLevel(
     candidates.includes(String(selectedLevelId)) ||
     (selectedLevelOrdinal !== undefined && candidates.includes(String(selectedLevelOrdinal))) ||
     String(row?.id) === String(selectedLevelId) ||
-    (selectedLevelGeometry != null && geometryIsInside(row?.geometry, selectedLevelGeometry))
+    (candidates.length === 0 &&
+      selectedLevelGeometry != null &&
+      geometryIsInside(row?.geometry, selectedLevelGeometry))
   )
 }
 

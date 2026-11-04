@@ -68,7 +68,7 @@ public class Amenity implements GeoJson {
     private Feature feature;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "unit_id", referencedColumnName = "id")
+    @JoinColumn(name = "unit_id", referencedColumnName = "id", nullable = true)
     private Unit unit;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -88,8 +88,8 @@ public class Amenity implements GeoJson {
         props.put("featureType", this.feature.getFeatureType());
         props.put("amenityCateId", this.amenityCategory.getId());
         props.put("amenityCateName", this.amenityCategory.getAmenityCategoryName());
-        props.put("unitId", this.unit.getUnitId());
-        props.put("unitName", this.unit.getUnitName());
+        props.put("unitId", this.unit != null ? this.unit.getUnitId() : null);
+        props.put("unitName", this.unit != null ? this.unit.getUnitName() : null);
         props.put("ordinal", this.level.getOrdinal());
         props.put("createAt", this.createAt);
 

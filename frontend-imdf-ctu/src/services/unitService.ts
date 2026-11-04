@@ -1,14 +1,5 @@
+import type { UnitRequestPayload } from '../model/imdf models/Unit.model'
 import { authHeaders } from './authHeaders'
-
-export interface UnitRequestPayload {
-  unitName: string
-  geometry: GeoJSON.Geometry
-  displayPoint: GeoJSON.Geometry
-  featureId: number | null
-  levelId: number
-  unitCategoryId: number
-  restrictionCategoryId: number
-}
 
 const toJson = (value: string, fieldName: string): GeoJSON.Geometry => {
   try {

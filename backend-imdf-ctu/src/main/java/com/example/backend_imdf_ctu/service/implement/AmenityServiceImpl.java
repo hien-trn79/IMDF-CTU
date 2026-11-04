@@ -49,7 +49,9 @@ public class AmenityServiceImpl implements AmenityService {
             featureRepository.save(feature);
         }
 
-        Unit unit = unitRepository.findById(request.getUnitId())
+        Unit unit;
+        if (request.getUnitId() == null) unit = null;
+        else unit = unitRepository.findById(request.getUnitId())
                 .orElseThrow(() -> new RuntimeException("Unit not found"));
 
         Amenity entity = mapper.toEntity(
@@ -88,7 +90,9 @@ public class AmenityServiceImpl implements AmenityService {
             featureRepository.save(feature);
         }
 
-        Unit unit = unitRepository.findById(request.getUnitId())
+        Unit unit;
+        if(request.getUnitId() == null) unit = null;
+        else unit = unitRepository.findById(request.getUnitId())
                 .orElseThrow(() -> new RuntimeException("Unit not found"));
 
         Level level = levelRepository.findById(request.getLevelId())

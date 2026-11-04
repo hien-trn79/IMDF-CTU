@@ -24,7 +24,7 @@ export const outdoorTableService = {
         levelCategoryId: Number(properties.levelCategoryId ?? 1),
       }, token)
     }
-    if (table === 'anchor') {
+    if (table === 'anchor' || table === 'anchors') {
       return post(table, {
         anchorName: String(properties.anchorName ?? properties.name ?? `Anchor ${Date.now()}`),
         geometry,
@@ -32,14 +32,17 @@ export const outdoorTableService = {
         unitId: numberOrNull(properties.unitId),
       }, token)
     }
-    if (table === 'amenity') {
+    if (table === 'amenity' || table === 'amenities') {
       return post(table, {
-        geometry: toWkt(geometry),
+        amenityName: String(properties.amenityName ?? properties.name ?? `Amenity ${Date.now()}`),
+        geometry,
         phone: String(properties.phone ?? ''),
         website: String(properties.website ?? ''),
         hours: properties.hours ?? null,
         amenityCategoryId: Number(properties.amenityCategoryId ?? 1),
         featureId: numberOrNull(properties.featureId),
+        unitId: numberOrNull(properties.unitId),
+        levelId: _levelId,
       }, token)
     }
     throw new Error(`Bảng ${table} chưa được hỗ trợ.`)
@@ -79,13 +82,4 @@ function findPoint(value: any): [number, number] | null {
     if (point) return point
   }
   return null
-}
-
-function toWkt(geometry: any): string {
-  const type = String(geometry?.type ?? '').toUpperCase()
-  const coordinates = geometry?.coordinates
-  if (type === 'POINT') return `POINT (${coordinates[0]} ${coordinates[1]})`
-  if (type === 'LINESTRING') return `LINESTRING (${coordinates.map((p: any) => `${p[0]} ${p[1]}`).join(', ')})`
-  if (type === 'POLYGON') return `POLYGON (${coordinates.map((ring: any) => `(${ring.map((p: any) => `${p[0]} ${p[1]}`).join(', ')})`).join(', ')})`
-  throw new Error('Amenity chỉ hỗ trợ Point, LineString hoặc Polygon.')
 }
