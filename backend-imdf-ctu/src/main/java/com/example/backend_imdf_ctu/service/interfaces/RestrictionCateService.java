@@ -10,4 +10,6 @@ public interface RestrictionCateService {
     RestrictionCateResponse create(RestrictionCateRequest request);
 
     RestrictionCateResponse getById(Integer id);
+
+    List<RestrictionCateResponse> getAll();
 }

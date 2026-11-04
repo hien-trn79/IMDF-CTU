@@ -18,7 +18,7 @@ const API_BASE = 'http://localhost:8081/api' // nên chuyển sang import.meta.e
 
 interface OutdoorSidebarProps {
   objectCount: number
-  onCreate: () => void
+  setIsOpenAddModal: (isOpen: boolean) => void
   selectedBuildingId: number
   setSelectedBuildingId: (id: number) => void
   levels: LevelGeoJson['features'] | []
@@ -35,7 +35,7 @@ interface OutdoorSidebarProps {
 
 export default function OutdoorSidebar({
   objectCount: _objectCount,
-  onCreate,
+  setIsOpenAddModal,
   selectedBuildingId,
   setSelectedBuildingId,
   levels,
@@ -238,7 +238,7 @@ export default function OutdoorSidebar({
             Làm mới
           </button>
           <button
-            onClick={onCreate}
+            onClick={() => setIsOpenAddModal(true)}
             title="Thêm feature mới lên tầng đang chọn"
             className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/30 transition hover:bg-blue-700 active:scale-[0.98]"
           >

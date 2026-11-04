@@ -9,12 +9,22 @@ import com.example.backend_imdf_ctu.service.interfaces.RestrictionCateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class RestrictionCateServiceImpl implements RestrictionCateService {
 
     private final RestrictionCateRepository repository;
     private final RestrictionCateMapper mapper;
+
+    @Override
+    public List<RestrictionCateResponse> getAll() {
+        return repository.findAll()
+                .stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
 
     @Override
     public RestrictionCateResponse create(RestrictionCateRequest request) {

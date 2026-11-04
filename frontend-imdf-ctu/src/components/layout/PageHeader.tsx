@@ -20,12 +20,6 @@ import type { DestinationItem } from '../../model/Navigation.model'
 export default function PageHeader() {
   const NAV_LINKS = [
     {
-      label: 'Indoors',
-      to: '/indoors',
-      icon: (<Building2 className="w-4 h-4" />) as ReactNode,
-      role: ['ADMIN'],
-    },
-    {
       label: 'Route',
       to: '/route',
       icon: (<Route className="w-4 h-4" />) as ReactNode,

@@ -1,7 +1,6 @@
 import './App.css'
 import Page from './components/layout/Page'
 import PageSignIn from './components/account/PageSignIn'
-import PageIndoorManagement from './components/indoor-management/PageIndoorManagement'
 import PageIndoors from './components/indoors/PageIndoors'
 import PageMap from './components/map/PageMap'
 import PageOutdoor from './components/outdoors/PageOutdoor'
@@ -21,7 +20,6 @@ function App() {
             <Route path="map" element={<PageMap />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
-                <Route path="indoors" element={<PageIndoorManagement />} />
                 <Route path="outdoor" element={<PageOutdoor />} />
                 <Route path="route" element={<PageIndoors />} />
               </Route>

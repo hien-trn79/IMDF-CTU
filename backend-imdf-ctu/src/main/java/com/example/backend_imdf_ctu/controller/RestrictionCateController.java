@@ -6,6 +6,8 @@ import com.example.backend_imdf_ctu.service.interfaces.RestrictionCateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/restriction-categories")
 @CrossOrigin
@@ -13,6 +15,12 @@ import org.springframework.web.bind.annotation.*;
 public class RestrictionCateController {
 
     private final RestrictionCateService service;
+
+    // [GET] /restriction-categories
+    @GetMapping
+    public List<RestrictionCateResponse> getAll() {
+        return service.getAll();
+    }
 
     // [GET] /restriction-categories/{id}
     @GetMapping("/{id}")

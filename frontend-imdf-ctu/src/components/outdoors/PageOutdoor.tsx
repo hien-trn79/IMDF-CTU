@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ComponentType,
+} from 'react'
 import { Modal, notification } from 'antd'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import OutdoorMap from './OutdoorMap'
@@ -18,6 +25,11 @@ import ImportGeoJsonModal from './ImportGeoJsonModal'
 import type { AnchorRequestPayload } from '../../model/IndoorRoute.model'
 import { authHeaders } from '../../services/authHeaders'
 import { outdoorTableService } from '../../services/outdoorTableService'
+import ModalAddOutdoor from './ModalAddOutdoor'
+
+const ModalAddOutdoorComponent = ModalAddOutdoor as unknown as ComponentType<
+  Parameters<typeof ModalAddOutdoor>[0]
+>
 
 export default function PageOutdoor() {
   const [objectCount, setObjectCount] = useState(0)
@@ -114,11 +126,6 @@ export default function PageOutdoor() {
     } catch (error) {
       console.error('Không thể bật/tắt toàn màn hình:', error)
     }
-  }
-
-  const handleCreate = () => {
-    // Creation flow will be connected here when the feature form is available.
-    console.info('Tạo đối tượng outdoor mới')
   }
 
   // Callback khi người dùng click vào row hoặc nút "Xem trên bản đồ" ở Table
@@ -385,6 +392,13 @@ export default function PageOutdoor() {
   // Khoảng đệm quanh bản đồ: 8px ở chế độ thường, 0 khi fullscreen
   const inset = isMapFullscreen ? 0 : 8
 
+  // CHỨC NĂNG VẼ & THÊM ĐỐI TƯỢNG
+  // Quan ly state
+  const [isOpenAddModal, setIsOpenAddModal] = useState(false)
+  const [drawing, setDrawing] = useState(false)
+  const [snapEnabled, setSnapEnabled] = useState(true)
+  const [drawCoordinates, setDrawCoordinates] = useState<[number, number][]>([])
+
   return (
     <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-5 px-2">
       {/* OUTDOOR MAIN MAP + BẢNG NỔI */}
@@ -408,6 +422,11 @@ export default function PageOutdoor() {
             selectedFeature={selectedFeature}
             features={features}
             isLoading={isLoading}
+            drawing={drawing}
+            snapEnabled={snapEnabled}
+            pointMode={selectedTable === 'anchors' || selectedTable === 'amenities'}
+            coordinates={drawCoordinates}
+            onCoordinatesChange={setDrawCoordinates}
           />
 
           {/* Nút mở rộng bản đồ, nằm ngay dưới nút zoom +/- của Leaflet */}
@@ -445,7 +464,11 @@ export default function PageOutdoor() {
       <aside className="outdoor_aside_map min-w-0 overflow-y-auto lg:col-span-1 lg:max-h-[min(85vh,720px)] justify-items-center">
         <OutdoorSidebar
           objectCount={objectCount}
-          onCreate={handleCreate}
+          setIsOpenAddModal={(open) => {
+            setIsOpenAddModal(open)
+            setDrawing(false)
+            setDrawCoordinates([])
+          }}
           selectedBuildingId={selectedBuilding}
           setSelectedBuildingId={setSelectedBuilding}
           levels={levelsOfBuilding}
@@ -529,6 +552,28 @@ export default function PageOutdoor() {
         onSaved={() => {
           reloadData()
           notification.success({ message: 'Cập nhật Level thành công' })
+        }}
+      />
+
+      {/* MODAL VE THEM DOI TUONG */}
+      <ModalAddOutdoorComponent
+        onClose={() => {
+          setIsOpenAddModal(false)
+          setDrawing(false)
+          setDrawCoordinates([])
+        }}
+        isOpen={isOpenAddModal}
+        coordinates={drawCoordinates}
+        drawing={drawing}
+        snapEnabled={snapEnabled}
+        onDrawingChange={setDrawing}
+        onClearCoordinates={() => setDrawCoordinates([])}
+        onSnapChange={setSnapEnabled}
+        onCreated={() => {
+          setIsOpenAddModal(false)
+          setDrawCoordinates([])
+          reloadUnits()
+          reloadData()
         }}
       />
     </div>

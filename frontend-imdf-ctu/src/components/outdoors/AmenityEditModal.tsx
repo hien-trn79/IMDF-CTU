@@ -80,7 +80,9 @@ export default function AmenityEditModal({
         setCategoryOptions((await categoryResponse.json()) as AmenityCategoryOption[])
       } catch (loadError) {
         if ((loadError as Error).name !== 'AbortError') {
-          setError(loadError instanceof Error ? loadError.message : 'Không tải được dữ liệu lựa chọn.')
+          setError(
+            loadError instanceof Error ? loadError.message : 'Không tải được dữ liệu lựa chọn.'
+          )
         }
       }
     }
@@ -112,7 +114,7 @@ export default function AmenityEditModal({
     if (!item) return
     setError(null)
     if (!data.amenityName.trim()) return setError('Tên Amenity không được để trống.')
-    if (!data.featureId || !data.unitId || !data.levelId || !data.amenityCategoryId) {
+    if (!data.featureId || !data.levelId || !data.amenityCategoryId) {
       return setError('Vui lòng nhập đầy đủ Feature, Unit, Level và Category ID.')
     }
     setSaving(true)
@@ -137,53 +139,89 @@ export default function AmenityEditModal({
   }
 
   return (
-    <Modal title={`Chỉnh sửa Amenity (ID: ${item?.feature.id ?? '—'})`} open={open}
-      onCancel={onClose} onOk={handleSave} confirmLoading={saving} okText="Lưu" width={720}>
+    <Modal
+      title={`Chỉnh sửa Amenity (ID: ${item?.feature.id ?? '—'})`}
+      open={open}
+      onCancel={onClose}
+      onOk={handleSave}
+      confirmLoading={saving}
+      okText="Lưu"
+      width={720}
+    >
       <div className="space-y-3 text-xs">
-        <label className="block font-semibold">Tên Amenity
-          <input value={data.amenityName} onChange={(e) => update('amenityName', e.target.value)}
-            className="mt-1 w-full rounded border p-2" />
+        <label className="block font-semibold">
+          Tên Amenity
+          <input
+            value={data.amenityName}
+            onChange={(e) => update('amenityName', e.target.value)}
+            className="mt-1 w-full rounded border p-2"
+          />
         </label>
         <div className="grid grid-cols-2 gap-2">
           {(['phone', 'website'] as const).map((key) => (
-            <label key={key} className="font-semibold">{key}
-              <input value={data[key]} onChange={(e) => update(key, e.target.value)}
-                className="mt-1 w-full rounded border p-2" />
+            <label key={key} className="font-semibold">
+              {key}
+              <input
+                value={data[key]}
+                onChange={(e) => update(key, e.target.value)}
+                className="mt-1 w-full rounded border p-2"
+              />
             </label>
           ))}
         </div>
-        <label className="block font-semibold">Feature Type
-          <select value={data.featureId || ''} onChange={(e) => update('featureId', Number(e.target.value))}
-            className="mt-1 w-full rounded border bg-white p-2">
+        <label className="block font-semibold">
+          Feature Type
+          <select
+            value={data.featureId || ''}
+            onChange={(e) => update('featureId', Number(e.target.value))}
+            className="mt-1 w-full rounded border bg-white p-2"
+          >
             <option value="">Chọn Feature</option>
-            {featureOptions.map((feature) => <option key={feature.id} value={feature.id}>
-              {feature.id} - {feature.featureType}
-            </option>)}
+            {featureOptions.map((feature) => (
+              <option key={feature.id} value={feature.id}>
+                {feature.id} - {feature.featureType}
+              </option>
+            ))}
           </select>
         </label>
         <div className="grid grid-cols-3 gap-2">
-          <label className="font-semibold">Unit
-            <select value={data.unitId || ''} onChange={(e) => update('unitId', Number(e.target.value))}
-              className="mt-1 w-full rounded border bg-white p-2">
+          <label className="font-semibold">
+            Unit
+            <select
+              value={data.unitId || ''}
+              onChange={(e) => update('unitId', Number(e.target.value))}
+              className="mt-1 w-full rounded border bg-white p-2"
+            >
               <option value="">Chọn Unit</option>
-              {units.map((unit) => <option key={unit.id} value={unit.id}>
-                {unit.id} - {unit.properties.unitName}
-              </option>)}
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.id} - {unit.properties.unitName}
+                </option>
+              ))}
             </select>
           </label>
-          <label className="font-semibold">Level
-            <select value={data.levelId || ''} onChange={(e) => update('levelId', Number(e.target.value))}
-              className="mt-1 w-full rounded border bg-white p-2">
+          <label className="font-semibold">
+            Level
+            <select
+              value={data.levelId || ''}
+              onChange={(e) => update('levelId', Number(e.target.value))}
+              className="mt-1 w-full rounded border bg-white p-2"
+            >
               <option value="">Chọn tầng</option>
-              {levels.map((level) => <option key={level.id} value={level.id}>
-                {level.id} - Tầng {level.properties.ordinal}
-              </option>)}
+              {levels.map((level) => (
+                <option key={level.id} value={level.id}>
+                  {level.id} - Tầng {level.properties.ordinal}
+                </option>
+              ))}
             </select>
           </label>
-          <label className="font-semibold">Amenity category
-            <select value={data.amenityCategoryId || ''}
+          <label className="font-semibold">
+            Amenity category
+            <select
+              value={data.amenityCategoryId || ''}
               onChange={(e) => update('amenityCategoryId', Number(e.target.value))}
-              className="mt-1 w-full rounded border bg-white p-2">
+              className="mt-1 w-full rounded border bg-white p-2"
+            >
               <option value="">Chọn category</option>
               {categoryOptions.map((category) => (
                 <option key={category.amenityCateId} value={category.amenityCateId}>
@@ -193,11 +231,18 @@ export default function AmenityEditModal({
             </select>
           </label>
         </div>
-        <label className="block font-semibold">Geometry (GeoJSON)
-          <textarea value={geometryText} onChange={(e) => setGeometryText(e.target.value)}
-            rows={5} className="mt-1 w-full rounded border p-2 font-mono text-[11px]" />
+        <label className="block font-semibold">
+          Geometry (GeoJSON)
+          <textarea
+            value={geometryText}
+            onChange={(e) => setGeometryText(e.target.value)}
+            rows={5}
+            className="mt-1 w-full rounded border p-2 font-mono text-[11px]"
+          />
         </label>
-        {error && <p className="rounded border border-rose-200 bg-rose-50 p-2 text-rose-600">{error}</p>}
+        {error && (
+          <p className="rounded border border-rose-200 bg-rose-50 p-2 text-rose-600">{error}</p>
+        )}
       </div>
     </Modal>
   )
