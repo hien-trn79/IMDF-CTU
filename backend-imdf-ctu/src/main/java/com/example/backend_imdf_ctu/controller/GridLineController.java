@@ -1,9 +1,13 @@
 package com.example.backend_imdf_ctu.controller;
 
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeature;
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeatureCollection;
 import com.example.backend_imdf_ctu.dto.request.GridLineRequest;
-import com.example.backend_imdf_ctu.dto.response.GridLineResponse;
+import com.example.backend_imdf_ctu.entity.GridLine;
+import com.example.backend_imdf_ctu.mapper.GenericGeoJsonMapper;
 import com.example.backend_imdf_ctu.service.interfaces.GridLineService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,43 +19,39 @@ import java.util.List;
 public class GridLineController {
 
     private final GridLineService service;
+    private final GenericGeoJsonMapper geoJsonMapper;
 
     // [GET] /grid-lines
     @GetMapping
-    public List<GridLineResponse> getAll() {
-        return service.getAll();
-    }
+    public ResponseEntity<GeoJsonFeatureCollection> getAll(
+        @RequestParam (name = "levelId") Integer levelId
+    ) {
+        List<GridLine> gridLines = service.getAll(levelId);
 
-    // [GET] /grid-lines/{gridLineId}
-    @GetMapping("/{gridLineId}")
-    public GridLineResponse getById(@PathVariable Integer gridLineId) {
-        return service.getById(gridLineId);
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(gridLines));
     }
 
     // [POST] /grid-lines
     @PostMapping
-    public GridLineResponse create(@RequestBody GridLineRequest request) {
-        return service.create(request);
-    }
+    public ResponseEntity<GeoJsonFeature> create(
+        @RequestBody GridLineRequest request
+    ) {
+        GridLine gridLine = service.create(request);
 
-    // add list of grid lines
-    @PostMapping("/batch")
-    public Integer createBatch(@RequestBody List<GridLineRequest> requests) {
-        return requests.stream()
-            .map(service::create)
-            .toList()
-            .size();
+        return ResponseEntity.ok(geoJsonMapper.toFeature(gridLine));
     }
-
 
     // [PUT] /grid-lines/{gridLineId}
     @PutMapping("/{gridLineId}")
-    public GridLineResponse update(
+    public ResponseEntity<GeoJsonFeature> update(
         @PathVariable Integer gridLineId,
         @RequestBody GridLineRequest request
     ) {
-        return service.update(gridLineId, request);
+        GridLine gridLine = service.update(gridLineId, request);
+
+        return ResponseEntity.ok(geoJsonMapper.toFeature(gridLine));
     }
+
 
     // [DELETE] /grid-lines/{gridLineId}
     @DeleteMapping("/{gridLineId}")

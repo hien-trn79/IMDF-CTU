@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -67,8 +68,7 @@ public class VenueServiceImpl implements VenueService {
 
     @Override
     @Transactional
-    public VenueResponse create(VenueRequest request) {
-
+    public Venue create(VenueRequest request) {
         RestrictionCategory restrictionCategory = restrictionCateRepository.findById(request.getRestrictionCategoryId())
             .orElseThrow(() -> new BusinessException(ErrorCode.RESTRICTION_CATEGORY_NOT_FOUND, "Không tìm thấy RestrictionCategory với id = " + request.getRestrictionCategoryId()));
 
@@ -96,103 +96,73 @@ public class VenueServiceImpl implements VenueService {
             venueCategory,
             address,
             restrictionCategory
-        );   // chỉ map thuộc tính thường
-        applyRelations(
-            venue,
-            request.getVenueCategoryId(),
-            request.getAddressId()
         );
-        applyGeometry(venue, request.getGeometry(), request.getDisplayPoint());
 
-        Venue saved = venueRepository.saveAndFlush(venue);
-        historyRecorder.record(EntityType.VENUE, saved.getId(), HistoryAction.CREATE,
-            null, snapshot(saved, false));
-        return venueMapper.toResponse(saved);
+        return venueRepository.save(venue);
     }
 
     @Override
-    public VenueResponse getById(Integer id) {
-        return venueMapper.toResponse(findOrThrow(id));
+    public Venue getById(Integer id) {
+        return venueRepository.findById(id)
+            .orElseThrow(() -> new BusinessException(ErrorCode.VENUE_NOT_FOUND, "Không tìm thấy Venue với id = " + id));
     }
 
     @Override
-    public Page<VenueResponse> list(Pageable pageable) {
-        return venueRepository.findAll(pageable).map(venueMapper::toResponse);
+    public List<Venue> getAll() {
+        return venueRepository.findAll()
+            .stream()
+            .toList();
     }
 
     @Override
     @Transactional
-    public VenueResponse update(Integer id, VenueRequest request) {
+    public Venue update(Integer id, VenueRequest request) {
         Venue venue = venueRepository.findById(id)
             .orElseThrow(() -> new BusinessException(ErrorCode.VENUE_NOT_FOUND, "Không tìm thấy Venue với id = " + id));
-        Map<String, Object> before = snapshot(venue, false);
-        MultiPolygon oldGeom = venue.getGeometry();
 
-        venueMapper.updateScalars(request, venue);
-        applyRelations(venue, request.getVenueCategoryId(), request.getAddressId());
-        applyGeometry(venue, request.getGeometry(), request.getDisplayPoint());
+        RestrictionCategory restrictionCategory = restrictionCateRepository.findById(request.getRestrictionCategoryId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESTRICTION_CATEGORY_NOT_FOUND, "Không tìm thấy RestrictionCategory với id = " + request.getRestrictionCategoryId()));
 
-        boolean geomChanged = oldGeom == null || !oldGeom.equalsExact(venue.getGeometry(), 1e-9);
-        venueRepository.flush();
-        historyRecorder.record(EntityType.VENUE, id, HistoryAction.UPDATE,
-            before, snapshot(venue, geomChanged));
-        return venueMapper.toResponse(venue);
+        Feature feature;
+        if (request.getFeatureId() != null) {
+            feature = featureRepository.findById(request.getFeatureId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.FEATURE_NOT_FOUND, "Không tìm thấy Feature với id = " + request.getFeatureId()));
+        } else {
+            // Tự động tạo Feature mới nếu không có featureId
+            feature = new Feature();
+            feature.setFeatureId(java.util.UUID.randomUUID());
+            feature.setFeatureType("venue");
+            feature = featureRepository.save(feature);
+        }
+
+        VenueCategory venueCategory = categoryRepository.findById(request.getVenueCategoryId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.VENUE_CATEGORY_NOT_FOUND, "Không tìm thấy VenueCategory với id = " + request.getVenueCategoryId()));
+
+        Address address = addressRepository.findById(request.getAddressId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.ADDRESS_NOT_FOUND, "Không tìm thấy Address với id = " + request.getAddressId()));
+
+
+        venueMapper.updateScalars(
+            request,
+            venue,
+            feature,
+            venueCategory,
+            address,
+            restrictionCategory
+        );
+
+        return venueRepository.save(venue);
     }
 
     @Override
     @Transactional
     public void delete(Integer id) {
-        Venue venue = findOrThrow(id);
-        Map<String, Object> before = snapshot(venue, false);
-        venueRepository.delete(venue);
-        venueRepository.flush();   // lỗi khóa ngoại lộ ra tại đây, trước khi ghi lịch sử
-        historyRecorder.record(EntityType.VENUE, id, HistoryAction.DELETE, before, null);
-    }
-
-    // ---------- private ----------
-
-    private Venue findOrThrow(Integer id) {
-        return venueRepository.findById(id)
+        Venue venue = venueRepository.findById(id)
             .orElseThrow(() -> new BusinessException(ErrorCode.VENUE_NOT_FOUND, "Không tìm thấy Venue với id = " + id));
+
+        // Xóa Venue
+        venueRepository.delete(venue);
     }
 
-    private void applyRelations(Venue venue, Integer categoryId, Integer addressId) {
-        venue.setVenueCategory(categoryRepository.findById(categoryId)
-            .orElseThrow(() -> new BusinessException(ErrorCode.VENUE_CATEGORY_NOT_FOUND, "Không tìm thấy VenueCategory với id = " + categoryId)));
-        venue.setAddress(addressRepository.findById(addressId)
-            .orElseThrow(() -> new BusinessException(ErrorCode.ADDRESS_NOT_FOUND, "Không tìm thấy Address với id = " + addressId)));
-    }
 
-    private void applyGeometry(Venue venue, GeoJsonGeometry geometry, GeoJsonGeometry displayPoint) {
-        MultiPolygon geom = normalizer.normalize(geometryConverter.toJts(geometry));
-        venue.setGeometry(geom);
-
-        Point point;
-        if (displayPoint != null) {
-            Geometry converted = geometryConverter.toJts(displayPoint);
-            if (!(converted instanceof Point p)) {
-                throw new InvalidGeometryException("display_point phải là Point");
-            }
-            if (!geom.covers(p)) {
-                throw new InvalidGeometryException("display_point phải nằm trong hình học của Venue");
-            }
-            point = p;
-        } else {
-            point = geom.getInteriorPoint();   // điểm chắc chắn nằm trong đa giác
-        }
-        point.setSRID(SRID);
-        venue.setDisplayPoint(point);
-    }
-
-    /** Chỉ lưu thuộc tính. Hình học chỉ ghi cờ đã đổi, không lưu tọa độ. */
-    private Map<String, Object> snapshot(Venue v, boolean geomChanged) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("categoryId", v.getVenueCategory().getId());
-        m.put("addressId", v.getAddress().getId());
-        m.put("hours", v.getHours());
-        m.put("phone", v.getPhone());
-        m.put("website", v.getWebsite());
-        if (geomChanged) m.put("geomChanged", true);
-        return m;
-    }
 }

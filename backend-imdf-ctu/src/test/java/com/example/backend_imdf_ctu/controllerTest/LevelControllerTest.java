@@ -2,7 +2,6 @@ package com.example.backend_imdf_ctu.controllerTest;
 
 import com.example.backend_imdf_ctu.controller.LevelController;
 import com.example.backend_imdf_ctu.dto.request.LevelRequest;
-import com.example.backend_imdf_ctu.dto.response.LevelResponse;
 import com.example.backend_imdf_ctu.exception.BusinessException;
 import com.example.backend_imdf_ctu.exception.ErrorCode;
 import com.example.backend_imdf_ctu.repository.UserRepository;

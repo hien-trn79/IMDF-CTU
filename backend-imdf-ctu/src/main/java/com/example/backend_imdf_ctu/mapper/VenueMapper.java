@@ -3,15 +3,20 @@ package com.example.backend_imdf_ctu.mapper;
 import com.example.backend_imdf_ctu.dto.request.VenueRequest;
 import com.example.backend_imdf_ctu.dto.response.VenueResponse;
 import com.example.backend_imdf_ctu.entity.*;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Point;
 import org.springframework.stereotype.Component;
 
 @Component
 public class VenueMapper {
 
     private final GeometryConverter geometryConverter;
+    private final MultiPolygonNormalizer normalizer;
 
-    public VenueMapper(GeometryConverter geometryConverter) {
+    public VenueMapper(GeometryConverter geometryConverter, MultiPolygonNormalizer normalizer) {
         this.geometryConverter = geometryConverter;
+        this.normalizer = normalizer;
     }
 
     public Venue toEntity(
@@ -28,6 +33,8 @@ public class VenueMapper {
         entity.setAddress(address);
         entity.setRestrictionCategory(restrictionCategory); // có thể null
 
+        applyGeometry(request, entity);
+
         entity.setHours(request.getHours());
         entity.setPhone(request.getPhone());
         entity.setWebsite(request.getWebsite());
@@ -35,42 +42,50 @@ public class VenueMapper {
         return entity;
     }
 
-    public VenueResponse toResponse(Venue entity) {
-        VenueResponse response = new VenueResponse();
-
-        response.setId(entity.getId());
-        response.setVenueId(entity.getVenueId() != null ? entity.getVenueId().toString() : null);
-        response.setHours(entity.getHours());
-        response.setPhone(entity.getPhone());
-        response.setWebsite(entity.getWebsite());
-
-        // JTS -> GeoJSON (toGeoJson trả null nếu hình học null hoặc rỗng)
-        response.setDisplayPoint(geometryConverter.toGeoJson(entity.getDisplayPoint()));
-        response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
-
-        if (entity.getFeature() != null) {
-            response.setFeatureId(entity.getFeature().getId());
-        }
-
-        response.setVenueCategoryId(entity.getVenueCategory().getId());
-        response.setVenueCategoryName(entity.getVenueCategory().getVenueCategoryName());
-
-        response.setAddressId(entity.getAddress().getId());
-        response.setAddressName(entity.getAddress().getAddress());
-
-        // restriction_category là tùy chọn trong IMDF, bản cũ sẽ lỗi NullPointerException nếu null
-        if (entity.getRestrictionCategory() != null) {
-            response.setRestrictionCategoryId(entity.getRestrictionCategory().getId());
-            response.setRestrictionCategoryName(entity.getRestrictionCategory().getRestrictionCateName());
-        }
-
-        return response;
-    }
-
     /** Chỉ cập nhật thuộc tính thường. Quan hệ và hình học do service xử lý. */
-    public void updateScalars(VenueRequest request, Venue venue) {
+    public void updateScalars(
+        VenueRequest request,
+        Venue venue,
+        Feature feature,
+        VenueCategory venueCategory,
+        Address address,
+        RestrictionCategory restrictionCategory
+    ) {
         venue.setHours(request.getHours());
         venue.setPhone(request.getPhone());
         venue.setWebsite(request.getWebsite());
+
+        applyGeometry(request, venue);
+
+        venue.setVenueCategory(venueCategory);
+        venue.setFeature(feature);
+        venue.setAddress(address);
+        venue.setRestrictionCategory(restrictionCategory);
+    }
+
+//    private
+    public void applyGeometry(
+        VenueRequest request,
+        Venue entity
+    ) {
+        MultiPolygon geom = normalizer.normalize(geometryConverter.toJts(request.getGeometry()));
+
+        entity.setGeometry(geom);
+
+        Point point;
+
+        if (request.getDisplayPoint() != null) {
+            Geometry converted = geometryConverter.toJts(request.getDisplayPoint());
+
+            if(!(converted instanceof Point p)) {
+                throw new IllegalArgumentException("Display point must be a Point geometry.");
+            }
+            point = p;
+        } else {
+            point = geom.getInteriorPoint();
+        }
+
+        point.setSRID(4326);
+        entity.setDisplayPoint(point);
     }
 }

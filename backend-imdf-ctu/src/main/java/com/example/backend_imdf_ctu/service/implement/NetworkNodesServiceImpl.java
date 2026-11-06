@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkNodesRequest;
-import com.example.backend_imdf_ctu.dto.response.NetworkNodesResponse;
 import com.example.backend_imdf_ctu.entity.IndoorRoute;
 import com.example.backend_imdf_ctu.entity.NetworkNodes;
 import com.example.backend_imdf_ctu.exception.BusinessException;
@@ -25,35 +24,37 @@ public class NetworkNodesServiceImpl implements NetworkNodesService {
     private final IndoorRouteRepository indoorRouteRepository;
 
     @Override
-    public List<NetworkNodesResponse> getAll() {
-        return repository.findAll()
+    public List<NetworkNodes> getAll(
+        Integer routeId
+    ) {
+        return repository.findAllByIndoorRouteId(
+            routeId
+            )
             .stream()
-            .map(mapper::toResponse)
             .toList();
     }
 
     @Override
-    public NetworkNodesResponse getById(Integer id) {
+    public NetworkNodes getById(Integer id) {
         return repository.findById(id)
-            .map(mapper::toResponse)
             .orElseThrow(() -> new
                 BusinessException(ErrorCode.NETWORK_NODES_NOT_FOUND)
             );
     }
 
     @Override
-    public NetworkNodesResponse create(NetworkNodesRequest request) {
+    public NetworkNodes create(NetworkNodesRequest request) {
         // Tim kiem IndoorRoute theo indoorRouteId
         IndoorRoute indoorRoute = indoorRouteRepository.findById(request.getIndoorRouteId())
             .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_NODES_NOT_FOUND));
 
         NetworkNodes entity = mapper.toEntity(request, indoorRoute);
 
-        return mapper.toResponse(repository.save(entity));
+        return repository.save(entity);
     }
     
     @Override
-    public NetworkNodesResponse update(
+    public NetworkNodes update(
         Integer id,
         NetworkNodesRequest request
     ) {
@@ -65,7 +66,7 @@ public class NetworkNodesServiceImpl implements NetworkNodesService {
         
         mapper.updateEntity(entity, request, indoorRoute);
 
-        return mapper.toResponse(repository.save(entity));
+        return repository.save(entity);
     }
 
     @Override

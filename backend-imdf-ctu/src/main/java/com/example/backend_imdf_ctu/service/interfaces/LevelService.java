@@ -1,10 +1,7 @@
 package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.LevelRequest;
-import com.example.backend_imdf_ctu.dto.response.LevelResponse;
 import com.example.backend_imdf_ctu.entity.Level;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 

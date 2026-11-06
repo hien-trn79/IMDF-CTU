@@ -1,18 +1,16 @@
 import { useEffect } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
-import type { NetworkEdgeResponse } from '../../model/NetworkEdge.model'
-import type { NetworkNodeResponse } from '../../model/NetworkNode.model'
-import { parseWKBHexToCoords } from '../../utils/wkbUtils'
-import { wkbHexToPoint } from '../../utils/wkbParser'
+import type { NetworkEdgeItem } from '../../model/route models/NetworkEdge.model'
+import type { NetworkNodeItem } from '../../model/route models/NetworkNode.model'
 
 interface TopologyLayersProps {
-  edges: NetworkEdgeResponse[]
-  nodes: NetworkNodeResponse[]
+  edges: NetworkEdgeItem[]
+  nodes: NetworkNodeItem[]
   showNodes?: boolean
   showEdges?: boolean
-  onSelectNode?: (node: NetworkNodeResponse) => void
-  onSelectEdge?: (edge: NetworkEdgeResponse) => void
+  onSelectNode?: (node: NetworkNodeItem) => void
+  onSelectEdge?: (edge: NetworkEdgeItem) => void
 }
 
 export default function TopologyLayers({
@@ -30,13 +28,11 @@ export default function TopologyLayers({
 
     if (showEdges) {
       edges.forEach((edge) => {
-        const coords = parseWKBHexToCoords(edge.geometry)
-        if (coords.length < 2) return
-        const polyline = L.polyline(
-          coords.map(([lng, lat]) => [lat, lng] as L.LatLngExpression),
-          { color: '#7c3aed', weight: 2, opacity: 0.8, interactive: !!onSelectEdge }
-        ).bindTooltip(
-          `Edge ${edge.id}: ${edge.source} → ${edge.target} | Route: ${edge.indoorRouteName ?? edge.indoorRouteId}`
+        const polyline = L.geoJSON(edge, {
+          style: { color: '#7c3aed', weight: 2, opacity: 0.8 },
+          interactive: !!onSelectEdge,
+        }).bindTooltip(
+          `Edge ${edge.id}: ${edge.properties.sourceNode} → ${edge.properties.targetNode} | Route: ${edge.properties.routeName}`
         )
         if (onSelectEdge) {
           polyline.on('click', (e: L.LeafletMouseEvent) => {
@@ -50,9 +46,8 @@ export default function TopologyLayers({
 
     if (showNodes) {
       nodes.forEach((node) => {
-        const point = wkbHexToPoint(node.geom)
-        if (!point) return
-        const marker = L.circleMarker([point[1], point[0]], {
+        const [lng, lat] = node.geometry.coordinates
+        const marker = L.circleMarker([lat, lng], {
           radius: 5,
           color: '#dc2626',
           fillColor: '#fecaca',
@@ -60,7 +55,7 @@ export default function TopologyLayers({
           weight: 1.5,
           interactive: !!onSelectNode,
         }).bindTooltip(
-          `Node ${node.id} | Connector: ${node.isConnector ? 'Có' : 'Không'} | Route: ${node.indoorRouteName ?? node.indoorRouteId}`
+          `Node ${node.id} | Connector: ${node.properties.isConnector ? 'Có' : 'Không'} | Route: ${node.properties.routeName}`
         )
         if (onSelectNode) {
           marker.on('click', (e: L.LeafletMouseEvent) => {
@@ -79,4 +74,3 @@ export default function TopologyLayers({
 
   return null
 }
-

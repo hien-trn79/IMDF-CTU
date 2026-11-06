@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.mapper;
 
 import com.example.backend_imdf_ctu.dto.request.AmenityRequest;
-import com.example.backend_imdf_ctu.dto.response.AmenityResponse;
 import com.example.backend_imdf_ctu.entity.*;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
@@ -16,32 +15,7 @@ public class AmenityMapper {
     public AmenityMapper(GeometryConverter geometryConverter) {
         this.geometryConverter = geometryConverter;
     }
-
-    public AmenityResponse toResponse(
-        Amenity entity) {
-         AmenityResponse response = new AmenityResponse();
-
-         response.setId(entity.getId());
-         response.setAmenityId(entity.getAmenityId().toString());
-
-         response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
-
-         response.setHours(entity.getHours());
-         response.setPhone(entity.getPhone());
-         response.setWebsite(entity.getWebsite());
-         response.setCorrelationId(entity.getCorrelationId().toString());
-
-         response.setAmenityCategoryId(entity.getAmenityCategory().getId());
-            response.setAmenityCategoryName(entity.getAmenityCategory().getAmenityCategoryName());
-
-         response.setFeatureId(entity.getFeature().getId());
-         response.setFeatureType(entity.getFeature().getFeatureType());
-
-         response.setUnitId(entity.getUnit().getId());
-         response.setUnitName(entity.getUnit().getUnitName());
-         return response;
-    }
-
+    
     public Amenity toEntity(
         AmenityRequest request,
         AmenityCategory amenityCategory,

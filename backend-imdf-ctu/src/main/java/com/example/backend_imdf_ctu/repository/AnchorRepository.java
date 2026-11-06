@@ -10,4 +10,6 @@ import java.util.List;
 public interface AnchorRepository extends JpaRepository<Anchor, Integer> {
 
     List<Anchor> findAllByUnitLevelId(Integer unitLevelId);
+
+    Anchor findByUnitId(Integer unitId);
 }

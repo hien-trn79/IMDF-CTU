@@ -43,18 +43,25 @@ function readUint32(bytes: Uint8Array, offset: number, littleEndian: boolean): n
  */
 export function wkbHexToPoint(hex: string): [number, number] | null {
   try {
-    if (!hex || hex.length < 42) return null
-    const bytes = hexToBytes(hex)
+    if (!hex) return null
+    let cleanHex = hex.trim()
+    if (cleanHex.startsWith('0x') || cleanHex.startsWith('0X')) {
+      cleanHex = cleanHex.substring(2)
+    }
+    if (cleanHex.length < 42) return null
+    const bytes = hexToBytes(cleanHex)
     const littleEndian = bytes[0] === 1
     // bytes[1..4] = geom type (bỏ qua)
     // EWKB có thể có SRID flag (bit 0x20000000)
-    const geomType = readUint32(bytes, 1, littleEndian) & 0xffff // strip SRID flag
+    const rawType = readUint32(bytes, 1, littleEndian)
+    const geomType = rawType & 0xffff // strip SRID flag
     if (geomType !== 1) return null // không phải Point
 
     // Kiểm tra SRID flag để xác định offset
-    const hasSRID = (readUint32(bytes, 1, littleEndian) & 0x20000000) !== 0
+    const hasSRID = (rawType & 0x20000000) !== 0
     const xOffset = hasSRID ? 13 : 5 // 1(byteOrder)+4(type)+4(SRID) hoặc 1+4
 
+    if (xOffset + 16 > bytes.length) return null
     const x = readDouble(bytes, xOffset, littleEndian) // longitude
     const y = readDouble(bytes, xOffset + 8, littleEndian) // latitude
     return [x, y]
@@ -69,20 +76,28 @@ export function wkbHexToPoint(hex: string): [number, number] | null {
  */
 export function wkbHexToLineString(hex: string): [number, number][] {
   try {
-    if (!hex || hex.length < 50) return []
-    const bytes = hexToBytes(hex)
+    if (!hex) return []
+    let cleanHex = hex.trim()
+    if (cleanHex.startsWith('0x') || cleanHex.startsWith('0X')) {
+      cleanHex = cleanHex.substring(2)
+    }
+    if (cleanHex.length < 50) return []
+    const bytes = hexToBytes(cleanHex)
     const littleEndian = bytes[0] === 1
 
-    const hasSRID = (readUint32(bytes, 1, littleEndian) & 0x20000000) !== 0
-    const geomType = readUint32(bytes, 1, littleEndian) & 0xffff
+    const rawType = readUint32(bytes, 1, littleEndian)
+    const geomType = rawType & 0xffff
     if (geomType !== 2) return [] // không phải LineString
 
+    const hasSRID = (rawType & 0x20000000) !== 0
     const numPointsOffset = hasSRID ? 9 : 5
+    if (numPointsOffset + 4 > bytes.length) return []
     const numPoints = readUint32(bytes, numPointsOffset, littleEndian)
     const coordsOffset = numPointsOffset + 4
 
     const coords: [number, number][] = []
     for (let i = 0; i < numPoints; i++) {
+      if (coordsOffset + i * 16 + 16 > bytes.length) break
       const x = readDouble(bytes, coordsOffset + i * 16, littleEndian)
       const y = readDouble(bytes, coordsOffset + i * 16 + 8, littleEndian)
       coords.push([x, y])

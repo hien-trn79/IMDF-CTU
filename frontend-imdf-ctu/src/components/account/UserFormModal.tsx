@@ -47,7 +47,7 @@ export default function UserFormModal({
     form.resetFields()
 
     if (mode === 'create') {
-      form.setFieldsValue({ role: 'USER', isActive: true })
+      form.setFieldsValue({ role: 'ADMIN', isActive: true })
       return
     }
     if (!user) return
@@ -147,7 +147,7 @@ export default function UserFormModal({
           </Form.Item>
 
           <Form.Item
-            name="phone"
+            name="numberPhone"
             label="Số điện thoại"
             rules={[{ pattern: /^(0|\+84)\d{9,10}$/, message: 'Số điện thoại không hợp lệ' }]}
           >
@@ -155,7 +155,10 @@ export default function UserFormModal({
           </Form.Item>
 
           <Form.Item name="role" label="Vai trò" rules={[{ required: true }]}>
-            <Select options={ROLE_OPTIONS} />
+            <Select
+              options={ROLE_OPTIONS}
+              getPopupContainer={(trigger) => trigger.parentElement ?? document.body}
+            />
           </Form.Item>
 
           <Form.Item name="isActive" label="Trạng thái hoạt động" valuePropName="checked">

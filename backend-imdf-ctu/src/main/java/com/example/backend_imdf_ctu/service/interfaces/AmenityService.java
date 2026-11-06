@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.AmenityRequest;
-import com.example.backend_imdf_ctu.dto.response.AmenityResponse;
 import com.example.backend_imdf_ctu.entity.Amenity;
 
 import java.util.List;

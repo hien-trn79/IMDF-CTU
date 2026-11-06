@@ -1,10 +1,11 @@
 import type { GridlineType } from './IndoorRoute.model'
+import type { LineString } from 'geojson'
 
 export interface GridLineRequest {
   category: GridlineType
   isOneWay: boolean
   indoorRouteId: number
-  geom: string // WKB Hex
+  geometry: LineString
 }
 
 export interface GridLineResponse {

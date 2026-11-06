@@ -17,6 +17,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/buildings")
 @CrossOrigin
@@ -27,12 +29,11 @@ public class BuildingController {
     private final GenericGeoJsonMapper geoJsonMapper;
 
     // [GET] /buildings
-    @GetMapping(produces = "application/geo+json")
-    public ResponseEntity<GeoJsonFeatureCollection> list(
-        @ParameterObject
-        @PageableDefault(sort = "id", direction = Sort.Direction.ASC) Pageable pageable
+    @GetMapping
+    public ResponseEntity<GeoJsonFeatureCollection> getAll(
+        @RequestParam(name = "venueId") Integer venueId
     ) {
-        Page<Building> buildings = service.list(pageable);
+        List<Building> buildings = service.getAll(venueId);
         return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(buildings));
     }
 

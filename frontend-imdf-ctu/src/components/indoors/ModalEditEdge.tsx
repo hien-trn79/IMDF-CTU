@@ -1,10 +1,18 @@
 import { Modal, Popconfirm } from 'antd'
 import { useEffect, useState } from 'react'
-import type { NetworkEdgeRequest, NetworkEdgeResponse } from '../../model/NetworkEdge.model'
+import type {
+  NetworkEdgeRequest,
+  NetworkEdgeResponse,
+} from '../../model/route models/NetworkEdge.model'
 import type { IndoorRouteResponse } from '../../model/IndoorRoute.model'
 import { networkEdgeService } from '../../services/networkEdgeService'
 import { indoorRouteService } from '../../services/indoorRouteService'
-import { parseWKBHexToCoords, calcPolylineLengthMeters, formatLength } from '../../utils/wkbUtils'
+import {
+  parseWKBHexToCoords,
+  calcPolylineLengthMeters,
+  coordsToLineStringGeometry,
+  formatLength,
+} from '../../utils/wkbUtils'
 
 interface ModalEditEdgeProps {
   isOpen: boolean
@@ -28,14 +36,14 @@ export default function ModalEditEdge({
     target: 0,
     cost: 1,
     reverseCost: -1,
-    geometry: '',
+    geometry: { type: 'LineString', coordinates: [] },
     indoorRouteId: 0,
   })
   const [routes, setRoutes] = useState<IndoorRouteResponse[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const coords = edge ? parseWKBHexToCoords(edge.geometry) : []
+  const coords = edge ? parseWKBHexToCoords(edge.geometryWkb) : []
   const lengthMeters = coords.length >= 2 ? calcPolylineLengthMeters(coords) : 0
 
   useEffect(() => {
@@ -53,7 +61,7 @@ export default function ModalEditEdge({
         target: edge.target,
         cost: edge.cost,
         reverseCost: edge.reverseCost,
-        geometry: edge.geometry,
+        geometry: coordsToLineStringGeometry(parseWKBHexToCoords(edge.geometryWkb)),
         indoorRouteId: edge.indoorRouteId,
       })
       setError(null)
@@ -69,7 +77,7 @@ export default function ModalEditEdge({
     }
     setSaving(true)
     try {
-      await networkEdgeService.update(edge.id, data, token)
+      await networkEdgeService.update(Number(edge.id), data, token)
       onUpdated()
       onClose()
     } catch (saveErr: unknown) {
@@ -175,9 +183,7 @@ export default function ModalEditEdge({
           <p className="font-semibold text-slate-500 mb-1">
             WKB Hex (geometry) — {coords.length} điểm
           </p>
-          <p className="break-all text-[10px] text-slate-400 font-mono">
-            {edge?.geometry ?? '—'}
-          </p>
+          <p className="break-all text-[10px] text-slate-400 font-mono">{edge?.geometryWkb ?? '—'}</p>
         </div>
 
         {error && (
@@ -194,7 +200,7 @@ export default function ModalEditEdge({
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
             onConfirm={() => {
-              if (edge) onDeleted(edge.id)
+              if (edge) onDeleted(Number(edge.id))
               onClose()
             }}
           >

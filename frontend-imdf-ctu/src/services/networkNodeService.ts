@@ -1,7 +1,22 @@
-import type { NetworkNodeRequest, NetworkNodeResponse } from '../model/NetworkNode.model'
+import type {
+  NetworkNodeRequest,
+  NetworkNodeResponse,
+} from '../model/route models/NetworkNode.model'
 import { authHeaders } from './authHeaders'
+import { pointToWkbHex } from '../utils/wkbEncoder'
 
-const API_BASE = '/api/network-nodes'
+const API_BASE = 'http://localhost:8081/api/network-nodes'
+
+export function normalizeNode(feature: NetworkNodeResponse): NetworkNodeResponse {
+  return {
+    ...feature,
+    geom:
+      feature.geom ||
+      pointToWkbHex(feature.geometry.coordinates[0], feature.geometry.coordinates[1]),
+    isConnector: feature.isConnector ?? feature.properties.isConnector,
+    indoorRouteId: feature.indoorRouteId ?? feature.properties.routeId,
+  }
+}
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -27,12 +42,13 @@ async function handleResponse<T>(res: Response): Promise<T> {
 export const networkNodeService = {
   async getAll(token: string): Promise<NetworkNodeResponse[]> {
     const res = await fetch(API_BASE, { headers: authHeaders(token) })
-    return handleResponse<NetworkNodeResponse[]>(res)
+    const data = await handleResponse<{ features: NetworkNodeResponse[] }>(res)
+    return data.features.map(normalizeNode)
   },
 
   async getById(id: number, token: string): Promise<NetworkNodeResponse> {
     const res = await fetch(`${API_BASE}/${id}`, { headers: authHeaders(token) })
-    return handleResponse<NetworkNodeResponse>(res)
+    return normalizeNode(await handleResponse<NetworkNodeResponse>(res))
   },
 
   async create(data: NetworkNodeRequest, token: string): Promise<NetworkNodeResponse> {
@@ -41,7 +57,7 @@ export const networkNodeService = {
       headers: authHeaders(token, true),
       body: JSON.stringify(data),
     })
-    return handleResponse<NetworkNodeResponse>(res)
+    return normalizeNode(await handleResponse<NetworkNodeResponse>(res))
   },
 
   async update(id: number, data: NetworkNodeRequest, token: string): Promise<NetworkNodeResponse> {
@@ -50,7 +66,7 @@ export const networkNodeService = {
       headers: authHeaders(token, true),
       body: JSON.stringify(data),
     })
-    return handleResponse<NetworkNodeResponse>(res)
+    return normalizeNode(await handleResponse<NetworkNodeResponse>(res))
   },
 
   async delete(id: number, token: string): Promise<boolean> {

@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.AnchorRequest;
-import com.example.backend_imdf_ctu.dto.response.AnchorResponse;
 import com.example.backend_imdf_ctu.entity.Anchor;
 import com.example.backend_imdf_ctu.entity.Feature;
 import com.example.backend_imdf_ctu.entity.Unit;
@@ -13,8 +12,6 @@ import com.example.backend_imdf_ctu.repository.FeatureRepository;
 import com.example.backend_imdf_ctu.repository.UnitRepository;
 import com.example.backend_imdf_ctu.service.interfaces.AnchorService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

@@ -1,4 +1,5 @@
 import type { AccountUser, UserPayload } from '../../model/User.model'
+import { authHeaders } from '../../services/authHeaders'
 
 const BASE_URL = 'http://localhost:8081/api/admin'
 
@@ -6,8 +7,7 @@ async function request<T>(path: string, token: string | null, init: RequestInit 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+      ...authHeaders(token ?? '', true),
       ...init.headers,
     },
   })
@@ -43,4 +43,6 @@ export const adminApi = {
     request<AccountUser>('/users', token, { method: 'POST', body: JSON.stringify(data) }),
   update: (token: string | null, id: number, data: UserPayload) =>
     request<AccountUser>(`/users/${id}`, token, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (token: string | null, id: number) =>
+    request<void>(`/users/${id}`, token, { method: 'DELETE' }),
 }

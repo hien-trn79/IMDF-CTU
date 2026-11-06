@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.mapper;
 
 import com.example.backend_imdf_ctu.dto.request.AnchorRequest;
-import com.example.backend_imdf_ctu.dto.response.AnchorResponse;
 import com.example.backend_imdf_ctu.entity.Anchor;
 import com.example.backend_imdf_ctu.entity.Feature;
 import com.example.backend_imdf_ctu.entity.Unit;
@@ -17,27 +16,6 @@ public class AnchorMapper {
 
     public AnchorMapper(GeometryConverter geometryConverter) {
         this.geometryConverter = geometryConverter;
-    }
-
-    public AnchorResponse toResponse(Anchor entity) {
-        AnchorResponse response = new AnchorResponse();
-
-        response.setId(entity.getId());
-        response.setAnchorId(entity.getAnchorId().toString());
-        response.setAnchorName(entity.getAnchorName());
-
-        response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
-
-        if (entity.getFeature() != null) {
-            response.setFeatureId(entity.getFeature().getId());
-            response.setFeatureType(entity.getFeature().getFeatureType().toString());
-        }
-        if (entity.getUnit() != null) {
-            response.setUnitId(entity.getUnit().getId());
-            response.setUnitName(entity.getUnit().getUnitName());
-            response.setLevel(entity.getUnit().getLevel().getOrdinal());
-        }
-        return response;
     }
 
     public Anchor toEntity(

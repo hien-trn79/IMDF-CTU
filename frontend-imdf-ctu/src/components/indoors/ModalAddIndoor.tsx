@@ -2,14 +2,20 @@ import { Modal } from 'antd'
 import { useEffect, useState } from 'react'
 import { GridlineType, type IndoorRouteResponse } from '../../model/IndoorRoute.model'
 import type { GridLineRequest } from '../../model/GridLine.model'
-import type { NetworkNodeResponse } from '../../model/NetworkNode.model'
-import type { NetworkEdgeResponse } from '../../model/NetworkEdge.model'
+import type { NetworkNodeResponse } from '../../model/route models/NetworkNode.model'
+import type { NetworkEdgeResponse } from '../../model/route models/NetworkEdge.model'
 import { gridLineService } from '../../services/gridLineService'
-import { indoorRouteService } from '../../services/indoorRouteService'
 import { networkEdgeService } from '../../services/networkEdgeService'
 import { networkNodeService } from '../../services/networkNodeService'
 import { normalizeTopology } from '../../utils/topologyUtils'
-import { calcPolylineLengthMeters, formatLength } from '../../utils/wkbUtils'
+import {
+  calcPolylineLengthMeters,
+  coordToPointGeometry,
+  coordsToLineStringGeometry,
+  formatLength,
+  parseWKBHexToCoords,
+} from '../../utils/wkbUtils'
+import { useLayerContext } from '../../context/LayerContext'
 
 interface ModalAddIndoorProps {
   onClose: () => void
@@ -44,22 +50,38 @@ export default function ModalAddIndoor({
     category: GridlineType.CORRIDOR,
     isOneWay: false,
     indoorRouteId: 0,
-    geom: '',
+    geometry: { type: 'LineString', coordinates: [] },
   })
   const [routes, setRoutes] = useState<IndoorRouteResponse[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [topologySummary, setTopologySummary] = useState<string | null>(null)
 
+  const { selectedLevelIndoorId } = useLayerContext()
+
   useEffect(() => {
     if (!isOpen) return
-    indoorRouteService
-      .getAll(token)
-      .then(setRoutes)
-      .catch((routeError: unknown) => {
-        setError(routeError instanceof Error ? routeError.message : 'Không tải được danh sách tuyến đường')
+    fetch(`http://localhost:8081/api/indoor-routes?levelId=${selectedLevelIndoorId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((routeList: IndoorRouteResponse[]) => {
+        setRoutes(routeList)
+        if (routeList.length > 0) {
+          setData((prev) => ({
+            ...prev,
+            indoorRouteId: prev.indoorRouteId || routeList[0].id,
+          }))
+        }
       })
-  }, [isOpen, token])
+      .catch((routeError: unknown) => {
+        setError(
+          routeError instanceof Error ? routeError.message : 'Không tải được danh sách tuyến đường'
+        )
+      })
+  }, [isOpen, token, selectedLevelIndoorId])
 
   const createGridlineAndTopology = async () => {
     setError(null)
@@ -77,22 +99,38 @@ export default function ModalAddIndoor({
     setSaving(true)
     try {
       // 1. Thực hiện Chuẩn hóa Topology (Tính giao cắt, tách Edge cũ, tạo Node mới, tách Edge mới)
-      const topoResult = normalizeTopology(coordinates, nodes, edges, data.indoorRouteId, data.isOneWay)
+      const topoResult = normalizeTopology(
+        coordinates,
+        nodes,
+        edges,
+        data.indoorRouteId,
+        data.isOneWay
+      )
 
       // Map lưu tempId -> realNodeId
       const nodeMap = new Map<string | number, number>()
 
       // 2. Tạo các NetworkNodes mới
       for (const nodeReq of topoResult.nodesToCreate) {
+        const nodeCoords =
+          nodeReq.coord && nodeReq.coord.length >= 2
+            ? [nodeReq.coord]
+            : parseWKBHexToCoords(nodeReq.geom)
+        if (nodeCoords.length === 0) {
+          throw new Error('Không thể chuyển hình học Node sang GeoJSON.')
+        }
         const createdNode = await networkNodeService.create(
           {
-            geom: nodeReq.geom,
+            geometry: coordToPointGeometry(nodeCoords[0]),
             isConnector: nodeReq.isConnector,
             indoorRouteId: nodeReq.indoorRouteId,
           },
           token
         )
-        nodeMap.set(nodeReq.tempId, createdNode.id)
+        const realId = Number(createdNode.id)
+        if (nodeReq.tempId) {
+          nodeMap.set(nodeReq.tempId, realId)
+        }
       }
 
       // 3. Xóa các Edge cũ bị tách giao cắt
@@ -101,11 +139,25 @@ export default function ModalAddIndoor({
       }
 
       // 4. Tạo các Edge mới (chuẩn hóa topology)
+      const resolveNodeId = (id: string | number): number | undefined => {
+        if (typeof id === 'number') return id
+        if (nodeMap.has(id)) return nodeMap.get(id)
+        const parsed = Number(id)
+        return Number.isFinite(parsed) ? parsed : undefined
+      }
+
       for (const edgeReq of topoResult.edgesToCreate) {
-        const sourceId = typeof edgeReq.source === 'string' ? nodeMap.get(edgeReq.source)! : edgeReq.source
-        const targetId = typeof edgeReq.target === 'string' ? nodeMap.get(edgeReq.target)! : edgeReq.target
+        const sourceId = resolveNodeId(edgeReq.source)
+        const targetId = resolveNodeId(edgeReq.target)
 
         if (!sourceId || !targetId || sourceId === targetId) continue
+
+        const edgeCoords =
+          edgeReq.coordinates && edgeReq.coordinates.length >= 2
+            ? edgeReq.coordinates
+            : parseWKBHexToCoords(edgeReq.geometry)
+
+        if (edgeCoords.length < 2) continue
 
         await networkEdgeService.create(
           {
@@ -113,7 +165,7 @@ export default function ModalAddIndoor({
             target: targetId,
             cost: edgeReq.cost,
             reverseCost: edgeReq.reverseCost,
-            geometry: edgeReq.geometry,
+            geometry: coordsToLineStringGeometry(edgeCoords),
             indoorRouteId: edgeReq.indoorRouteId,
           },
           token
@@ -121,17 +173,26 @@ export default function ModalAddIndoor({
       }
 
       // 5. Tạo đường GridLine mới
+      const finalCoords =
+        topoResult.finalPathCoords && topoResult.finalPathCoords.length >= 2
+          ? topoResult.finalPathCoords
+          : coordinates
+
       await gridLineService.create(
         {
           ...data,
-          geom: topoResult.gridLineGeomHex,
+          geometry: coordsToLineStringGeometry(finalCoords),
         },
         token
       )
 
+      onDrawingChange(false)
+
       setTopologySummary(
         `Đã chuẩn hóa topology thành công: Tạo ${topoResult.nodesToCreate.length} node mới, ${topoResult.edgesToCreate.length} edge mới${
-          topoResult.edgesToDelete.length > 0 ? `, tách ${topoResult.edgesToDelete.length} edge cũ` : ''
+          topoResult.edgesToDelete.length > 0
+            ? `, tách ${topoResult.edgesToDelete.length} edge cũ`
+            : ''
         }.`
       )
 
@@ -139,7 +200,9 @@ export default function ModalAddIndoor({
         onCreated()
       }, 600)
     } catch (saveError: unknown) {
-      setError(saveError instanceof Error ? saveError.message : 'Không thể lưu và chuẩn hóa đường đi mới.')
+      setError(
+        saveError instanceof Error ? saveError.message : 'Không thể lưu và chuẩn hóa đường đi mới.'
+      )
     } finally {
       setSaving(false)
     }
@@ -164,7 +227,13 @@ export default function ModalAddIndoor({
       onCancel={onClose}
       wrapClassName="!pointer-events-none"
       modalRender={(modal) => <div className="pointer-events-auto">{modal}</div>}
-      style={{ top: 20, marginRight: 20, marginLeft: 'auto', width: 420, maxWidth: 'calc(100vw - 32px)' }}
+      style={{
+        top: 20,
+        marginRight: 20,
+        marginLeft: 'auto',
+        width: 420,
+        maxWidth: 'calc(100vw - 32px)',
+      }}
     >
       <div className="space-y-3 pt-1">
         <div className="rounded-lg bg-sky-50/80 p-2.5 border border-sky-100 text-xs text-sky-900 leading-relaxed">
@@ -172,8 +241,10 @@ export default function ModalAddIndoor({
             💡 QGIS Snapping & Chuẩn hóa Topology
           </p>
           <span>
-            Bật chế độ vẽ và click lên bản đồ. Điểm vẽ sẽ tự động <strong>hút vào node, đỉnh hoặc cạnh đường hiện tại (QGIS style)</strong>. 
-            Sau khi lưu, đường đi sẽ được <strong>tự động cắt và liên kết node/edge</strong> thành 1 topology chuẩn.
+            Bật chế độ vẽ và click lên bản đồ. Điểm vẽ sẽ tự động{' '}
+            <strong>hút vào node, đỉnh hoặc cạnh đường hiện tại (QGIS style)</strong>. Sau khi lưu,
+            đường đi sẽ được <strong>tự động cắt và liên kết node/edge</strong> thành 1 topology
+            chuẩn.
           </span>
         </div>
 
@@ -214,8 +285,12 @@ export default function ModalAddIndoor({
         </div>
 
         <div className="rounded-lg bg-slate-100/80 px-3 py-2 text-xs flex justify-between items-center text-slate-700">
-          <span>Số điểm đã chọn: <strong>{coordinates.length}</strong></span>
-          <span>Độ dài: <strong className="text-emerald-700">{formatLength(lengthMeters)}</strong></span>
+          <span>
+            Số điểm đã chọn: <strong>{coordinates.length}</strong>
+          </span>
+          <span>
+            Độ dài: <strong className="text-emerald-700">{formatLength(lengthMeters)}</strong>
+          </span>
         </div>
 
         <div className="space-y-2 pt-1">
@@ -224,7 +299,9 @@ export default function ModalAddIndoor({
             <select
               className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-emerald-500 focus:outline-none"
               value={data.category}
-              onChange={(event) => setData({ ...data, category: event.target.value as GridlineType })}
+              onChange={(event) =>
+                setData({ ...data, category: event.target.value as GridlineType })
+              }
             >
               {Object.values(GridlineType).map((value) => (
                 <option key={value} value={value}>
@@ -261,7 +338,11 @@ export default function ModalAddIndoor({
           </label>
         </div>
 
-        {error && <div className="rounded-lg bg-rose-50 p-2.5 text-xs text-rose-700 border border-rose-200">{error}</div>}
+        {error && (
+          <div className="rounded-lg bg-rose-50 p-2.5 text-xs text-rose-700 border border-rose-200">
+            {error}
+          </div>
+        )}
         {topologySummary && (
           <div className="rounded-lg bg-emerald-50 p-2.5 text-xs text-emerald-800 border border-emerald-200">
             {topologySummary}

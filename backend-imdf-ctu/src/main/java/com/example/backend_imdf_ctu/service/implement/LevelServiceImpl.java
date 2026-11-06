@@ -1,14 +1,12 @@
 package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.LevelRequest;
-import com.example.backend_imdf_ctu.dto.response.LevelResponse;
 import com.example.backend_imdf_ctu.entity.Building;
 import com.example.backend_imdf_ctu.entity.Level;
 import com.example.backend_imdf_ctu.entity.LevelCategory;
 import com.example.backend_imdf_ctu.entity.RestrictionCategory;
 import com.example.backend_imdf_ctu.exception.BusinessException;
 import com.example.backend_imdf_ctu.exception.ErrorCode;
-import com.example.backend_imdf_ctu.mapper.GeometryConverter;
 import com.example.backend_imdf_ctu.mapper.LevelMapper;
 import com.example.backend_imdf_ctu.repository.BuildingRepository;
 import com.example.backend_imdf_ctu.repository.LevelCategoryRepository;
@@ -16,9 +14,6 @@ import com.example.backend_imdf_ctu.repository.LevelRepository;
 import com.example.backend_imdf_ctu.repository.RestrictionCateRepository;
 import com.example.backend_imdf_ctu.service.interfaces.LevelService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

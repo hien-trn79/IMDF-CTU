@@ -1,11 +1,7 @@
-﻿import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import IndoorMap from './IndoorMap'
-import IndoorSideBar from './IndoorSideBar'
-import { useGridLines } from './useGridLines'
-import { useImdfLayers } from './useImdfLayers'
-import type { IndoorFeatureItem } from './IndoorTable'
-import IndoorTable from '../indoors/IndoorTable'
+
 import FeatureDetailModal from '../outdoors/FeatureDetailModal'
 import ModalAddIndoor from './ModalAddIndoor'
 import ModalEditGridLine from './ModalEditGridLine'
@@ -13,19 +9,30 @@ import ModalEditNode from './ModalEditNode'
 import ModalEditEdge from './ModalEditEdge'
 import { networkNodeService } from '../../services/networkNodeService'
 import { networkEdgeService } from '../../services/networkEdgeService'
+import { normalizeNode } from '../../services/networkNodeService'
+import { normalizeEdge } from '../../services/networkEdgeService'
 import { gridLineService } from '../../services/gridLineService'
-import type { NetworkNodeResponse } from '../../model/NetworkNode.model'
-import type { NetworkEdgeResponse } from '../../model/NetworkEdge.model'
+import type {
+  NetworkNodeFeature,
+  NetworkNodeItem,
+} from '../../model/route models/NetworkNode.model'
+import type {
+  NetworkEdgeFeature,
+  NetworkEdgeItem,
+} from '../../model/route models/NetworkEdge.model'
 import { useUser } from '../../context/UserContext'
-import { wkbHexToPoint } from '../../utils/wkbParser'
-import { parseWKBHexToCoords } from '../../utils/wkbUtils'
-
-const GRID_LINE_LAYER = { id: 'grid_line', layerName: 'Duong luoi (Grid lines)' }
-const NODE_LAYER = { id: 'network_node', layerName: 'Network Node' }
-const EDGE_LAYER = { id: 'network_edge', layerName: 'Network Edge' }
+import { authHeaders } from '../../services/authHeaders'
+import type {
+  PreTopologyItem,
+  PreTopologyResponse,
+} from '../../model/route models/preTopology.model'
+import IndoorSideBar from './IndoorSideBar'
+import IndoorTable, { type IndoorFeatureItem } from './IndoorTable'
+import { useLayerContext } from '../../context/LayerContext'
 
 export default function PageIndoors() {
-  const [selectedFeature, setSelectedFeature] = useState<IndoorFeatureItem | null>(null)
+  const [selectedFeature, setSelectedFeature] = useState<PreTopologyItem | null>(null)
+  const [selectedDetailFeature, setSelectedDetailFeature] = useState<IndoorFeatureItem | null>(null)
   const [isOpenSelectedFeatureModal, setIsOpenSelectedFeatureModal] = useState(false)
 
   const mapCardRef = useRef<HTMLDivElement>(null)
@@ -34,9 +41,8 @@ export default function PageIndoors() {
   const panelRef = useRef<HTMLDivElement>(null)
   const [panelHeight, setPanelHeight] = useState(0)
 
-  const { geoJson, gridLines, isLoading, error, reload } = useGridLines()
-  const [networkNodes, setNetworkNodes] = useState<NetworkNodeResponse[]>([])
-  const [networkEdges, setNetworkEdges] = useState<NetworkEdgeResponse[]>([])
+  const [networkNodes, setNetworkNodes] = useState<NetworkNodeItem[]>([])
+  const [networkEdges, setNetworkEdges] = useState<NetworkEdgeItem[]>([])
   const [topologyReloadKey, setTopologyReloadKey] = useState(0)
   const [drawing, setDrawing] = useState(false)
   const [snapEnabled, setSnapEnabled] = useState(true)
@@ -48,126 +54,24 @@ export default function PageIndoors() {
   const [showEdges, setShowEdges] = useState(false)
 
   // Edit modals
-  const [editGridLineItem, setEditGridLineItem] = useState<IndoorFeatureItem | null>(null)
-  const [editNodeItem, setEditNodeItem] = useState<NetworkNodeResponse | null>(null)
-  const [editEdgeItem, setEditEdgeItem] = useState<NetworkEdgeResponse | null>(null)
+  const [editGridLineItem, setEditGridLineItem] = useState<PreTopologyItem | null>(null)
+  const [editNodeItem, setEditNodeItem] = useState<NetworkNodeItem | null>(null)
+  const [editEdgeItem, setEditEdgeItem] = useState<NetworkEdgeItem | null>(null)
+  const [selectedIndoorFeature, setSelectedIndoorFeature] = useState<IndoorFeatureItem | null>(
+    null
+  )
 
   const { authData } = useUser()
   const token = authData?.token || ''
 
-  // IMDF layers tu GeoServer /api/layers
-  const {
-    layers: imdfLayers,
-    isLoading: imdfLayersLoading,
-    error: imdfLayersError,
-    visibleLayerIds,
-    visibleLayers: visibleImdfLayers,
-    toggleLayer: toggleImdfLayer,
-    reload: reloadImdfLayers,
-  } = useImdfLayers()
+  const isLoading = false
 
   const reloadTopology = () => setTopologyReloadKey((key) => key + 1)
 
-  useEffect(() => {
-    let cancelled = false
-    if (!token) {
-      setNetworkNodes([])
-      setNetworkEdges([])
-      return
-    }
-
-    Promise.all([networkNodeService.getAll(token), networkEdgeService.getAll(token)])
-      .then(([nodes, edges]) => {
-        if (!cancelled) {
-          setNetworkNodes(nodes)
-          setNetworkEdges(edges)
-        }
-      })
-      .catch((topologyError: unknown) => {
-        console.error('Loi tai topology:', topologyError)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [token, topologyReloadKey])
-
-  const gridLineFeatures = useMemo<IndoorFeatureItem[]>(
-    () =>
-      showGridLines
-        ? geoJson.features.map((f, index) => ({
-            feature: {
-              ...f,
-              id: String(f.id ?? index),
-              properties: (f.properties ?? {}) as Record<string, any>,
-            },
-            layer: GRID_LINE_LAYER,
-            index,
-          }))
-        : [],
-    [geoJson, showGridLines]
-  )
-
-  const nodeFeatures = useMemo<IndoorFeatureItem[]>(
-    () =>
-      showNodes
-        ? networkNodes.map((node, index) => {
-            const pt = wkbHexToPoint(node.geom)
-            return {
-              feature: {
-                id: String(node.id),
-                type: 'Feature',
-                geometry: pt ? { type: 'Point', coordinates: pt } : null,
-                geometry_wkb: node.geom,
-                properties: {
-                  id: node.id,
-                  isConnector: node.isConnector,
-                  indoorRouteId: node.indoorRouteId,
-                  indoorRouteName: node.indoorRouteName,
-                },
-              },
-              layer: NODE_LAYER,
-              index,
-            }
-          })
-        : [],
-    [networkNodes, showNodes]
-  )
-
-  const edgeFeatures = useMemo<IndoorFeatureItem[]>(
-    () =>
-      showEdges
-        ? networkEdges.map((edge, index) => {
-            const coords = parseWKBHexToCoords(edge.geometry)
-            return {
-              feature: {
-                id: String(edge.id),
-                type: 'Feature',
-                geometry: coords.length >= 2 ? { type: 'LineString', coordinates: coords } : null,
-                geometry_wkb: edge.geometry,
-                properties: {
-                  id: edge.id,
-                  source: edge.source,
-                  target: edge.target,
-                  cost: edge.cost,
-                  reverseCost: edge.reverseCost,
-                  indoorRouteId: edge.indoorRouteId,
-                  indoorRouteName: edge.indoorRouteName,
-                },
-              },
-              layer: EDGE_LAYER,
-              index,
-            }
-          })
-        : [],
-    [networkEdges, showEdges]
-  )
-
-  const allFeatures = useMemo<IndoorFeatureItem[]>(
-    () => [...gridLineFeatures, ...nodeFeatures, ...edgeFeatures],
-    [gridLineFeatures, nodeFeatures, edgeFeatures]
-  )
-
   const inset = isMapFullscreen ? 0 : 8
+  const [preTopologyData, setPreTopologyData] = useState<PreTopologyResponse | null>(null)
+  const [nodesData, setNodesData] = useState<NetworkNodeFeature | null>(null)
+  const [edgesData, setEdgesData] = useState<NetworkEdgeFeature | null>(null)
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -195,88 +99,190 @@ export default function PageIndoors() {
         await mapCardRef.current?.requestFullscreen()
       }
     } catch (error) {
-      console.error('Khong the bat/tat toan man hinh:', error)
+      console.error('Không thể thực hiện bật/tắt toàn màn hình:', error)
     }
   }
 
-  const handleToggleGridLine = (visible: boolean) => {
-    setShowGridLines(visible)
-    if (!visible) {
-      setSelectedFeature(null)
-      setIsOpenSelectedFeatureModal(false)
-    }
-  }
-  const handleToggleNode = (visible: boolean) => {
-    setShowNodes(visible)
-    if (!visible && selectedFeature?.layer.id === NODE_LAYER.id) {
-      setSelectedFeature(null)
-    }
-  }
-  const handleToggleEdge = (visible: boolean) => {
-    setShowEdges(visible)
-    if (!visible && selectedFeature?.layer.id === EDGE_LAYER.id) {
-      setSelectedFeature(null)
-    }
-  }
-
-  const handleSelectFeature = (item: IndoorFeatureItem) => {
+  const handleSelectFeature = (item: PreTopologyItem) => {
     setSelectedFeature(item)
+    const index = preTopologyData?.features.indexOf(item) ?? -1
+    setSelectedIndoorFeature({
+      feature: item,
+      layer: { id: 'grid-lines', layerName: 'Grid line' },
+      index: index < 0 ? 0 : index,
+    })
   }
   const handleClearSelection = () => setSelectedFeature(null)
 
-  const handleOpenDetailModal = async (item: IndoorFeatureItem | null) => {
-    if (item) setSelectedFeature(item)
+  // MỞ MODAL CHI TIẾT KHI CLICK VÀO ĐỐI TƯỢNG TRÊN BẢN ĐỒ
+  const handleOpenDetailModal = async (item: PreTopologyItem | null) => {
+    if (item) {
+      setSelectedFeature(item)
+      const index = preTopologyData?.features.indexOf(item) ?? -1
+      setSelectedDetailFeature({
+        feature: item,
+        layer: { id: 'grid-lines', layerName: 'Grid line' },
+        index: index < 0 ? 0 : index,
+      })
+    }
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen()
       } catch (error) {
-        console.error('Khong the thoat toan man hinh:', error)
+        console.error('Không thể thực hiện thoát toàn màn hình:', error)
       }
     }
     setIsOpenSelectedFeatureModal(true)
   }
+  // FETCH TOAN BO DATA DU LIEU TU PHIA BACKEND
+  const { selectedLevelIndoorId, selectedTableIndoor } = useLayerContext()
 
-  const handleEditFeature = (item: IndoorFeatureItem) => {
-    if (item.layer.id === GRID_LINE_LAYER.id) {
-      setEditGridLineItem(item)
-    } else if (item.layer.id === NODE_LAYER.id) {
-      const nodeId = Number(item.feature.id)
-      const node = networkNodes.find((n) => n.id === nodeId) ?? null
-      setEditNodeItem(node)
-    } else if (item.layer.id === EDGE_LAYER.id) {
-      const edgeId = Number(item.feature.id)
-      const edge = networkEdges.find((e) => e.id === edgeId) ?? null
-      setEditEdgeItem(edge)
-    }
-  }
+  useEffect(() => {
+    if (!selectedLevelIndoorId) return
 
-  const handleDeleteFeature = useCallback(
-    async (item: IndoorFeatureItem) => {
-      const id = Number(item.feature.id)
+    const fetchPretopologyData = async () => {
       try {
-        if (item.layer.id === GRID_LINE_LAYER.id) {
-          await gridLineService.delete(id, token)
-          reload()
-        } else if (item.layer.id === NODE_LAYER.id) {
-          await networkNodeService.delete(id, token)
-          reloadTopology()
-        } else if (item.layer.id === EDGE_LAYER.id) {
-          await networkEdgeService.delete(id, token)
-          reloadTopology()
+        const response = await fetch(
+          `http://localhost:8081/api/grid-lines?levelId=${selectedLevelIndoorId}`,
+          {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders(token),
+          },
+          }
+        )
+        if (response.ok) {
+          const data: PreTopologyResponse = await response.json()
+          setPreTopologyData(data)
         }
-      } catch (err) {
-        console.error('Loi xoa doi tuong:', err)
+      } catch (error) {
+        console.error('Lỗi khi fetch dữ liệu pre-topology:', error)
       }
-    },
-    [token, reload]
-  )
+    }
 
-  const handleSelectNodeFromMap = useCallback((node: NetworkNodeResponse) => {
-    setEditNodeItem(node)
+    const fetchTopology = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:8081/api/indoor-routes?levelId=${selectedLevelIndoorId}`,
+          { headers: authHeaders(token) }
+        )
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const routes = (await response.json()) as Array<{ id: number }>
+        await fetchPretopologyData()
+        if (routes.length > 0) {
+          const nodeFetches = routes.map((r) =>
+            fetch(`http://localhost:8081/api/network-nodes?routeId=${r.id}`, {
+              headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+            }).then((res) => (res.ok ? res.json() : { features: [] }))
+          )
+          const edgeFetches = routes.map((r) =>
+            fetch(`http://localhost:8081/api/network-edges?routeId=${r.id}`, {
+              headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+            }).then((res) => (res.ok ? res.json() : { features: [] }))
+          )
+
+          const [allNodesRes, allEdgesRes] = await Promise.all([
+            Promise.all(nodeFetches),
+            Promise.all(edgeFetches),
+          ])
+
+          const rawNodes = allNodesRes.flatMap((d) => d.features || []).map(normalizeNode)
+          const rawEdges = allEdgesRes.flatMap((d) => d.features || []).map(normalizeEdge)
+
+          const uniqueNodes = Array.from(new Map(rawNodes.map((n) => [n.id, n])).values())
+          const uniqueEdges = Array.from(new Map(rawEdges.map((e) => [e.id, e])).values())
+
+          setNodesData({ type: 'FeatureCollection', features: uniqueNodes })
+          setNetworkNodes(uniqueNodes)
+          setEdgesData({ type: 'FeatureCollection', features: uniqueEdges })
+          setNetworkEdges(uniqueEdges)
+        } else {
+          setNodesData({ type: 'FeatureCollection', features: [] })
+          setEdgesData({ type: 'FeatureCollection', features: [] })
+          setNetworkNodes([])
+          setNetworkEdges([])
+        }
+      } catch (error) {
+        console.error('Lỗi khi fetch route/topology theo tầng:', error)
+      }
+    }
+
+    fetchTopology()
+
+    return () => {
+      setPreTopologyData(null)
+      setNodesData(null)
+      setEdgesData(null)
+    }
+  }, [selectedLevelIndoorId, token, topologyReloadKey])
+
+  // Quan sát sự thay đổi của selectedTableIndoor để cập nhật trạng thái hiển thị các lớp trên bản đồ
+  useEffect(() => {
+    setShowGridLines(selectedTableIndoor === 'grid-lines')
+    setShowNodes(selectedTableIndoor === 'nodes')
+    setShowEdges(selectedTableIndoor === 'edges')
+    setSelectedIndoorFeature(null)
+  }, [selectedTableIndoor])
+
+  const indoorTableFeatures = useMemo<IndoorFeatureItem[]>(() => {
+    if (selectedTableIndoor === 'grid-lines') {
+      return (preTopologyData?.features ?? []).map((feature, index) => ({
+        feature,
+        layer: { id: 'grid-lines', layerName: 'Grid line' },
+        index,
+      }))
+    }
+    if (selectedTableIndoor === 'nodes') {
+      return (nodesData?.features ?? []).map((feature, index) => ({
+        feature,
+        layer: { id: 'nodes', layerName: 'Node' },
+        index,
+      }))
+    }
+    return (edgesData?.features ?? []).map((feature, index) => ({
+      feature,
+      layer: { id: 'edges', layerName: 'Edge' },
+      index,
+    }))
+  }, [edgesData, nodesData, preTopologyData, selectedTableIndoor])
+
+  const handleSelectIndoorFeature = useCallback((item: IndoorFeatureItem) => {
+    setSelectedIndoorFeature(item)
+    if (item.layer.id === 'grid-lines') {
+      setSelectedFeature(item.feature as PreTopologyItem)
+    }
   }, [])
-  const handleSelectEdgeFromMap = useCallback((edge: NetworkEdgeResponse) => {
-    setEditEdgeItem(edge)
+
+  const handleEditIndoorFeature = useCallback((item: IndoorFeatureItem) => {
+    setSelectedIndoorFeature(item)
+    if (item.layer.id === 'grid-lines') setEditGridLineItem(item.feature as PreTopologyItem)
+    if (item.layer.id === 'nodes') setEditNodeItem(item.feature as NetworkNodeItem)
+    if (item.layer.id === 'edges') setEditEdgeItem(item.feature as NetworkEdgeItem)
   }, [])
+
+  const handleSelectNodeFromMap = useCallback(
+    (node: NetworkNodeItem) => {
+      const index = networkNodes.indexOf(node)
+      setSelectedIndoorFeature({
+        feature: node,
+        layer: { id: 'nodes', layerName: 'Node' },
+        index: index < 0 ? 0 : index,
+      })
+    },
+    [networkNodes]
+  )
+  const handleSelectEdgeFromMap = useCallback(
+    (edge: NetworkEdgeItem) => {
+      const index = networkEdges.indexOf(edge)
+      setSelectedIndoorFeature({
+        feature: edge,
+        layer: { id: 'edges', layerName: 'Edge' },
+        index: index < 0 ? 0 : index,
+      })
+    },
+    [networkEdges]
+  )
 
   const [isOpenAddIndoor, setIsOpenAddIndoor] = useState(false)
 
@@ -299,8 +305,10 @@ export default function PageIndoors() {
         >
           <IndoorMap
             showGridLines={showGridLines}
-            gridLineData={geoJson}
-            features={gridLineFeatures}
+            gridLineData={
+              preTopologyData ? preTopologyData : { type: 'FeatureCollection', features: [] }
+            }
+            features={preTopologyData?.features ?? []}
             selectedFeature={selectedFeature}
             onSelectFeature={handleSelectFeature}
             onOpenDetailModal={handleOpenDetailModal}
@@ -315,7 +323,6 @@ export default function PageIndoors() {
             showEdges={showEdges}
             onSelectNode={handleSelectNodeFromMap}
             onSelectEdge={handleSelectEdgeFromMap}
-            visibleImdfLayers={visibleImdfLayers}
           />
 
           {/* Nut mo rong ban do */}
@@ -337,13 +344,34 @@ export default function PageIndoors() {
           {/* BANG NOI */}
           <div ref={panelRef} className="absolute right-1 bottom-1 left-1 z-1000">
             <IndoorTable
-              features={allFeatures}
+              features={indoorTableFeatures}
               loading={isLoading}
-              selectedFeature={selectedFeature}
-              onSelectFeature={handleSelectFeature}
-              onOpenDetailModal={handleOpenDetailModal}
-              onEditFeature={handleEditFeature}
-              onDeleteFeature={handleDeleteFeature}
+              selectedFeature={selectedIndoorFeature}
+              onSelectFeature={handleSelectIndoorFeature}
+              onOpenDetailModal={(item) => {
+                if (!item) return
+                setSelectedIndoorFeature(item)
+                setSelectedDetailFeature(item)
+                if (item.layer.id === 'grid-lines') {
+                  setSelectedFeature(item.feature as PreTopologyItem)
+                }
+                setIsOpenSelectedFeatureModal(true)
+              }}
+              onEditFeature={handleEditIndoorFeature}
+              onDeleteFeature={async (item) => {
+                if (item.layer.id === 'grid-lines') {
+                  await gridLineService.delete(Number(item.feature.id), token)
+                  reloadTopology()
+                }
+                if (item.layer.id === 'nodes') {
+                  await networkNodeService.delete(Number(item.feature.id), token)
+                  reloadTopology()
+                }
+                if (item.layer.id === 'edges') {
+                  await networkEdgeService.delete(Number(item.feature.id), token)
+                  reloadTopology()
+                }
+              }}
             />
           </div>
         </div>
@@ -353,35 +381,23 @@ export default function PageIndoors() {
       <aside className="outdoor_aside_map min-w-0 overflow-y-auto lg:col-span-1 lg:max-h-[min(85vh,720px)] justify-items-center">
         <IndoorSideBar
           isLoading={isLoading}
-          error={error}
-          gridLineCount={gridLines.length}
-          isGridLineVisible={showGridLines}
-          onToggleGridLine={handleToggleGridLine}
-          onRefresh={() => {
-            reload()
-            reloadTopology()
-          }}
           setIsOpenAddIndoor={setIsOpenAddIndoor}
-          nodeCount={networkNodes.length}
           isNodeVisible={showNodes}
-          onToggleNode={handleToggleNode}
           edgeCount={networkEdges.length}
           isEdgeVisible={showEdges}
-          onToggleEdge={handleToggleEdge}
-          imdfLayers={imdfLayers}
-          imdfLayersLoading={imdfLayersLoading}
-          imdfLayersError={imdfLayersError}
-          visibleLayerIds={visibleLayerIds}
-          onToggleImdfLayer={toggleImdfLayer}
-          onRefreshImdfLayers={reloadImdfLayers}
+          onToggleNode={setShowNodes}
+          onToggleEdge={setShowEdges}
         />
       </aside>
 
       {/* MODAL CHI TIET */}
       <FeatureDetailModal
         isOpenSelectedFeatureModal={isOpenSelectedFeatureModal}
-        onClose={() => setIsOpenSelectedFeatureModal(false)}
-        data={selectedFeature}
+        onClose={() => {
+          setIsOpenSelectedFeatureModal(false)
+          setSelectedDetailFeature(null)
+        }}
+        data={selectedDetailFeature}
       />
 
       {/* MODAL THEM INDOOR */}
@@ -400,7 +416,6 @@ export default function PageIndoors() {
           onClearCoordinates={() => setDrawCoordinates([])}
           onSnapChange={setSnapEnabled}
           onCreated={() => {
-            reload()
             reloadTopology()
             setIsOpenAddIndoor(false)
             setDrawing(false)
@@ -422,12 +437,12 @@ export default function PageIndoors() {
           nodes={networkNodes}
           edges={networkEdges}
           onUpdated={() => {
-            reload()
             setEditGridLineItem(null)
+            reloadTopology()
           }}
           onDelete={async (id) => {
             await gridLineService.delete(id, token)
-            reload()
+            reloadTopology()
             setEditGridLineItem(null)
           }}
         />

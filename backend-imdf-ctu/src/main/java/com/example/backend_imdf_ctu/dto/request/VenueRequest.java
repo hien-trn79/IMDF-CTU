@@ -7,6 +7,8 @@ import java.time.LocalTime;
 
 @Data
 public class VenueRequest {
+    private String venueName;
+
     private GeoJsonGeometry geometry; // WKT representation of MultiPolygon
 
     private LocalDateTime hours;

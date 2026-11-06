@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface IndoorRouteService {
 
-    List<IndoorRouteResponse> getAll();
+    List<IndoorRouteResponse> getAll(Integer levelId);
 
     IndoorRouteResponse getById(Integer indoorRouteId);
 

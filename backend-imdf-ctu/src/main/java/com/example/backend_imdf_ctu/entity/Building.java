@@ -63,6 +63,10 @@ public class Building implements GeoJson {
     @JoinColumn(name = "building_category_id", referencedColumnName = "id")
     private BuildingCategory buildingCategory;
 
+    @ManyToOne
+    @JoinColumn(name = "venue_id", referencedColumnName = "id")
+    private Venue venue;
+
     // === Triển khai các phương thức từ GeoJsonEntity ===
 
     @Override
@@ -74,6 +78,8 @@ public class Building implements GeoJson {
         props.put("buildingCategoryId", this.buildingCategory.getId());
         props.put("buildingCategoryName", this.buildingCategory.getBuildingCategoryVietnameseName());
         props.put("restrictionCategoryId", this.restrictionCategory.getId());
+        props.put("venueId", this.venue.getId());
+        props.put("venueName", this.venue.getVenueName());
         props.put("displayPoint", this.displayPoint); // Sẽ được GeometryConverter xử lý nếu cần
 
         return props;

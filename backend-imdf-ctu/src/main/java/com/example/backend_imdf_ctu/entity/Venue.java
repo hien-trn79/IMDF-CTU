@@ -1,7 +1,9 @@
 package com.example.backend_imdf_ctu.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -11,13 +13,17 @@ import org.locationtech.jts.geom.Point;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
 @Table(name = "venue")
 @Getter
 @Setter
-public class Venue {
+@NoArgsConstructor
+@AllArgsConstructor
+public class Venue implements GeoJson{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,6 +38,9 @@ public class Venue {
             venueId = UUID.randomUUID();
         }
     }
+
+    @Column(name = "venue_name")
+    private String venueName;
 
     @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(name = "geometry", columnDefinition = "geometry(MultiPolygon, 4326)")
@@ -69,4 +78,22 @@ public class Venue {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "address_id", referencedColumnName = "id")
     private Address address;
+
+    @Override
+    public Map<String, Object> getProperties() {
+        Map<String, Object> props = new HashMap<>();
+        props.put("venueId", this.venueId);
+        props.put("venueName", this.venueName);
+
+        props.put("featureId", this.feature.getFeatureId());
+        props.put("featureType", this.getFeature().getFeatureType());
+        props.put("venueCategoryId", this.venueCategory.getId());
+        props.put("venueCategoryName", this.venueCategory.getVenueCategoryName());
+        props.put("restrictionCategoryId", this.restrictionCategory.getId());
+        props.put("restricttionCategoryName", this.getRestrictionCategory().getRestrictionCateName());
+        props.put("addressId", this.address.getId());
+        props.put("addressName", this.getAddress().getAddress());
+
+        return props;
+    }
 }

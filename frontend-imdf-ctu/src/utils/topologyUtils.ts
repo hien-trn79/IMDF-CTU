@@ -1,5 +1,5 @@
-import type { NetworkEdgeResponse } from '../model/NetworkEdge.model'
-import type { NetworkNodeResponse } from '../model/NetworkNode.model'
+import type { NetworkEdgeResponse } from '../model/route models/NetworkEdge.model'
+import type { NetworkNodeResponse } from '../model/route models/NetworkNode.model'
 import { pointToWkbHex, lineStringToWkbHex } from './wkbEncoder'
 import { parseWKBHexToCoords, calcPolylineLengthMeters } from './wkbUtils'
 import { wkbHexToPoint } from './wkbParser'
@@ -78,7 +78,7 @@ export function projectPointToSegment(
  * Kiểm tra 2 tọa độ có gần như trùng nhau không
  */
 export function isSameCoordinate(c1: Coordinate, c2: Coordinate, tol = COORD_TOLERANCE): boolean {
-  return Math.abs(c1[0] - c2[0]) <= tol && Math.abs(c1[1] - c2[1]) <= tol
+  return Math.hypot(c1[0] - c2[0], c1[1] - c2[1]) <= tol
 }
 
 export interface EdgeSplitInfo {
@@ -87,8 +87,22 @@ export interface EdgeSplitInfo {
 }
 
 export interface TopologyNormalizationResult {
-  nodesToCreate: Array<{ geom: string; isConnector: boolean; indoorRouteId: number; tempId: string; coord: Coordinate }>
-  edgesToCreate: Array<{ source: number | string; target: number | string; cost: number; reverseCost: number; geometry: string; indoorRouteId: number }>
+  nodesToCreate: Array<{
+    geom: string
+    isConnector: boolean
+    indoorRouteId: number
+    tempId: string
+    coord: Coordinate
+  }>
+  edgesToCreate: Array<{
+    source: number | string
+    target: number | string
+    cost: number
+    reverseCost: number
+    geometry: string
+    coordinates?: Coordinate[]
+    indoorRouteId: number
+  }>
   edgesToDelete: number[]
   finalPathCoords: Coordinate[]
   gridLineGeomHex: string
@@ -115,7 +129,10 @@ export function normalizeTopology(
   // Loại bỏ các điểm liên tiếp trùng nhau
   const cleanCoords: Coordinate[] = []
   for (const pt of drawnCoords) {
-    if (cleanCoords.length === 0 || !isSameCoordinate(cleanCoords[cleanCoords.length - 1], pt, 1e-7)) {
+    if (
+      cleanCoords.length === 0 ||
+      !isSameCoordinate(cleanCoords[cleanCoords.length - 1], pt, 1e-7)
+    ) {
       cleanCoords.push(pt)
     }
   }
@@ -123,14 +140,38 @@ export function normalizeTopology(
   // Danh sách các nodes hiện tại + temporary nodes sẽ tạo
   const allNodes: Array<{ id?: number; tempId?: string; coord: Coordinate }> = existingNodes
     .map((n) => {
-      const pt = wkbHexToPoint(n.geom)
-      return pt ? { id: n.id, coord: pt } : null
+      let pt: Coordinate | null = null
+      if (
+        n.geometry &&
+        n.geometry.type === 'Point' &&
+        Array.isArray(n.geometry.coordinates) &&
+        n.geometry.coordinates.length >= 2
+      ) {
+        pt = [n.geometry.coordinates[0], n.geometry.coordinates[1]]
+      } else if (n.geom) {
+        pt = wkbHexToPoint(n.geom)
+      }
+      return pt ? { id: Number(n.id), coord: pt } : null
     })
     .filter((n): n is { id: number; coord: Coordinate } => n !== null)
 
-  const nodesToCreate: Array<{ geom: string; isConnector: boolean; indoorRouteId: number; tempId: string; coord: Coordinate }> = []
+  const nodesToCreate: Array<{
+    geom: string
+    isConnector: boolean
+    indoorRouteId: number
+    tempId: string
+    coord: Coordinate
+  }> = []
   const edgesToDeleteSet = new Set<number>()
-  const edgesToCreate: Array<{ source: number | string; target: number | string; cost: number; reverseCost: number; geometry: string; indoorRouteId: number }> = []
+  const edgesToCreate: Array<{
+    source: number | string
+    target: number | string
+    cost: number
+    reverseCost: number
+    geometry: string
+    coordinates?: Coordinate[]
+    indoorRouteId: number
+  }> = []
 
   let tempNodeCounter = 1
   const getOrCreateNode = (coord: Coordinate): { id: number | string; coord: Coordinate } => {
@@ -152,19 +193,31 @@ export function normalizeTopology(
   }
 
   // Map lưu thông tin các edge hiện có cần split
-  const edgeSplitMap = new Map<number, { edge: NetworkEdgeResponse; points: Array<{ nodeRef: { id: number | string; coord: Coordinate }; ratio: number }> }>()
+  const edgeSplitMap = new Map<
+    number,
+    {
+      edge: NetworkEdgeResponse
+      points: Array<{ nodeRef: { id: number | string; coord: Coordinate }; ratio: number }>
+    }
+  >()
 
   // 1. Kiểm tra các đoạn của đường mới với các Edge hiện có
   const processedSegments: Coordinate[][] = []
   for (let i = 0; i < cleanCoords.length - 1; i++) {
-    let segStart = cleanCoords[i]
-    let segEnd = cleanCoords[i + 1]
+    const segStart = cleanCoords[i]
+    const segEnd = cleanCoords[i + 1]
 
     // Giao điểm phát hiện trên đoạn segStart -> segEnd
     const segIntersections: Array<{ coord: Coordinate; dist: number }> = []
 
     for (const edge of existingEdges) {
-      const edgeCoords = parseWKBHexToCoords(edge.geometry)
+      const edgeCoords =
+        edge.geometry &&
+        edge.geometry.type === 'LineString' &&
+        Array.isArray(edge.geometry.coordinates) &&
+        edge.geometry.coordinates.length >= 2
+          ? (edge.geometry.coordinates as Coordinate[])
+          : parseWKBHexToCoords(edge.geometryWkb)
       if (edgeCoords.length < 2) continue
 
       for (let j = 0; j < edgeCoords.length - 1; j++) {
@@ -186,10 +239,11 @@ export function normalizeTopology(
           const dIxEdge = Math.hypot(ix[0] - e1[0], ix[1] - e1[1])
           const ratioEdge = dEdge > 0 ? dIxEdge / dEdge : 0
 
-          if (!edgeSplitMap.has(edge.id)) {
-            edgeSplitMap.set(edge.id, { edge, points: [] })
+          const edgeId = Number(edge.id)
+          if (!edgeSplitMap.has(edgeId)) {
+            edgeSplitMap.set(edgeId, { edge, points: [] })
           }
-          edgeSplitMap.get(edge.id)!.points.push({ nodeRef, ratio: ratioEdge })
+          edgeSplitMap.get(edgeId)!.points.push({ nodeRef, ratio: ratioEdge })
         }
       }
     }
@@ -214,7 +268,10 @@ export function normalizeTopology(
   const fullPathCoords: Coordinate[] = []
   for (const subChain of processedSegments) {
     for (let i = 0; i < subChain.length; i++) {
-      if (fullPathCoords.length === 0 || !isSameCoordinate(fullPathCoords[fullPathCoords.length - 1], subChain[i])) {
+      if (
+        fullPathCoords.length === 0 ||
+        !isSameCoordinate(fullPathCoords[fullPathCoords.length - 1], subChain[i])
+      ) {
         fullPathCoords.push(subChain[i])
       }
     }
@@ -224,9 +281,22 @@ export function normalizeTopology(
   for (const [edgeId, info] of edgeSplitMap.entries()) {
     const edge = info.edge
     const points = info.points
-    // Loại bỏ các nút nằm ở đúng 2 đầu mút cũ của edge
-    const sourceNode = allNodes.find((n) => n.id === edge.source)
-    const targetNode = allNodes.find((n) => n.id === edge.target)
+
+    const edgeCoords =
+      edge.geometry &&
+      edge.geometry.type === 'LineString' &&
+      Array.isArray(edge.geometry.coordinates) &&
+      edge.geometry.coordinates.length >= 2
+        ? (edge.geometry.coordinates as Coordinate[])
+        : parseWKBHexToCoords(edge.geometryWkb)
+
+    // Tìm hoặc tạo node đầu/cuối của edge
+    const sourceNode =
+      allNodes.find((n) => Number(n.id) === Number(edge.source)) ||
+      (edgeCoords.length >= 2 ? getOrCreateNode(edgeCoords[0]) : null)
+    const targetNode =
+      allNodes.find((n) => Number(n.id) === Number(edge.target)) ||
+      (edgeCoords.length >= 2 ? getOrCreateNode(edgeCoords[edgeCoords.length - 1]) : null)
 
     const validSplitPoints = points.filter((p) => {
       if (sourceNode && isSameCoordinate(p.nodeRef.coord, sourceNode.coord)) return false
@@ -240,16 +310,34 @@ export function normalizeTopology(
 
       const nodeSequence: Array<{ id: number | string; coord: Coordinate }> = []
       if (sourceNode) nodeSequence.push({ id: sourceNode.id!, coord: sourceNode.coord })
-      validSplitPoints.forEach((p) => nodeSequence.push(p.nodeRef))
-      if (targetNode) nodeSequence.push({ id: targetNode.id!, coord: targetNode.coord })
+      validSplitPoints.forEach((p) => {
+        if (
+          nodeSequence.length === 0 ||
+          !isSameCoordinate(nodeSequence[nodeSequence.length - 1].coord, p.nodeRef.coord)
+        ) {
+          nodeSequence.push(p.nodeRef)
+        }
+      })
+      if (
+        targetNode &&
+        (nodeSequence.length === 0 ||
+          !isSameCoordinate(nodeSequence[nodeSequence.length - 1].coord, targetNode.coord))
+      ) {
+        nodeSequence.push({ id: targetNode.id!, coord: targetNode.coord })
+      }
 
       for (let k = 0; k < nodeSequence.length - 1; k++) {
         const u = nodeSequence[k]
         const v = nodeSequence[k + 1]
+        if (u.id === v.id || isSameCoordinate(u.coord, v.coord)) continue
+
         const segmentCoords: Coordinate[] = [u.coord, v.coord]
         const lengthMeters = calcPolylineLengthMeters(segmentCoords)
-        const cost = lengthMeters / 1000
-        const reverseCost = edge.reverseCost < 0 ? -1 : cost
+        const cost = Number((lengthMeters / 1000).toFixed(6))
+        const reverseCost =
+          edge.reverseCost !== undefined && edge.reverseCost !== null && edge.reverseCost < 0
+            ? -1
+            : cost
 
         edgesToCreate.push({
           source: u.id,
@@ -257,6 +345,7 @@ export function normalizeTopology(
           cost,
           reverseCost,
           geometry: lineStringToWkbHex(segmentCoords),
+          coordinates: segmentCoords,
           indoorRouteId: edge.indoorRouteId ?? indoorRouteId,
         })
       }
@@ -264,17 +353,19 @@ export function normalizeTopology(
   }
 
   // 3. Tạo các Edge mới cho đường vừa vẽ
-  const fullPathNodeRefs: Array<{ id: number | string; coord: Coordinate }> = fullPathCoords.map((c) => getOrCreateNode(c))
+  const fullPathNodeRefs: Array<{ id: number | string; coord: Coordinate }> = fullPathCoords.map(
+    (c) => getOrCreateNode(c)
+  )
 
   for (let i = 0; i < fullPathNodeRefs.length - 1; i++) {
     const u = fullPathNodeRefs[i]
     const v = fullPathNodeRefs[i + 1]
 
-    if (u.id === v.id) continue // Tránh tự lặp
+    if (u.id === v.id || isSameCoordinate(u.coord, v.coord)) continue // Tránh tự lặp
 
     const segmentCoords: Coordinate[] = [u.coord, v.coord]
     const lengthMeters = calcPolylineLengthMeters(segmentCoords)
-    const cost = lengthMeters / 1000
+    const cost = Number((lengthMeters / 1000).toFixed(6))
     const reverseCost = isOneWay ? -1 : cost
 
     edgesToCreate.push({
@@ -283,6 +374,7 @@ export function normalizeTopology(
       cost,
       reverseCost,
       geometry: lineStringToWkbHex(segmentCoords),
+      coordinates: segmentCoords,
       indoorRouteId,
     })
   }

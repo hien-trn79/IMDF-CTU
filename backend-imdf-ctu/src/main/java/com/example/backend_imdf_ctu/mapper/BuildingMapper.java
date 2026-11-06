@@ -27,7 +27,8 @@ public class BuildingMapper {
         Feature feature,
         Address address,
         RestrictionCategory restrictionCategory,
-        BuildingCategory buildingCategory
+        BuildingCategory buildingCategory,
+        Venue venue
     ) {
         Building entity = new Building();
         entity.setBuildingName(request.getBuildingName());
@@ -39,7 +40,8 @@ public class BuildingMapper {
             address,
             restrictionCategory,
             buildingCategory,
-            entity
+            entity,
+            venue
         );
 
         // Apply geometry conversion
@@ -48,42 +50,14 @@ public class BuildingMapper {
         return entity;
     }
 
-    public BuildingResponse toResponse(Building entity) {
-        BuildingResponse response = new BuildingResponse();
-
-        response.setId(entity.getId());
-        response.setBuildingId(entity.getBuildingId());
-        response.setBuildingName(entity.getBuildingName());
-
-        response.setDisplayPoint(geometryConverter.toGeoJson(entity.getDisplayPoint()));
-        response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
-
-        if (entity.getFeature() != null) {
-            response.setFeatureId(entity.getFeature().getId());
-        }
-
-        if (entity.getAddress() != null) {
-            response.setAddressId(entity.getAddress().getId());
-        }
-
-        if (entity.getRestrictionCategory() != null) {
-            response.setRestrictionCategoryId(entity.getRestrictionCategory().getId());
-        }
-
-        if (entity.getBuildingCategory() != null) {
-            response.setBuildingCategoryId(entity.getBuildingCategory().getId());
-        }
-
-        return response;
-    }
-
     public void update(
         BuildingRequest request,
         Feature feature,
         Address address,
         RestrictionCategory restrictionCategory,
         BuildingCategory buildingCategory,
-        Building entity
+        Building entity,
+        Venue venue
     ) {
         entity.setBuildingName(request.getBuildingName());
         // apply Relations
@@ -92,7 +66,8 @@ public class BuildingMapper {
             address,
             restrictionCategory,
             buildingCategory,
-            entity
+            entity,
+            venue
         );
 
         // Apply geometry conversion
@@ -105,12 +80,14 @@ public class BuildingMapper {
         Address address,
         RestrictionCategory restrictionCategory,
         BuildingCategory buildingCategory,
-        Building entity
+        Building entity,
+        Venue venue
     ) {
         entity.setBuildingCategory(buildingCategory);
         entity.setAddress(address);
         entity.setFeature(feature);
         entity.setRestrictionCategory(restrictionCategory);
+        entity.setVenue(venue);
     }
 
     private void applyGeometry(

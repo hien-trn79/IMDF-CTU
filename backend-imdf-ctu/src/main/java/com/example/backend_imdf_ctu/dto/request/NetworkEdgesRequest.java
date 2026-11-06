@@ -13,7 +13,7 @@ public class NetworkEdgesRequest {
 
     private Double reverseCost;
 
-    private String geometry; // Assuming geometry is represented as a WKT string
+    private GeoJsonGeometry geometry; // Assuming geometry is represented as a WKT string
 
     private Integer indoorRouteId;
 }

@@ -2,12 +2,16 @@ import { Modal, Popconfirm } from 'antd'
 import { useEffect, useState } from 'react'
 import { GridlineType, type IndoorRouteResponse } from '../../model/IndoorRoute.model'
 import type { GridLineRequest } from '../../model/GridLine.model'
-import type { NetworkNodeResponse } from '../../model/NetworkNode.model'
-import type { NetworkEdgeResponse } from '../../model/NetworkEdge.model'
+import type { NetworkNodeResponse } from '../../model/route models/NetworkNode.model'
+import type { NetworkEdgeResponse } from '../../model/route models/NetworkEdge.model'
 import { gridLineService } from '../../services/gridLineService'
 import { indoorRouteService } from '../../services/indoorRouteService'
-import { lineStringToWkbHex } from '../../utils/wkbEncoder'
-import { parseWKBHexToCoords, calcPolylineLengthMeters, formatLength } from '../../utils/wkbUtils'
+import {
+  parseWKBHexToCoords,
+  calcPolylineLengthMeters,
+  coordsToLineStringGeometry,
+  formatLength,
+} from '../../utils/wkbUtils'
 
 interface ModalEditGridLineProps {
   isOpen: boolean
@@ -32,37 +36,45 @@ export default function ModalEditGridLine({
     category: GridlineType.CORRIDOR,
     isOneWay: false,
     indoorRouteId: 0,
-    geom: '',
+    geometry: { type: 'LineString', coordinates: [] },
   })
   const [coords, setCoords] = useState<[number, number][]>([])
   const [routes, setRoutes] = useState<IndoorRouteResponse[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const featureProps = gridLineItem?.feature?.properties || {}
-  const gridLineId = gridLineItem?.feature?.id ? Number(gridLineItem.feature.id) : null
+  const feature = gridLineItem?.feature ?? gridLineItem
+  const featureProps = feature?.properties || {}
+  const gridLineId = feature?.id ? Number(feature.id) : null
 
   useEffect(() => {
     if (!isOpen) return
     indoorRouteService
       .getAll(token)
       .then(setRoutes)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Không tải được danh sách tuyến đường'))
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Không tải được danh sách tuyến đường')
+      )
 
-    if (gridLineItem?.feature) {
+    if (feature) {
       const categoryVal = featureProps.category || GridlineType.CORRIDOR
       const isOneWayVal = !!featureProps.isOneWay
-      const indoorRouteIdVal = Number(featureProps.indoorRouteId || featureProps.indoor_route_id || 0)
-      const geomHex = gridLineItem.feature.geometry_wkb || gridLineItem.feature.geom || ''
+      const indoorRouteIdVal = Number(
+        featureProps.indoorRouteId || featureProps.indoor_route_id || 0
+      )
+      const geomHex = feature.geometry_wkb || feature.geom || ''
       const parsed = parseWKBHexToCoords(geomHex)
 
       setData({
         category: categoryVal as GridlineType,
         isOneWay: isOneWayVal,
         indoorRouteId: indoorRouteIdVal,
-        geom: geomHex,
+        geometry: {
+          type: 'LineString',
+          coordinates: parsed.length > 0 ? parsed : feature.geometry?.coordinates || [],
+        },
       })
-      setCoords(parsed.length > 0 ? parsed : (gridLineItem.feature.geometry?.coordinates || []))
+      setCoords(parsed.length > 0 ? parsed : feature.geometry?.coordinates || [])
     }
   }, [isOpen, gridLineItem, token])
 
@@ -79,8 +91,18 @@ export default function ModalEditGridLine({
 
     setSaving(true)
     try {
-      const finalGeomHex = coords.length >= 2 ? lineStringToWkbHex(coords) : data.geom
-      await gridLineService.update(gridLineId, { ...data, geom: finalGeomHex }, token)
+      const finalCoords: [number, number][] =
+        coords.length >= 2
+          ? coords
+          : data.geometry.coordinates.map((coordinate) => [
+              coordinate[0],
+              coordinate[1],
+            ] as [number, number])
+      await gridLineService.update(
+        gridLineId,
+        { ...data, geometry: coordsToLineStringGeometry(finalCoords) },
+        token
+      )
       onUpdated()
       onClose()
     } catch (saveErr: unknown) {
@@ -110,8 +132,12 @@ export default function ModalEditGridLine({
     >
       <div className="space-y-3 pt-1 text-xs">
         <div className="rounded-lg bg-slate-100 p-2.5 text-slate-700 flex justify-between items-center">
-          <span>Tọa độ: <strong>{coords.length} điểm</strong></span>
-          <span>Độ dài: <strong className="text-blue-700">{formatLength(lengthMeters)}</strong></span>
+          <span>
+            Tọa độ: <strong>{coords.length} điểm</strong>
+          </span>
+          <span>
+            Độ dài: <strong className="text-blue-700">{formatLength(lengthMeters)}</strong>
+          </span>
         </div>
 
         <label className="block font-semibold text-slate-700">
@@ -155,7 +181,11 @@ export default function ModalEditGridLine({
           </select>
         </label>
 
-        {error && <div className="rounded-lg bg-rose-50 p-2 text-rose-600 border border-rose-200">{error}</div>}
+        {error && (
+          <div className="rounded-lg bg-rose-50 p-2 text-rose-600 border border-rose-200">
+            {error}
+          </div>
+        )}
 
         <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
           <Popconfirm

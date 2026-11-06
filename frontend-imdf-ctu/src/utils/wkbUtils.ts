@@ -1,3 +1,5 @@
+import type { LineString, Point } from 'geojson'
+
 /**
  * WKB (Well-Known Binary) Hex Utilities
  * Backend trả về geom dạng WKB Hex BigEndian, không có SRID prefix trong hex.
@@ -6,41 +8,81 @@
  */
 
 function hexToDataView(hex: string): DataView {
-  const bytes = new Uint8Array(hex.length / 2)
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
+  let cleanHex = hex.trim()
+  if (cleanHex.startsWith('0x') || cleanHex.startsWith('0X')) {
+    cleanHex = cleanHex.substring(2)
+  }
+  const bytes = new Uint8Array(Math.floor(cleanHex.length / 2))
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(cleanHex.substring(i * 2, i * 2 + 2), 16)
   }
   return new DataView(bytes.buffer)
 }
 
 /**
- * Parse WKB Hex LineString → array of [lng, lat] (GeoJSON order)
+ * Parse WKB Hex Point or LineString → array of [lng, lat] (GeoJSON order)
  */
 export function parseWKBHexToCoords(hex: string): [number, number][] {
   if (!hex) return []
   try {
     const view = hexToDataView(hex)
+    if (view.byteLength < 5) return []
     const isLittle = view.getUint8(0) === 1
-    const type = view.getUint32(1, isLittle)
+    const rawType = view.getUint32(1, isLittle)
     let offset = 5
 
-    // Skip SRID if present (EWKB flag)
-    if ((type & 0x20000000) !== 0) offset += 4
+    // Skip SRID if present (EWKB flag 0x20000000)
+    if ((rawType & 0x20000000) !== 0) {
+      offset += 4
+    }
 
-    const numPts = view.getUint32(offset, isLittle)
-    offset += 4
+    const geomType = rawType & 0xffff
 
-    const points: [number, number][] = []
-    for (let i = 0; i < numPts; i++) {
+    // Point: geomType === 1
+    if (geomType === 1) {
+      if (offset + 16 > view.byteLength) return []
       const x = view.getFloat64(offset, isLittle) // longitude
       offset += 8
       const y = view.getFloat64(offset, isLittle) // latitude
-      offset += 8
-      points.push([x, y])
+      return [[x, y]]
     }
-    return points
+
+    // LineString: geomType === 2
+    if (geomType === 2) {
+      if (offset + 4 > view.byteLength) return []
+      const numPts = view.getUint32(offset, isLittle)
+      offset += 4
+
+      const points: [number, number][] = []
+      for (let i = 0; i < numPts; i++) {
+        if (offset + 16 > view.byteLength) break
+        const x = view.getFloat64(offset, isLittle) // longitude
+        offset += 8
+        const y = view.getFloat64(offset, isLittle) // latitude
+        offset += 8
+        points.push([x, y])
+      }
+
+      return points
+    }
+
+    return []
   } catch {
     return []
+  }
+}
+
+export function coordsToLineStringGeometry(coords: [number, number][]): LineString {
+  return {
+    type: 'LineString',
+    coordinates: coords,
+  }
+}
+
+export function coordToPointGeometry(coord: [number, number]): Point {
+  return {
+    type: 'Point',
+    coordinates: coord,
   }
 }
 

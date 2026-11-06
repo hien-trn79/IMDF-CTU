@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
-import type { FeatureCollection } from 'geojson'
 import { GRID_LINE_COLOR } from './gridLineGeoJson'
-import type { IndoorFeatureItem } from './IndoorTable'
+import type {
+  PreTopologyItem,
+  PreTopologyResponse,
+} from '../../model/route models/preTopology.model'
 
 interface GridLineLayerProps {
-  data: FeatureCollection
-  items: IndoorFeatureItem[] // cùng thứ tự với data.features
-  selectedFeature: IndoorFeatureItem | null
-  onSelectFeature: (item: IndoorFeatureItem) => void
-  onOpenDetailModal: (item: IndoorFeatureItem) => void
+  data: PreTopologyResponse // GeoJSON FeatureCollection
+  selectedFeature: PreTopologyItem | null
+  onSelectFeature: (item: PreTopologyItem) => void
+  onOpenDetailModal: (item: PreTopologyItem) => void
   onClearSelection: () => void
 }
 
@@ -20,13 +21,14 @@ const ACTIVE_STYLE: L.PathOptions = { color: '#f59e0b', weight: 6, opacity: 1 }
 // Vẽ các đường grid line lên map. Phải đặt BÊN TRONG <MapContainer>.
 export default function GridLineLayer({
   data,
-  items,
   selectedFeature,
   onSelectFeature,
   onOpenDetailModal,
   onClearSelection,
 }: GridLineLayerProps) {
   const map = useMap()
+
+  const items = data.features
 
   // Index feature -> layer Leaflet, dùng để tô sáng khi chọn từ bảng
   const layersRef = useRef<Map<number, L.Polyline>>(new Map())
@@ -84,7 +86,7 @@ export default function GridLineLayer({
   // 2) Tô sáng feature đang chọn (từ bảng hoặc từ click trên map)
   useEffect(() => {
     layersRef.current.forEach((l, index) => {
-      const active = selectedFeature?.index === index
+      const active = selectedFeature === items[index]
       l.setStyle(active ? ACTIVE_STYLE : BASE_STYLE)
       if (active) {
         l.bringToFront()

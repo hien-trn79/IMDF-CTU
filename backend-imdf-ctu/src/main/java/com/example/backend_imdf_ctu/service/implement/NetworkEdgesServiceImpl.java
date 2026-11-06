@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
-import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
 import com.example.backend_imdf_ctu.entity.IndoorRoute;
 import com.example.backend_imdf_ctu.entity.NetworkEdges;
 import com.example.backend_imdf_ctu.entity.NetworkNodes;
@@ -25,26 +24,23 @@ public class NetworkEdgesServiceImpl implements NetworkEdgesService {
     private final NetworkEdgesMapper mapper;
 
     private final IndoorRouteRepository indoorRouteRepository;
-
     private final NetworkNodesRepository nodesRepository;
 
     @Override
-    public List<NetworkEdgesResponse> getAll() {
-        return repository.findAll()
+    public List<NetworkEdges> getAll(Integer routeId) {
+        return repository.findAllByIndoorRouteId(routeId)
             .stream()
-            .map(mapper::toResponse)
             .toList();
     }
 
     @Override
-    public NetworkEdgesResponse getById(Integer id) {
+    public NetworkEdges getById(Integer id) {
         return repository.findById(id)
-            .map(mapper::toResponse)
             .orElseThrow(() -> new BusinessException(ErrorCode.NETWORK_EDGES_NOT_FOUND));
     }
 
     @Override
-    public NetworkEdgesResponse create(NetworkEdgesRequest request) {
+    public NetworkEdges create(NetworkEdgesRequest request) {
         IndoorRoute indoorRoute = indoorRouteRepository.findById(request.getIndoorRouteId())
             .orElseThrow(() -> new BusinessException(ErrorCode.ROUTE_NOT_FOUND));
 
@@ -62,11 +58,11 @@ public class NetworkEdgesServiceImpl implements NetworkEdgesService {
             targetNode
         );
 
-        return mapper.toResponse(repository.save(entity));
+        return repository.save(entity);
     }
 
     @Override
-    public NetworkEdgesResponse update(
+    public NetworkEdges update(
         Integer id,
         NetworkEdgesRequest request
     ) {
@@ -90,7 +86,7 @@ public class NetworkEdgesServiceImpl implements NetworkEdgesService {
             targetNode
         );
 
-        return mapper.toResponse(repository.save(updatedEntity));
+        return repository.save(updatedEntity);
     }
 
     @Override

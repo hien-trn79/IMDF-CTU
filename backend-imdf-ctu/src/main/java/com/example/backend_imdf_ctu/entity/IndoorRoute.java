@@ -38,4 +38,8 @@ public class IndoorRoute {
 
     @Column(name = "status")
     private String status;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "level_id", referencedColumnName = "id")
+    private Level level;
 }
