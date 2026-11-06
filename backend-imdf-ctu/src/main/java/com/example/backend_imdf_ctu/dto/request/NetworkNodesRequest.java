@@ -7,7 +7,7 @@ public class NetworkNodesRequest {
 
     private Boolean isConnector;
 
-    private String geom;
+    private GeoJsonGeometry geometry;
 
     private Integer indoorRouteId;
 }

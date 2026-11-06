@@ -9,7 +9,6 @@ import {
   UploadCloud,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useLayer } from '../../context/LayerContext'
 import { useLevel } from '../../context/LevelContext'
 import { useUser } from '../../context/UserContext'
 import type { BuildingGeoJson, LevelGeoJson } from '../../model/geoJsonEntity.model'
@@ -49,12 +48,6 @@ export default function OutdoorSidebar({
   isPublishing: _isPublishing = false,
   roleLabel = 'ADMIN',
 }: OutdoorSidebarProps) {
-  const {
-    refreshLayers,
-    isLoadingLayers,
-    layerCatalogError: _layerCatalogError,
-    availableLayers: _availableLayers,
-  } = useLayer()
   const { dataVersion } = useLevel()
   const { token } = useUser()
 
@@ -65,6 +58,8 @@ export default function OutdoorSidebar({
   const [isLoadingLevels, setIsLoadingLevels] = useState(false)
   const [levelsError, setLevelsError] = useState<string | null>(null)
   const [activeLevelId, setActiveLevelId] = useState<string>('')
+
+  const isLoadingLayers = isLoadingBuildings || isLoadingLevels
 
   const [isBuildingOpen, setIsBuildingOpen] = useState(false)
 
@@ -83,7 +78,7 @@ export default function OutdoorSidebar({
       setIsLoadingBuildings(true)
       setBuildingsError(null)
       try {
-        const res = await fetch(`${API_BASE}/buildings?page=0&size=100&sort=id%2CASC`, {
+        const res = await fetch(`${API_BASE}/buildings?venueId=2&page=0&size=100&sort=id%2CASC`, {
           headers: authHeaders,
           signal: controller.signal,
         })
@@ -229,11 +224,7 @@ export default function OutdoorSidebar({
 
         {/* Actions */}
         <div className="mb-3 grid grid-cols-2 gap-2.5">
-          <button
-            onClick={refreshLayers}
-            disabled={isLoadingLayers}
-            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60"
-          >
+          <button className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60">
             <RotateCcw className={`h-4 w-4 ${isLoadingLayers ? 'animate-spin' : ''}`} />
             Làm mới
           </button>

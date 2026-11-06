@@ -26,6 +26,8 @@ public class UnitServiceImpl implements UnitService {
     private final UnitCategoryRepository unitCategoryRepository;
     private final RestrictionCateRepository restrictionCateRepository;
 
+    private final AnchorRepository anchorRepository;
+
     @Override
     public Page<Unit> getAll(Pageable pageable) {
 
@@ -120,6 +122,12 @@ public class UnitServiceImpl implements UnitService {
     public void delete(Integer id) {
         Unit entity = repository.findById(id)
             .orElseThrow(() -> new BusinessException(ErrorCode.UNIT_NOT_FOUND, "Không tìm thấy Unit với id = " + id));
+
+        // Thực hiện xóa các Anchor liên quan đến Unit này trước khi xóa Unit
+        Anchor anchor = anchorRepository.findByUnitId(id);
+        if (anchor != null) {
+            anchorRepository.delete(anchor);
+        }
 
         repository.delete(entity);
     }

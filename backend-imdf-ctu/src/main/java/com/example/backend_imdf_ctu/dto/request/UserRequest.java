@@ -24,4 +24,6 @@ public class UserRequest {
 
     private String numberPhone;
 
+    private String password;
+
 }

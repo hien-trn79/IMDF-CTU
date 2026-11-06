@@ -6,12 +6,14 @@ import com.example.backend_imdf_ctu.entity.Building;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 public interface BuildingService {
     Building create(BuildingRequest request);
 
     Building getById(Integer id);
 
-    Page<Building> list(Pageable pageable);
+    List<Building> getAll(Integer venueId);
 
     Building update(Integer id, BuildingRequest request);
 

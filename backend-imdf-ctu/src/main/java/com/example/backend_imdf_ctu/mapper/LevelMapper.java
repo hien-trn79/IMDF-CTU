@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.mapper;
 
 import com.example.backend_imdf_ctu.dto.request.LevelRequest;
-import com.example.backend_imdf_ctu.dto.response.LevelResponse;
 import com.example.backend_imdf_ctu.entity.Building;
 import com.example.backend_imdf_ctu.entity.Level;
 import com.example.backend_imdf_ctu.entity.LevelCategory;
@@ -44,30 +43,6 @@ public class LevelMapper {
         applyGeometry(request, entity);
 
         return entity;
-    }
-
-    public LevelResponse toResponse(Level entity) {
-        LevelResponse response = new LevelResponse();
-
-        response.setId(entity.getId());
-        response.setLevelId(entity.getLevelId());
-
-        response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
-        response.setDisplayPoint(geometryConverter.toGeoJson(entity.getDisplayPoint()));
-
-        response.setOutdoor(entity.getOutdoor());
-        response.setOrdinal(entity.getOrdinal());
-
-        response.setLevelCategoryId(entity.getLevelCategory().getId());
-        response.setLevelCategoryName(entity.getLevelCategory().getLevelCategoryName());
-
-        response.setRestrictionCategoryId(entity.getRestrictionCategory().getId());
-        response.setRestrictionCategoryName(entity.getRestrictionCategory().getRestrictionCateVietnameseName());
-
-        response.setBuildingId(entity.getBuilding().getId());
-        response.setBuildingName(entity.getBuilding().getBuildingName());
-
-        return response;
     }
 
     public void update(

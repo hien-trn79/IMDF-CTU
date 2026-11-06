@@ -21,4 +21,6 @@ public class BuildingRequest {
 
     @NotNull(message = "Building Category ID cannot be null")
     private Integer buildingCategoryId;
+
+    private Integer venueId;
 }

@@ -20,4 +20,7 @@ public class IndoorRouteResponse {
     private String indoorRouteType;
 
     private String status;
+
+    private Integer levelId;
+    private Integer ordinal;
 }

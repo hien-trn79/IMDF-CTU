@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.mapper;
 
 import com.example.backend_imdf_ctu.dto.request.UnitRequest;
-import com.example.backend_imdf_ctu.dto.response.UnitResponse;
 import com.example.backend_imdf_ctu.entity.*;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiPolygon;
@@ -86,40 +85,6 @@ public class UnitMapper {
         applyGeometry(request, entity);
 
         return entity;
-    }
-
-    public UnitResponse toResponse(Unit entity) {
-        UnitResponse response = new UnitResponse();
-
-        response.setId(entity.getId());
-        response.setUnitId(entity.getUnitId().toString());
-        response.setUnitName(entity.getUnitName());
-        response.setCreatedAt(entity.getCreatedAt());
-
-        response.setGeometry(geometryConverter.toGeoJson(entity.getGeometry()));
-        response.setDisplayPoint(geometryConverter.toGeoJson(entity.getDisplayPoint()));
-
-        if (entity.getFeature() != null) {
-            response.setFeatureId(entity.getFeature().getId());
-            response.setFeatureType(entity.getFeature().getFeatureType());
-        }
-
-        if (entity.getLevel() != null) {
-            response.setLevelId(entity.getLevel().getId());
-            response.setOrdinal(entity.getLevel().getOrdinal());
-        }
-
-        if (entity.getUnitCategory() != null) {
-            response.setUnitCategoryId(entity.getUnitCategory().getId());
-            response.setUnitCategoryName(entity.getUnitCategory().getUnitCategoryName());
-        }
-
-        if (entity.getRestrictionCategory() != null) {
-            response.setRestrictionCategoryId(entity.getRestrictionCategory().getId());
-            response.setRestrictionCategoryName(entity.getRestrictionCategory().getRestrictionCateName());
-        }
-
-        return response;
     }
 
     public void update(

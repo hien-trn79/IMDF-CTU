@@ -2,7 +2,6 @@ package com.example.backend_imdf_ctu.controllerTest;
 
 import com.example.backend_imdf_ctu.controller.UnitController;
 import com.example.backend_imdf_ctu.dto.request.UnitRequest;
-import com.example.backend_imdf_ctu.dto.response.UnitResponse;
 import com.example.backend_imdf_ctu.exception.BusinessException;
 import com.example.backend_imdf_ctu.exception.ErrorCode;
 import com.example.backend_imdf_ctu.repository.UserRepository;

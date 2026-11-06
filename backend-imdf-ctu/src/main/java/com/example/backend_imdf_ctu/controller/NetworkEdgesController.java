@@ -1,9 +1,13 @@
 package com.example.backend_imdf_ctu.controller;
 
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeature;
+import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeatureCollection;
 import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
-import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
+import com.example.backend_imdf_ctu.entity.NetworkEdges;
+import com.example.backend_imdf_ctu.mapper.GenericGeoJsonMapper;
 import com.example.backend_imdf_ctu.service.interfaces.NetworkEdgesService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,45 +18,40 @@ import java.util.List;
 @CrossOrigin
 public class NetworkEdgesController {
     private final NetworkEdgesService service;
+    private final GenericGeoJsonMapper geoJsonMapper;
 
     // [GET] /network-edges
     @GetMapping
-    public List<NetworkEdgesResponse> getAll() {
-        return service.getAll();
+    public ResponseEntity<GeoJsonFeatureCollection> getAll(
+        @RequestParam(name = "routeId") Integer routeId
+    ) {
+        List<NetworkEdges> edges = service.getAll(routeId);
+
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(edges));
     }
 
     // [GET] /network-edges/{id}
     @GetMapping("/{id}")
-    public NetworkEdgesResponse getById(@PathVariable Integer id) {
-        return service.getById(id);
+    public ResponseEntity<GeoJsonFeature> getById(@PathVariable Integer id) {
+        NetworkEdges edge = service.getById(id);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(edge));
     }
 
     // [POST] /network-edges
     @PostMapping
-    public NetworkEdgesResponse create(
+    public ResponseEntity<GeoJsonFeature> create(
         @RequestBody NetworkEdgesRequest request
         ) {
-        return service.create(request);
-    }
-
-    // [POST] /network-edges/batch
-    @PostMapping("/batch")
-    public Integer createBatch(
-        @RequestBody List<NetworkEdgesRequest> requests
-    ) {
-        return requests.stream()
-            .map(service::create)
-            .toList()
-            .size();
+        return ResponseEntity.ok(geoJsonMapper.toFeature(service.create(request)));
     }
 
     // [PUT] /network-edges/{id}
     @PutMapping("/{id}")
-    public NetworkEdgesResponse update(
+    public ResponseEntity<GeoJsonFeature> update(
         @PathVariable Integer id,
         @RequestBody NetworkEdgesRequest request
     ) {
-        return service.update(id, request);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(service.update(id, request)));
     }
 
     // [DELETE] /network-edges/{id}

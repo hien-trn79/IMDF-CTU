@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp, Crosshair, Edit3, FileText, Trash2 } from 'luci
 // `feature` giữ nguyên cả geometry của GeoJSON feature (modal cần để vẽ bản đồ).
 export interface IndoorFeatureItem {
   feature: {
-    id: string
+    id: string | number
     properties: Record<string, any>
     [key: string]: any
   }

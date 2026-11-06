@@ -1,7 +1,7 @@
 import type { GridLineRequest, GridLineResponse } from '../model/GridLine.model'
 import { authHeaders } from './authHeaders'
 
-const API_BASE = '/api/grid-lines'
+const API_BASE = 'http://localhost:8081/api/grid-lines'
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -46,6 +46,8 @@ export const gridLineService = {
     )
   },
   async delete(id: number, token: string): Promise<boolean> {
-    return handleResponse(await fetch(`${API_BASE}/${id}`, { method: 'DELETE', headers: authHeaders(token) }))
+    return handleResponse(
+      await fetch(`${API_BASE}/${id}`, { method: 'DELETE', headers: authHeaders(token) })
+    )
   },
 }

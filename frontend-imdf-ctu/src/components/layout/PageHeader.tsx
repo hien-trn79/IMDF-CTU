@@ -26,8 +26,8 @@ export default function PageHeader() {
       role: ['ADMIN'],
     },
     {
-      label: 'Outdoor',
-      to: '/outdoor',
+      label: 'Indoor',
+      to: '/indoor',
       icon: (<MapPin className="w-4 h-4" />) as ReactNode,
       role: ['ADMIN'],
     },
@@ -113,7 +113,7 @@ export default function PageHeader() {
     .slice(0, 6)
 
   return (
-    <header className="page-header py-2.5 px-4 bg-white shadow-md flex justify-between items-center z-[3000] relative">
+    <header className="page-header py-2.5 px-4 bg-white shadow-md flex justify-between items-center z-3000 relative">
       {/* LOGO */}
       <div
         className="flex items-center gap-3 cursor-pointer shrink-0"

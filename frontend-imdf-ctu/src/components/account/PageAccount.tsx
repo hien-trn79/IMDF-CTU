@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Button, Input, Select, Switch, Table, Tag, Tooltip, notification } from 'antd'
+import {
+  Avatar,
+  Button,
+  Input,
+  Modal,
+  Select,
+  Switch,
+  Table,
+  Tag,
+  Tooltip,
+  notification,
+} from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   EditOutlined,
   EyeOutlined,
+  DeleteOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -114,6 +126,31 @@ export default function PageAccount() {
     }
   }
 
+  const deleteUser = (user: AccountUser) => {
+    if (user.id === me?.id) {
+      notify('error', 'Không thể xóa tài khoản đang đăng nhập')
+      return
+    }
+
+    Modal.confirm({
+      title: 'Xóa tài khoản này?',
+      content: `Tài khoản "${user.username}" sẽ bị xóa khỏi hệ thống. Thao tác này không thể hoàn tác.`,
+      okText: 'Xóa tài khoản',
+      cancelText: 'Hủy',
+      okButtonProps: { danger: true },
+      centered: true,
+      onOk: async () => {
+        try {
+          await adminApi.delete(token, user.id)
+          setUsers((list) => list.filter((item) => item.id !== user.id))
+          notify('success', 'Đã xóa tài khoản', `Tài khoản "${user.username}" đã được xóa.`)
+        } catch (e) {
+          notify('error', 'Xóa tài khoản thất bại', (e as Error).message)
+        }
+      },
+    })
+  }
+
   const columns: ColumnsType<AccountUser> = [
     {
       title: 'Người dùng',
@@ -140,7 +177,7 @@ export default function PageAccount() {
       responsive: ['md'],
       render: (v) => v || '—',
     },
-    { title: 'Điện thoại', dataIndex: 'phone', responsive: ['lg'], render: (v) => v || '—' },
+    { title: 'Điện thoại', dataIndex: 'numberPhone', responsive: ['lg'], render: (v) => v || '—' },
     {
       title: 'Vai trò',
       dataIndex: 'role',
@@ -168,7 +205,7 @@ export default function PageAccount() {
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 150,
+      width: 190,
       align: 'center',
       fixed: 'right',
       render: (_, u) => (
@@ -179,6 +216,16 @@ export default function PageAccount() {
               shape="circle"
               icon={<EyeOutlined />}
               onClick={() => openModal('view', u)}
+            />
+          </Tooltip>
+          <Tooltip title="Xóa tài khoản">
+            <Button
+              type="text"
+              shape="circle"
+              danger
+              icon={<DeleteOutlined />}
+              disabled={u.id === me?.id}
+              onClick={() => deleteUser(u)}
             />
           </Tooltip>
           <Tooltip title="Chỉnh sửa">

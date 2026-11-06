@@ -1,12 +1,15 @@
 package com.example.backend_imdf_ctu.entity;
 
-import com.example.backend_imdf_ctu.mapper.LineStringConvert;
+import com.example.backend_imdf_ctu.enums.TopologyCategory;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.LineString;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -16,7 +19,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class GridLine {
+public class GridLine implements GeoJson {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) //
@@ -35,19 +38,35 @@ public class GridLine {
     }
 
     @Column(name = "category", nullable = false)
-    @NotBlank(message = "Category cannot be blank")
-    private String category;
+    @Enumerated(EnumType.STRING)
+    private TopologyCategory category;
 
     @Column(name = "is_one_way", nullable = false)
     private Boolean isOneWay;
 
-    @NotNull(message = "geom cannot be null")
-    @Column(name = "geom", nullable = false)
-    @Convert(converter = LineStringConvert.class)
-    private LineString geom;
+    @Column(name = "geometry", nullable = false)
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
+    private LineString geometry;
 
     // Foreign key liên kết sang IndoorRoute dựa trên Khóa chính 'id' (Integer)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "indoor_route_id", referencedColumnName = "id", nullable = false)
     private IndoorRoute indoorRoute;
+
+    // === Triển khai các phương thức từ GeoJsonEntity ===
+
+    @Override
+    public Map<String, Object> getProperties() {
+        Map<String, Object> props = new HashMap<>();
+        props.put("preTopologyId", this.gridLineId);
+        props.put("category", this.category.toString());
+        props.put("isOneWay", this.isOneWay);
+
+        props.put("routeId", this.getIndoorRoute().getId());
+        props.put("routeName", this.getIndoorRoute().getIndoorRouteName());
+        props.put("routeType", this.getIndoorRoute().getIndoorRouteType());
+
+        props.put("ordinal", this.getIndoorRoute().getLevel().getOrdinal());
+        return props;
+    }
 }

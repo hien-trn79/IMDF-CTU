@@ -1,19 +1,10 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { DestinationItem, RouteData } from '../model/Navigation.model'
 import {
   calculateRoutePath,
-  fetchAllSearchableLocations,
   searchLocations,
   searchExternalLocations,
 } from '../services/mapNavigationService'
-import { useLayer } from './LayerContext'
 
 interface MapNavigationContextType {
   allLocations: DestinationItem[]
@@ -51,10 +42,8 @@ interface MapNavigationContextType {
 const MapNavigationContext = createContext<MapNavigationContextType | undefined>(undefined)
 
 export const MapNavigationProvider = ({ children }: { children: ReactNode }) => {
-  const { geoServerUrl } = useLayer()
-
-  const [allLocations, setAllLocations] = useState<DestinationItem[]>([])
-  const [isLoadingLocations, setIsLoadingLocations] = useState(false)
+  const [allLocations] = useState<DestinationItem[]>([])
+  const [isLoadingLocations] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<DestinationItem[]>([])
@@ -75,29 +64,6 @@ export const MapNavigationProvider = ({ children }: { children: ReactNode }) => 
 
   // Indoor floor selection
   const [selectedFloor, setSelectedFloor] = useState('G')
-
-  // 1. Tải danh sách địa điểm và phòng học từ GeoServer
-  useEffect(() => {
-    let active = true
-    setIsLoadingLocations(true)
-
-    fetchAllSearchableLocations(geoServerUrl)
-      .then((items) => {
-        if (active) {
-          setAllLocations(items)
-        }
-      })
-      .catch((err) => {
-        console.error('Lỗi khi tải danh sách địa điểm:', err)
-      })
-      .finally(() => {
-        if (active) setIsLoadingLocations(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [geoServerUrl])
 
   // 2. Tìm kiếm tự động khi `searchQuery` thay đổi
   useEffect(() => {
@@ -160,8 +126,8 @@ export const MapNavigationProvider = ({ children }: { children: ReactNode }) => 
           err.code === err.PERMISSION_DENIED
             ? 'Vị trí đang bị tắt hoặc trang chưa được cấp quyền. Hãy bật Location/GPS trong thiết bị, cho phép vị trí cho trang này rồi thử lại.'
             : err.code === err.TIMEOUT
-            ? 'Không nhận được tín hiệu vị trí kịp thời. Hãy bật GPS và thử lại ở nơi thoáng.'
-            : 'Không thể lấy vị trí hiện tại. Hãy bật Location/GPS và thử lại.'
+              ? 'Không nhận được tín hiệu vị trí kịp thời. Hãy bật GPS và thử lại ở nơi thoáng.'
+              : 'Không thể lấy vị trí hiện tại. Hãy bật Location/GPS và thử lại.'
         setLocationError(message)
         setUserLocation(null)
         setShowUserLocation(false)
@@ -233,13 +199,10 @@ export const MapNavigationProvider = ({ children }: { children: ReactNode }) => 
   )
 
   // 5. Chọn điểm đến và hiển thị modal thông tin (KHÔNG tự động tìm đường)
-  const selectDestinationAndRoute = useCallback(
-    async (dest: DestinationItem) => {
-      setSelectedDestination(dest)
-      setShowLocationModal(true)
-    },
-    []
-  )
+  const selectDestinationAndRoute = useCallback(async (dest: DestinationItem) => {
+    setSelectedDestination(dest)
+    setShowLocationModal(true)
+  }, [])
 
   // 6. Xoá đường đi
   const clearRoute = useCallback(() => {

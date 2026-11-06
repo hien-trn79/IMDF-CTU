@@ -18,8 +18,10 @@ public class IndoorRouteController {
 
     // [GET] /api/indoor-routes/
     @GetMapping
-    public List<IndoorRouteResponse> getAll() {
-        return service.getAll();
+    public List<IndoorRouteResponse> getAll(
+        @RequestParam(name = "levelId") Integer levelId
+    ) {
+        return service.getAll(levelId);
     }
 
     // [GET] /api/indoor-routes/{indoorRouteId}

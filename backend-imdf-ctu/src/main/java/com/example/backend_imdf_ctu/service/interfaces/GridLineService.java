@@ -1,19 +1,19 @@
 package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.GridLineRequest;
-import com.example.backend_imdf_ctu.dto.response.GridLineResponse;
+import com.example.backend_imdf_ctu.entity.GridLine;
 
 import java.util.List;
 
 public interface GridLineService {
 
-    List<GridLineResponse> getAll();
+    List<GridLine> getAll(Integer levelId);
 
-    GridLineResponse getById(Integer gridLineId);
+    GridLine getById(Integer gridLineId);
 
-    GridLineResponse create(GridLineRequest request);
+    GridLine create(GridLineRequest request);
 
-    GridLineResponse update(Integer gridLineId, GridLineRequest request);
+    GridLine update(Integer gridLineId, GridLineRequest request);
 
     Boolean delete(Integer gridLineId);
 }

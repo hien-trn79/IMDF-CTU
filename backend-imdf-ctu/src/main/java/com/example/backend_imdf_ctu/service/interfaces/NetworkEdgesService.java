@@ -1,18 +1,18 @@
 package com.example.backend_imdf_ctu.service.interfaces;
 
 import com.example.backend_imdf_ctu.dto.request.NetworkEdgesRequest;
-import com.example.backend_imdf_ctu.dto.response.NetworkEdgesResponse;
+import com.example.backend_imdf_ctu.entity.NetworkEdges;
 
 import java.util.List;
 
 public interface NetworkEdgesService {
-    List<NetworkEdgesResponse> getAll();
+    List<NetworkEdges> getAll(Integer routeId);
 
-    NetworkEdgesResponse getById(Integer id);
+    NetworkEdges getById(Integer id);
 
-    NetworkEdgesResponse create(NetworkEdgesRequest request);
+    NetworkEdges create(NetworkEdgesRequest request);
 
-    NetworkEdgesResponse update(Integer id, NetworkEdgesRequest request);
+    NetworkEdges update(Integer id, NetworkEdgesRequest request);
 
     Boolean delete(Integer id);
 }

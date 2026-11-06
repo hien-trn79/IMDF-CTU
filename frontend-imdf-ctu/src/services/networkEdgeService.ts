@@ -1,7 +1,28 @@
-import type { NetworkEdgeRequest, NetworkEdgeResponse } from '../model/NetworkEdge.model'
+import type {
+  NetworkEdgeRequest,
+  NetworkEdgeResponse,
+} from '../model/route models/NetworkEdge.model'
 import { authHeaders } from './authHeaders'
+import { lineStringToWkbHex } from '../utils/wkbEncoder'
 
-const API_BASE = '/api/network-edges'
+const API_BASE = 'http://localhost:8081/api/network-edges'
+
+export function normalizeEdge(feature: NetworkEdgeResponse): NetworkEdgeResponse {
+  const geometryWkb =
+    feature.geometryWkb ||
+    (feature.geometry.type === 'LineString'
+      ? lineStringToWkbHex(feature.geometry.coordinates as [number, number][])
+      : '')
+  return {
+    ...feature,
+    geometryWkb,
+    source: feature.source ?? feature.properties.sourceNode,
+    target: feature.target ?? feature.properties.targetNode,
+    cost: feature.cost ?? feature.properties.cost,
+    reverseCost: feature.reverseCost ?? feature.properties.reverseCost,
+    indoorRouteId: feature.indoorRouteId ?? feature.properties.routeId,
+  }
+}
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -27,12 +48,13 @@ async function handleResponse<T>(res: Response): Promise<T> {
 export const networkEdgeService = {
   async getAll(token: string): Promise<NetworkEdgeResponse[]> {
     const res = await fetch(API_BASE, { headers: authHeaders(token) })
-    return handleResponse<NetworkEdgeResponse[]>(res)
+    const data = await handleResponse<{ features: NetworkEdgeResponse[] }>(res)
+    return data.features.map(normalizeEdge)
   },
 
   async getById(id: number, token: string): Promise<NetworkEdgeResponse> {
     const res = await fetch(`${API_BASE}/${id}`, { headers: authHeaders(token) })
-    return handleResponse<NetworkEdgeResponse>(res)
+    return normalizeEdge(await handleResponse<NetworkEdgeResponse>(res))
   },
 
   async create(data: NetworkEdgeRequest, token: string): Promise<NetworkEdgeResponse> {
@@ -41,7 +63,7 @@ export const networkEdgeService = {
       headers: authHeaders(token, true),
       body: JSON.stringify(data),
     })
-    return handleResponse<NetworkEdgeResponse>(res)
+    return normalizeEdge(await handleResponse<NetworkEdgeResponse>(res))
   },
 
   async update(id: number, data: NetworkEdgeRequest, token: string): Promise<NetworkEdgeResponse> {
@@ -50,7 +72,7 @@ export const networkEdgeService = {
       headers: authHeaders(token, true),
       body: JSON.stringify(data),
     })
-    return handleResponse<NetworkEdgeResponse>(res)
+    return normalizeEdge(await handleResponse<NetworkEdgeResponse>(res))
   },
 
   async delete(id: number, token: string): Promise<boolean> {

@@ -3,7 +3,6 @@ package com.example.backend_imdf_ctu.controller;
 import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeature;
 import com.example.backend_imdf_ctu.dto.geojson.GeoJsonFeatureCollection;
 import com.example.backend_imdf_ctu.dto.request.UnitRequest;
-import com.example.backend_imdf_ctu.dto.response.UnitResponse;
 import com.example.backend_imdf_ctu.entity.Unit;
 import com.example.backend_imdf_ctu.mapper.GenericGeoJsonMapper;
 import com.example.backend_imdf_ctu.service.interfaces.UnitService;

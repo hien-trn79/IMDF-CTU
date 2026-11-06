@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class BuildingServiceImpl implements BuildingService {
@@ -24,6 +26,7 @@ public class BuildingServiceImpl implements BuildingService {
     private final FeatureRepository featureRepository;
     private final AddressRepository addressRepository;
     private final RestrictionCateRepository restrictionCateRepository;
+    private final VenueRepository venueRepository;
 
     @Override
     @Transactional
@@ -37,6 +40,9 @@ public class BuildingServiceImpl implements BuildingService {
 
         BuildingCategory buildingCategory = buildingCategoryRepository.findById(request.getBuildingCategoryId())
             .orElseThrow(() -> new BusinessException(ErrorCode.BUILDING_CATEGORY_NOT_FOUND, "Building Category not found with id: " + request.getBuildingCategoryId()));
+
+        Venue venue = venueRepository.findById(request.getVenueId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.VENUE_NOT_FOUND, "Venue not found with id: " + request.getVenueId()));
 
         // 2. Xử lý feature cơ sở: Kiểm tra featureId truyền lên hoặc tự động sinh Feature mới
         Feature feature;
@@ -52,7 +58,13 @@ public class BuildingServiceImpl implements BuildingService {
         }
 
         // 3. Tạo và lưu Building mới
-        Building building = mapper.toEntity(request, feature, address, restrictionCategory, buildingCategory);
+        Building building = mapper.toEntity(
+            request,
+            feature,
+            address,
+            restrictionCategory,
+            buildingCategory,
+            venue);
         return repository.save(building);
     }
 
@@ -63,8 +75,10 @@ public class BuildingServiceImpl implements BuildingService {
     }
 
     @Override
-    public Page<Building> list(Pageable pageable) {
-            return repository.findAll(pageable);
+    public List<Building> getAll(Integer venueId) {
+        return repository.findAllByVenueId(venueId)
+            .stream()
+            .toList();
     }
 
     @Override
@@ -88,13 +102,17 @@ public class BuildingServiceImpl implements BuildingService {
         BuildingCategory buildingCategory = buildingCategoryRepository.findById(request.getBuildingCategoryId())
             .orElseThrow(() -> new BusinessException(ErrorCode.BUILDING_CATEGORY_NOT_FOUND, "Building Category not found with id: " + request.getBuildingCategoryId()));
 
+        Venue venue = venueRepository.findById(request.getVenueId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.VENUE_NOT_FOUND, "Venue not found with id: " + request.getVenueId()));
+
         mapper.update(
             request,
             feature,
             address,
             restrictionCategory,
             buildingCategory,
-            building
+            building,
+            venue
         );
 
         return repository.save(building);

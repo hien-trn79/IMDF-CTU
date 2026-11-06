@@ -1,11 +1,14 @@
 import { Modal, Popconfirm } from 'antd'
 import { useEffect, useState } from 'react'
-import type { NetworkNodeRequest, NetworkNodeResponse } from '../../model/NetworkNode.model'
+import type {
+  NetworkNodeRequest,
+  NetworkNodeResponse,
+} from '../../model/route models/NetworkNode.model'
 import type { IndoorRouteResponse } from '../../model/IndoorRoute.model'
 import { networkNodeService } from '../../services/networkNodeService'
 import { indoorRouteService } from '../../services/indoorRouteService'
 import { wkbHexToPoint } from '../../utils/wkbParser'
-import { pointToWkbHex } from '../../utils/wkbEncoder'
+import { coordToPointGeometry } from '../../utils/wkbUtils'
 
 interface ModalEditNodeProps {
   isOpen: boolean
@@ -26,7 +29,7 @@ export default function ModalEditNode({
 }: ModalEditNodeProps) {
   const [data, setData] = useState<NetworkNodeRequest>({
     isConnector: false,
-    geom: '',
+    geometry: { type: 'Point', coordinates: [0, 0] },
     indoorRouteId: 0,
   })
   const [routes, setRoutes] = useState<IndoorRouteResponse[]>([])
@@ -48,7 +51,7 @@ export default function ModalEditNode({
       setCoord(pt ?? null)
       setData({
         isConnector: node.isConnector ?? false,
-        geom: node.geom,
+        geometry: pt ? coordToPointGeometry(pt) : { type: 'Point', coordinates: [0, 0] },
         indoorRouteId: node.indoorRouteId,
       })
       setError(null)
@@ -64,8 +67,8 @@ export default function ModalEditNode({
     }
     setSaving(true)
     try {
-      const geomHex = coord ? pointToWkbHex(coord[0], coord[1]) : data.geom
-      await networkNodeService.update(node.id, { ...data, geom: geomHex }, token)
+      const geometry = coord ? coordToPointGeometry(coord) : data.geometry
+      await networkNodeService.update(Number(node.id), { ...data, geometry }, token)
       onUpdated()
       onClose()
     } catch (saveErr: unknown) {
@@ -154,7 +157,9 @@ export default function ModalEditNode({
         </div>
 
         {error && (
-          <div className="rounded-lg bg-rose-50 p-2 text-rose-600 border border-rose-200">{error}</div>
+          <div className="rounded-lg bg-rose-50 p-2 text-rose-600 border border-rose-200">
+            {error}
+          </div>
         )}
 
         <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
@@ -165,7 +170,7 @@ export default function ModalEditNode({
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
             onConfirm={() => {
-              if (node) onDeleted(node.id)
+              if (node) onDeleted(Number(node.id))
               onClose()
             }}
           >

@@ -1,7 +1,6 @@
 package com.example.backend_imdf_ctu.service.implement;
 
 import com.example.backend_imdf_ctu.dto.request.GridLineRequest;
-import com.example.backend_imdf_ctu.dto.response.GridLineResponse;
 import com.example.backend_imdf_ctu.entity.GridLine;
 import com.example.backend_imdf_ctu.entity.IndoorRoute;
 import com.example.backend_imdf_ctu.exception.BusinessException;
@@ -13,7 +12,6 @@ import com.example.backend_imdf_ctu.service.interfaces.GridLineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.WKBReader;
 import org.springframework.stereotype.Service;
@@ -34,57 +32,50 @@ public class GridLineServiceImpl implements GridLineService {
     private final IndoorRouteRepository indoorRouteRepository;
 
     @Override
-    public List<GridLineResponse> getAll() {
-        return repository.findAll()
+    public List<GridLine> getAll(Integer levelId) {
+        return repository.findAllByIndoorRouteLevelId(levelId)
             .stream()
-            .map(mapper::toResponse)
             .toList();
     }
 
     @Override
-    public GridLineResponse getById(Integer gridLineId) {
+    public GridLine getById(Integer gridLineId) {
         return repository.findById(gridLineId)
-            .map(mapper::toResponse)
             .orElseThrow(() -> new BusinessException(
                 ErrorCode.GRID_LINE_NOT_FOUND
             ));
     }
 
     @Override
-    public GridLineResponse create(GridLineRequest request) {
-        // Convert chuỗi Hex String sang JTS LineString
-        LineString lineString;
-        try {
-            byte[] bytes = WKBReader.hexToBytes(request.getGeom());
-            lineString = (LineString) wkbReader.read(bytes);
-            lineString.setSRID(4326); // Đảm bảo SRID là 4326
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Định dạng geom WKB Hex không hợp lệ: " + e.getMessage());
-        }
-
-        GridLine entity = mapper.toEntity(request);
-        entity.setGeom(lineString);
-
-        // Fetch the IndoorRoute entity based on the provided indoorRouteId
+    public GridLine create(GridLineRequest request) {
         IndoorRoute indoorRoute = indoorRouteRepository.findById(request.getIndoorRouteId())
             .orElseThrow(() -> new BusinessException(
-                ErrorCode.ROUTE_NOT_FOUND,
-                "Không tìm thấy đường đi trong nhà với ID: " + request.getIndoorRouteId()
+                ErrorCode.ROUTE_NOT_FOUND
             ));
-        entity.setIndoorRoute(indoorRoute);
 
-        return mapper.toResponse(repository.save(entity));
+        GridLine entity = mapper.toEntity(request, indoorRoute);
+
+        return repository.save(entity);
     }
 
     @Override
-    public GridLineResponse update(Integer gridLineId, GridLineRequest request) {
-        // Find the existing entity by ID, or throw an exception if not found
+    public GridLine update(Integer gridLineId, GridLineRequest request) {
         GridLine entity = repository.findById(gridLineId)
             .orElseThrow(() -> new BusinessException(
                 ErrorCode.GRID_LINE_NOT_FOUND
             ));
-        // Update the entity with the new values from the request
-        return mapper.toResponse(repository.save(entity));
+        IndoorRoute indoorRoute = indoorRouteRepository.findById(request.getIndoorRouteId())
+            .orElseThrow(() -> new BusinessException(
+                ErrorCode.ROUTE_NOT_FOUND
+            ));
+
+        mapper.updateEntity(
+            entity,
+            request,
+            indoorRoute
+        );
+
+        return repository.save(entity);
     }
 
     @Override

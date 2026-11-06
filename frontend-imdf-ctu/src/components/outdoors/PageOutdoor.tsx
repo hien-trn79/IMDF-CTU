@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ComponentType,
-} from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ComponentType } from 'react'
 import { Modal, notification } from 'antd'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import OutdoorMap from './OutdoorMap'
@@ -210,10 +203,6 @@ export default function PageOutdoor() {
       const validFeatures = sourceFeatures.filter((feature: any) => feature?.geometry)
       const seen = new Set(existingGeometryKeys)
 
-      console.log('sourceFeatures', sourceFeatures)
-      console.log('validFeatures', validFeatures)
-      console.log('existingGeometryKeys', existingGeometryKeys)
-
       let duplicates = 0 // dùng để đếm số lượng feature trùng lặp đã bị loại bỏ
       const uniqueFeatures = validFeatures.filter((feature: any) => {
         const key = canonicalGeometry(feature.geometry)
@@ -305,7 +294,6 @@ export default function PageOutdoor() {
             levelId: Number(selectedLevelId),
           }
 
-          console.log('amenity payload', payload)
           const response = await fetch(`http://localhost:8081/api/amenities`, {
             method: 'POST',
             headers: {
@@ -571,9 +559,14 @@ export default function PageOutdoor() {
         onSnapChange={setSnapEnabled}
         onCreated={() => {
           setIsOpenAddModal(false)
-          setDrawCoordinates([])
-          reloadUnits()
-          reloadData()
+          setDrawing(false)
+          if (selectedTable === 'unit') {
+            // Giữ lại Line vừa vẽ để người dùng vẫn nhìn thấy sau khi tạo Unit.
+            reloadUnits()
+          } else {
+            setDrawCoordinates([])
+            reloadData()
+          }
         }}
       />
     </div>

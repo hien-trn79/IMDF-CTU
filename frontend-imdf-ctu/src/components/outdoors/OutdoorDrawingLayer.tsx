@@ -26,7 +26,7 @@ export default function OutdoorDrawingLayer({
   'drawing' | 'snapEnabled' | 'coordinates' | 'features' | 'onCoordinatesChange' | 'pointMode'
 >) {
   const map = useMap()
-  const lineRef = useRef<L.Polyline | null>(null)
+  const lineRef = useRef<L.Polyline | L.Polygon | null>(null)
   const previewRef = useRef<L.Polyline | null>(null)
   const markerRef = useRef<L.LayerGroup | null>(null)
   const pointMarkerRef = useRef<L.CircleMarker | null>(null)
@@ -105,18 +105,33 @@ export default function OutdoorDrawingLayer({
           .addTo(map)
         pointMarkerRef.current.bringToFront()
       } else {
-        lineRef.current = L.polyline(
-          coordinates.map(([lng, lat]) => [lat, lng] as L.LatLngExpression),
-          {
-            color: '#059669',
-            weight: 4,
-            dashArray: drawing ? '6 4' : undefined,
-            opacity: 0.95,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }
-        ).addTo(markerRef.current)
-        lineRef.current.bringToFront()
+        const latLngs = coordinates.map(([lng, lat]) => [lat, lng] as L.LatLngExpression)
+        const line =
+          coordinates.length >= 3
+            ? L.polygon(latLngs, {
+                color: '#059669',
+                weight: 4,
+                dashArray: drawing ? '6 4' : undefined,
+                opacity: 0.95,
+                fillColor: '#34d399',
+                fillOpacity: 0.2,
+                lineCap: 'round',
+                lineJoin: 'round',
+              })
+            : L.polyline(latLngs, {
+                color: '#059669',
+                weight: 4,
+                dashArray: drawing ? '6 4' : undefined,
+                opacity: 0.95,
+                lineCap: 'round',
+                lineJoin: 'round',
+              })
+        lineRef.current = line
+        // Keep the Unit outline on the map independently from the vertex markers.
+        // This prevents the line from being cleared when drawing mode is stopped
+        // after the Unit has been saved.
+        line.addTo(map)
+        line.bringToFront()
         coordinates.forEach(([lng, lat], index) =>
           L.circleMarker([lat, lng], {
             radius: 5,
@@ -168,7 +183,8 @@ export default function OutdoorDrawingLayer({
     []
   )
 
-  const lengthMeters = !pointMode && coordinates.length >= 2 ? calcPolylineLengthMeters(coordinates) : 0
+  const lengthMeters =
+    !pointMode && coordinates.length >= 2 ? calcPolylineLengthMeters(coordinates) : 0
 
   return drawing && coordinates.length > 0 ? (
     <div className="leaflet-bottom leaflet-right !mb-12 !mr-4 pointer-events-none z-[1000]">
