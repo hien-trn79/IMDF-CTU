@@ -32,6 +32,7 @@ export default function ModalDirections() {
   // State cho điểm bắt đầu
   const [originText, setOriginText] = useState('')
   const [originLocation, setOriginLocation] = useState<[number, number] | null>(null)
+  const [originDestination, setOriginDestination] = useState<DestinationItem | null>(null)
   const [originSuggestions, setOriginSuggestions] = useState<DestinationItem[]>([])
   const [showOriginSuggestions, setShowOriginSuggestions] = useState(false)
   const [isUsingMyLocation, setIsUsingMyLocation] = useState(false)
@@ -54,6 +55,7 @@ export default function ModalDirections() {
       setDestLocation(selectedDestination)
       setOriginText('')
       setOriginLocation(null)
+      setOriginDestination(null)
       setIsUsingMyLocation(false)
       setTimeout(() => originInputRef.current?.focus(), 100)
     }
@@ -112,6 +114,7 @@ export default function ModalDirections() {
   const handleSelectOrigin = (dest: DestinationItem) => {
     setOriginText(dest.title)
     setOriginLocation(dest.coordinates)
+    setOriginDestination(dest)
     setIsUsingMyLocation(false)
     setShowOriginSuggestions(false)
   }
@@ -131,6 +134,7 @@ export default function ModalDirections() {
 
     setOriginText(destText)
     setOriginLocation(destLocation?.coordinates || null)
+    setOriginDestination(destLocation)
     setIsUsingMyLocation(false)
 
     if (tmpUsingMyLoc && userLocation) {
@@ -143,6 +147,7 @@ export default function ModalDirections() {
         coordinates: userLocation,
         address: 'Vị trí GPS hiện tại',
       })
+      setOriginDestination(null)
     } else if (tmpLoc) {
       const found = allLocations.find(
         (loc) => loc.coordinates[0] === tmpLoc[0] && loc.coordinates[1] === tmpLoc[1]
@@ -157,6 +162,7 @@ export default function ModalDirections() {
           address: tmpText,
         }
       )
+      setOriginDestination(null)
     }
   }
 
@@ -164,7 +170,11 @@ export default function ModalDirections() {
   const handleStartNavigation = async () => {
     const origin = isUsingMyLocation ? userLocation : originLocation
     if (!origin || !destLocation) return
-    await calculateRouteWithOrigin(origin, destLocation)
+    await calculateRouteWithOrigin(
+      origin,
+      destLocation,
+      isUsingMyLocation ? undefined : (originDestination ?? undefined)
+    )
   }
 
   const canNavigate =

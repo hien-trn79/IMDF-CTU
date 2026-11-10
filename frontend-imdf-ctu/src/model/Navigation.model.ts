@@ -4,6 +4,7 @@ export interface DestinationItem {
   subtitle?: string
   category: 'room' | 'building' | 'amenity' | 'custom'
   roomCode?: string
+  anchorName?: string
   level?: string
   buildingName?: string
   address?: string
@@ -25,6 +26,7 @@ export interface RouteStep {
 
 export interface RouteData {
   coordinates: [number, number][] // [lat, lng]
+  outdoorCoordinates?: [number, number][]
   distanceMeters: number
   durationSeconds: number
   distanceText: string
@@ -36,4 +38,19 @@ export interface RouteData {
   hasIndoorTransition?: boolean
   mainEntrancePoint?: [number, number] // [lat, lng]
   indoorCoordinates?: [number, number][] // [lat, lng]
+  // Indoor shortest path data (from topology network)
+  indoorPathSegments?: import('./IndoorRouting.model').ShortestPathSegment[]
+  targetUnitId?: number
+  targetLevelOrdinal?: number
+  indoorGeoJsonFeatures?: IndoorRouteFeature[]
+}
+
+export interface IndoorRouteFeature {
+  type: 'Feature'
+  id?: number | string
+  geometry: {
+    type: 'LineString'
+    coordinates: [number, number][]
+  }
+  properties?: Record<string, unknown>
 }

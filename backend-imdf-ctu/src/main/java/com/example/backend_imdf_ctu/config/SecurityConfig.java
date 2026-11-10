@@ -104,6 +104,7 @@ public class SecurityConfig {
 
                 // ========== PUBLIC =========
                 .requestMatchers(HttpMethod.GET, "/grid-lines/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/shortest-path").permitAll()
                 .requestMatchers(HttpMethod.GET, "/network-nodes/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/network-edges/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/indoor-routes/**").permitAll()
@@ -117,6 +118,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/building-categories/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/opening-categories/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/restriction-categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/routing/staircase-nodes").permitAll()
 
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

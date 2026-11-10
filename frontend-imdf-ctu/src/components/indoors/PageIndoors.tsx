@@ -7,6 +7,7 @@ import ModalAddIndoor from './ModalAddIndoor'
 import ModalEditGridLine from './ModalEditGridLine'
 import ModalEditNode from './ModalEditNode'
 import ModalEditEdge from './ModalEditEdge'
+import ImportTopologyModal from './ImportTopologyModal'
 import { networkNodeService } from '../../services/networkNodeService'
 import { networkEdgeService } from '../../services/networkEdgeService'
 import { normalizeNode } from '../../services/networkNodeService'
@@ -57,6 +58,8 @@ export default function PageIndoors() {
   const [editGridLineItem, setEditGridLineItem] = useState<PreTopologyItem | null>(null)
   const [editNodeItem, setEditNodeItem] = useState<NetworkNodeItem | null>(null)
   const [editEdgeItem, setEditEdgeItem] = useState<NetworkEdgeItem | null>(null)
+  const [isOpenImportTopology, setIsOpenImportTopology] = useState(false)
+  const [importTopologyFile, setImportTopologyFile] = useState<File | null>(null)
   const [selectedIndoorFeature, setSelectedIndoorFeature] = useState<IndoorFeatureItem | null>(
     null
   )
@@ -387,6 +390,11 @@ export default function PageIndoors() {
           isEdgeVisible={showEdges}
           onToggleNode={setShowNodes}
           onToggleEdge={setShowEdges}
+          onOpenImportModal={() => {
+            setImportTopologyFile(null)
+            setIsOpenImportTopology(true)
+          }}
+          onReload={reloadTopology}
         />
       </aside>
 
@@ -421,9 +429,31 @@ export default function PageIndoors() {
             setDrawing(false)
             setDrawCoordinates([])
           }}
+          onOpenImportTopology={() => {
+            setIsOpenAddIndoor(false)
+            setDrawing(false)
+            setDrawCoordinates([])
+            setIsOpenImportTopology(true)
+          }}
           nodes={networkNodes}
           edges={networkEdges}
           token={token}
+        />
+      )}
+
+      {/* MODAL THEM TAP TIN TOPOLOGY */}
+      {isOpenImportTopology && (
+        <ImportTopologyModal
+          open={isOpenImportTopology}
+          setOpen={setIsOpenImportTopology}
+          onSuccess={() => {
+            reloadTopology()
+            setIsOpenImportTopology(false)
+            setImportTopologyFile(null)
+          }}
+          token={token}
+          initialFile={importTopologyFile}
+          currentLevelId={selectedLevelIndoorId}
         />
       )}
 

@@ -2,12 +2,14 @@ package com.example.backend_imdf_ctu.mapper;
 
 import com.example.backend_imdf_ctu.dto.request.GeoJsonGeometry;
 import com.example.backend_imdf_ctu.exception.InvalidGeometryException;
+import org.geolatte.geom.codec.Wkt;
 import org.locationtech.jts.geom.*;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.ListResourceBundle;
 
 @Component
 public class GeometryConverter {
@@ -107,6 +109,43 @@ public class GeometryConverter {
             out.add(line(p.getInteriorRingN(i)));
         }
         return out;
+    }
+
+    // Geolatte -> JTS
+
+    public Geometry toJts(org.geolatte.geom.Geometry<?> geometry) {
+
+        if (geometry == null || geometry.isEmpty()) {
+            return null;
+        }
+
+        try {
+            String wkt = Wkt.toWkt(geometry);
+
+            // Loại bỏ phần khai báo SRID nếu có
+            if (wkt.startsWith("SRID=")) {
+                int separatorIndex = wkt.indexOf(';');
+
+                if (separatorIndex >= 0) {
+                    wkt = wkt.substring(separatorIndex + 1);
+                }
+            }
+
+            WKTReader reader = new WKTReader(factory);
+
+            Geometry result = reader.read(wkt);
+
+            // Giữ SRID từ Geometry gốc
+            result.setSRID(geometry.getSRID());
+
+            return result;
+
+        } catch (Exception e) {
+            throw new InvalidGeometryException(
+                "Không thể chuyển đổi Geolatte sang JTS: "
+                    + e.getMessage()
+            );
+        }
     }
 
 }

@@ -1,5 +1,6 @@
 import { Modal } from 'antd'
 import { useEffect, useState } from 'react'
+import { UploadCloud } from 'lucide-react'
 import { GridlineType, type IndoorRouteResponse } from '../../model/IndoorRoute.model'
 import type { GridLineRequest } from '../../model/GridLine.model'
 import type { NetworkNodeResponse } from '../../model/route models/NetworkNode.model'
@@ -27,6 +28,7 @@ interface ModalAddIndoorProps {
   onClearCoordinates: () => void
   onSnapChange: (enabled: boolean) => void
   onCreated: () => void
+  onOpenImportTopology?: () => void
   nodes: NetworkNodeResponse[]
   edges: NetworkEdgeResponse[]
   token: string
@@ -42,6 +44,7 @@ export default function ModalAddIndoor({
   onClearCoordinates,
   onSnapChange,
   onCreated,
+  onOpenImportTopology,
   nodes,
   edges,
   token,
@@ -247,6 +250,22 @@ export default function ModalAddIndoor({
             chuẩn.
           </span>
         </div>
+
+        {onOpenImportTopology && (
+          <div className="flex items-center justify-between rounded-xl bg-amber-50/80 border border-amber-200 p-2.5 text-xs text-amber-900">
+            <span>Bạn muốn nhập nhanh từ tập tin?</span>
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                onOpenImportTopology()
+              }}
+              className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition cursor-pointer"
+            >
+              <UploadCloud className="h-3.5 w-3.5" /> Thêm file GeoJSON
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <button

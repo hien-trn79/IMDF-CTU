@@ -1,4 +1,4 @@
-import { Building2, ListStart, Map, MapPin, Plus, RotateCcw, Waypoints } from 'lucide-react'
+import { Building2, ListStart, Map, MapPin, Plus, RotateCcw, UploadCloud, Waypoints } from 'lucide-react'
 import { GRID_LINE_COLOR } from './gridLineGeoJson'
 import { useEffect, useState } from 'react'
 import type { VenueGeoJson, BuildingGeoJson, LevelGeoJson } from '../../model/geoJsonEntity.model'
@@ -14,9 +14,16 @@ interface IndoorSideBarProps {
   edgeCount: number
   isEdgeVisible: boolean
   onToggleEdge: (visible: boolean) => void
+  onOpenImportModal?: () => void
+  onReload?: () => void
 }
 
-export default function IndoorSideBar({ isLoading, setIsOpenAddIndoor }: IndoorSideBarProps) {
+export default function IndoorSideBar({
+  isLoading,
+  setIsOpenAddIndoor,
+  onOpenImportModal,
+  onReload,
+}: IndoorSideBarProps) {
   const [venues, setVenues] = useState<VenueGeoJson>()
   const [selectedVenueId, setSelectedVenueId] = useState<number>(2)
 
@@ -264,15 +271,30 @@ export default function IndoorSideBar({ isLoading, setIsOpenAddIndoor }: IndoorS
           </span>
         </div>
 
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          <button className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-500 hover:border-blue-300 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60">
+        <div className="mb-2.5 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => onReload?.()}
+            className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-500 hover:border-blue-300 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60 cursor-pointer"
+          >
             <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Làm mới
           </button>
           <button
             onClick={() => setIsOpenAddIndoor(true)}
-            className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-xs font-bold text-white hover:bg-emerald-600"
+            className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 cursor-pointer"
           >
             <Plus className="h-4 w-4" /> Thêm đối tượng
+          </button>
+        </div>
+
+        {/* NÚT THÊM TẬP TIN TOPOLOGY */}
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={() => onOpenImportModal?.()}
+            className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sky-400 bg-sky-50 text-sm font-bold text-sky-700 shadow-sm transition hover:border-sky-500 hover:bg-sky-100 active:scale-[0.98]"
+          >
+            <UploadCloud className="h-4 w-4 text-sky-600" />
+            Thêm tập tin Topology
           </button>
         </div>
 

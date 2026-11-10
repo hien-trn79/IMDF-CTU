@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { PreTopologyResponse } from '../model/route models/preTopology.model'
+import { authHeaders } from '../services/authHeaders'
 import { useUser } from './UserContext'
 
 interface LayerContextValue {
@@ -26,7 +27,10 @@ export function LayerProvider({ children }: { children: React.ReactNode }) {
   const [selectedTableIndoor, setSelectedTableIndoor] = useState<string>(tableDefaultValue)
   const [selectedTablesIndoor, setSelectedTablesIndoor] = useState<string[]>([tableDefaultValue])
 
-  const reloadData = () => setReloadVersion((version) => version + 1)
+  const reloadData = useCallback(() => {
+    if (token) setReloadVersion((version) => version + 1)
+  }, [token])
+
   const toggleTableIndoor = (table: string) => {
     setSelectedTablesIndoor((tables) =>
       tables.includes(table) ? tables.filter((value) => value !== table) : [...tables, table]
@@ -40,7 +44,7 @@ export function LayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    if (!selectedLevelIndoorId) {
+    if (!token || !selectedLevelIndoorId) {
       setPreTopologyGeojson(null)
       return
     }
@@ -52,10 +56,8 @@ export function LayerProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await fetch(`http://localhost:8081/api/grid-lines?levelId=${levelId}`, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: authHeaders(token),
+          signal: controller.signal,
         })
         if (response.ok) {
           const data: PreTopologyResponse = await response.json()
@@ -64,6 +66,7 @@ export function LayerProvider({ children }: { children: React.ReactNode }) {
 
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       } catch (error) {
+        if ((error as Error).name === 'AbortError') return
         console.error('Error fetching pretopology data:', error)
       }
     }
