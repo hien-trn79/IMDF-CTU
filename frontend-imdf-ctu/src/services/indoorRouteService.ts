@@ -1,7 +1,7 @@
 import type { IndoorRouteRequest, IndoorRouteResponse } from '../model/IndoorRoute.model'
 import { authHeaders } from './authHeaders'
 
-const API_BASE = '/api/indoor-routes'
+const API_BASE = 'http://localhost:8081/api/indoor-routes'
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -25,8 +25,9 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export const indoorRouteService = {
-  async getAll(token: string): Promise<IndoorRouteResponse[]> {
-    const res = await fetch(API_BASE, { headers: authHeaders(token) })
+  async getAll(token: string, levelId?: number): Promise<IndoorRouteResponse[]> {
+    const url = levelId !== undefined ? `${API_BASE}?levelId=${levelId}` : API_BASE
+    const res = await fetch(url, { headers: authHeaders(token) })
     return handleResponse<IndoorRouteResponse[]>(res)
   },
 

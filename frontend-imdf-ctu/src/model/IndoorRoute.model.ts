@@ -1,5 +1,8 @@
 export interface IndoorRouteRequest {
   indoorRouteName: string
+  levelId: number
+  indoorRouteType?: string
+  status?: string
   description?: string
   startNodeId?: number
   endNodeId?: number

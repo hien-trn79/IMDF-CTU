@@ -1,5 +1,6 @@
 import type { NetworkEdgeResponse } from '../model/route models/NetworkEdge.model'
 import type { NetworkNodeResponse } from '../model/route models/NetworkNode.model'
+import { GridlineType } from '../model/IndoorRoute.model'
 import { pointToWkbHex, lineStringToWkbHex } from './wkbEncoder'
 import { parseWKBHexToCoords, calcPolylineLengthMeters } from './wkbUtils'
 import { wkbHexToPoint } from './wkbParser'
@@ -387,5 +388,342 @@ export function normalizeTopology(
     edgesToDelete: Array.from(edgesToDeleteSet),
     finalPathCoords: fullPathCoords,
     gridLineGeomHex,
+  }
+}
+
+export interface BatchTopologyInputLine {
+  coords: Coordinate[]
+  category?: GridlineType
+  isOneWay?: boolean
+}
+
+export interface BatchTopologyResult {
+  nodesToCreate: Array<{
+    geom: string
+    isConnector: boolean
+    indoorRouteId: number
+    tempId: string
+    coord: Coordinate
+  }>
+  edgesToCreate: Array<{
+    source: number | string
+    target: number | string
+    cost: number
+    reverseCost: number
+    geometry: string
+    coordinates?: Coordinate[]
+    indoorRouteId: number
+  }>
+  edgesToDelete: number[]
+  gridLinesToCreate: Array<{
+    category: GridlineType
+    isOneWay: boolean
+    indoorRouteId: number
+    coordinates: Coordinate[]
+  }>
+  totalOriginalLines: number
+}
+
+/**
+ * Chuẩn hóa Topology hàng loạt (Batch) cho nhiều đường (từ tập tin GeoJSON)
+ * 1. Phân hóa giao cắt giữa các đường mới với nhau và với Edge DB hiện có
+ * 2. Tách Edge tại điểm giao cắt
+ * 3. Hợp nhất các đỉnh (Node) gần nhau theo COORD_TOLERANCE
+ * 4. Tạo đồ thị mạng lưới cạnh (Edge) và dữ liệu GridLine chuẩn hóa
+ */
+export function normalizeTopologyBatch(
+  polylines: BatchTopologyInputLine[],
+  existingNodes: NetworkNodeResponse[],
+  existingEdges: NetworkEdgeResponse[],
+  indoorRouteId: number,
+  defaultIsOneWay: boolean,
+  defaultCategory: GridlineType = GridlineType.CORRIDOR
+): BatchTopologyResult {
+  // 1. Khởi tạo danh sách các nodes hiện tại + temporary nodes sẽ tạo
+  const allNodes: Array<{ id: number | string; coord: Coordinate }> = existingNodes
+    .map((n) => {
+      let pt: Coordinate | null = null
+      if (
+        n.geometry &&
+        n.geometry.type === 'Point' &&
+        Array.isArray(n.geometry.coordinates) &&
+        n.geometry.coordinates.length >= 2
+      ) {
+        pt = [n.geometry.coordinates[0], n.geometry.coordinates[1]]
+      } else if (n.geom) {
+        pt = wkbHexToPoint(n.geom)
+      }
+      return pt ? { id: Number(n.id), coord: pt } : null
+    })
+    .filter((n): n is { id: number; coord: Coordinate } => n !== null)
+
+  const nodesToCreate: Array<{
+    geom: string
+    isConnector: boolean
+    indoorRouteId: number
+    tempId: string
+    coord: Coordinate
+  }> = []
+
+  let tempNodeCounter = 1
+  const getOrCreateNode = (coord: Coordinate): { id: number | string; coord: Coordinate } => {
+    const existing = allNodes.find((n) => isSameCoordinate(n.coord, coord))
+    if (existing) {
+      return existing
+    }
+    const tempId = `TEMP_NODE_${tempNodeCounter++}`
+    const newNode = { id: tempId, coord }
+    allNodes.push(newNode)
+    nodesToCreate.push({
+      geom: pointToWkbHex(coord[0], coord[1]),
+      isConnector: false,
+      indoorRouteId,
+      tempId,
+      coord,
+    })
+    return newNode
+  }
+
+  // 2. Quản lý danh sách các edge hiện tại trong bộ nhớ (bao gồm edge DB và edge mới tạo)
+  interface ActiveEdge {
+    id: number | string
+    dbId?: number
+    isDbEdge: boolean
+    source: number | string
+    target: number | string
+    coords: Coordinate[]
+    cost: number
+    reverseCost: number
+    indoorRouteId: number
+    deleted?: boolean
+    splits?: Array<{ coord: Coordinate; ratio: number }>
+  }
+
+  let tempEdgeCounter = 1
+  const currentEdges: ActiveEdge[] = []
+
+  // Nạp existingEdges từ DB vào currentEdges
+  for (const e of existingEdges) {
+    const eCoords =
+      e.geometry &&
+      e.geometry.type === 'LineString' &&
+      Array.isArray(e.geometry.coordinates) &&
+      e.geometry.coordinates.length >= 2
+        ? (e.geometry.coordinates as Coordinate[])
+        : parseWKBHexToCoords(e.geometryWkb)
+    if (eCoords.length >= 2) {
+      currentEdges.push({
+        id: Number(e.id),
+        dbId: Number(e.id),
+        isDbEdge: true,
+        source: Number(e.source),
+        target: Number(e.target),
+        coords: eCoords,
+        cost: e.cost,
+        reverseCost: e.reverseCost,
+        indoorRouteId: e.indoorRouteId ?? indoorRouteId,
+      })
+    }
+  }
+
+  const edgesToDeleteSet = new Set<number>()
+  const gridLinesToCreate: BatchTopologyResult['gridLinesToCreate'] = []
+
+  // 3. Chuẩn hóa từng polyline trong danh sách
+  for (const lineItem of polylines) {
+    const rawCoords = lineItem.coords
+    const cleanCoords: Coordinate[] = []
+    for (const pt of rawCoords) {
+      if (
+        cleanCoords.length === 0 ||
+        !isSameCoordinate(cleanCoords[cleanCoords.length - 1], pt, 1e-7)
+      ) {
+        cleanCoords.push(pt)
+      }
+    }
+    if (cleanCoords.length < 2) continue
+
+    const lineCategory = lineItem.category || defaultCategory
+    const lineOneWay = lineItem.isOneWay !== undefined ? lineItem.isOneWay : defaultIsOneWay
+
+    // Tìm giao điểm giữa từng đoạn của polyline này với các edge đang active trong currentEdges
+    const processedSegments: Coordinate[][] = []
+
+    for (let i = 0; i < cleanCoords.length - 1; i++) {
+      const segStart = cleanCoords[i]
+      const segEnd = cleanCoords[i + 1]
+      const segIntersections: Array<{ coord: Coordinate; dist: number }> = []
+
+      for (const edge of currentEdges) {
+        if (edge.deleted) continue
+        const eCoords = edge.coords
+
+        for (let j = 0; j < eCoords.length - 1; j++) {
+          const e1 = eCoords[j]
+          const e2 = eCoords[j + 1]
+
+          const ix = getLineIntersection(segStart, segEnd, e1, e2)
+          if (ix) {
+            const dSeg = Math.hypot(segEnd[0] - segStart[0], segEnd[1] - segStart[1])
+            const dIx = Math.hypot(ix[0] - segStart[0], ix[1] - segStart[1])
+            const ratioSeg = dSeg > 0 ? dIx / dSeg : 0
+            segIntersections.push({ coord: ix, dist: ratioSeg })
+
+            // Kiểm tra tỉ lệ trên edge
+            const dEdge = Math.hypot(e2[0] - e1[0], e2[1] - e1[1])
+            const dIxEdge = Math.hypot(ix[0] - e1[0], ix[1] - e1[1])
+            const ratioEdge = dEdge > 0 ? dIxEdge / dEdge : 0
+
+            // Nếu giao điểm nằm giữa 2 đầu đoạn edge
+            if (ratioEdge > 0.001 && ratioEdge < 0.999) {
+              edge.splits = edge.splits || []
+              edge.splits.push({ coord: ix, ratio: ratioEdge })
+            }
+          }
+        }
+      }
+
+      segIntersections.sort((a, b) => a.dist - b.dist)
+      const subChain: Coordinate[] = [segStart]
+      for (const item of segIntersections) {
+        if (!isSameCoordinate(subChain[subChain.length - 1], item.coord)) {
+          subChain.push(item.coord)
+        }
+      }
+      if (!isSameCoordinate(subChain[subChain.length - 1], segEnd)) {
+        subChain.push(segEnd)
+      }
+      processedSegments.push(subChain)
+    }
+
+    // Tách các edge trong currentEdges bị cắt ngang
+    const newEdgesFromSplits: ActiveEdge[] = []
+    for (const edge of currentEdges) {
+      if (edge.deleted || !edge.splits || edge.splits.length === 0) continue
+
+      edge.deleted = true
+      if (edge.isDbEdge && edge.dbId) {
+        edgesToDeleteSet.add(edge.dbId)
+      }
+
+      const sortedSplits = edge.splits.sort((a, b) => a.ratio - b.ratio)
+      const startNode =
+        allNodes.find((n) => String(n.id) === String(edge.source)) ||
+        getOrCreateNode(edge.coords[0])
+      const targetNode =
+        allNodes.find((n) => String(n.id) === String(edge.target)) ||
+        getOrCreateNode(edge.coords[edge.coords.length - 1])
+
+      const nodeSeq: Array<{ id: number | string; coord: Coordinate }> = [
+        { id: startNode.id, coord: startNode.coord },
+      ]
+      for (const sp of sortedSplits) {
+        const nd = getOrCreateNode(sp.coord)
+        if (!isSameCoordinate(nodeSeq[nodeSeq.length - 1].coord, nd.coord)) {
+          nodeSeq.push({ id: nd.id, coord: nd.coord })
+        }
+      }
+      if (!isSameCoordinate(nodeSeq[nodeSeq.length - 1].coord, targetNode.coord)) {
+        nodeSeq.push({ id: targetNode.id, coord: targetNode.coord })
+      }
+
+      for (let k = 0; k < nodeSeq.length - 1; k++) {
+        const u = nodeSeq[k]
+        const v = nodeSeq[k + 1]
+        if (u.id === v.id || isSameCoordinate(u.coord, v.coord)) continue
+
+        const segCoords: Coordinate[] = [u.coord, v.coord]
+        const lengthMeters = calcPolylineLengthMeters(segCoords)
+        const cost = Number((lengthMeters / 1000).toFixed(6))
+        const reverseCost = edge.reverseCost < 0 ? -1 : cost
+
+        newEdgesFromSplits.push({
+          id: `TEMP_EDGE_${tempEdgeCounter++}`,
+          isDbEdge: false,
+          source: u.id,
+          target: v.id,
+          coords: segCoords,
+          cost,
+          reverseCost,
+          indoorRouteId: edge.indoorRouteId,
+        })
+      }
+    }
+    currentEdges.push(...newEdgesFromSplits)
+
+    // Tạo chuỗi tọa độ đầy đủ cho đường mới
+    const fullPathCoords: Coordinate[] = []
+    for (const subChain of processedSegments) {
+      for (let p = 0; p < subChain.length; p++) {
+        if (
+          fullPathCoords.length === 0 ||
+          !isSameCoordinate(fullPathCoords[fullPathCoords.length - 1], subChain[p])
+        ) {
+          fullPathCoords.push(subChain[p])
+        }
+      }
+    }
+
+    if (fullPathCoords.length >= 2) {
+      gridLinesToCreate.push({
+        category: lineCategory,
+        isOneWay: lineOneWay,
+        indoorRouteId,
+        coordinates: fullPathCoords,
+      })
+
+      // Tạo các edge mới cho polyline này
+      const pathNodes = fullPathCoords.map((c) => getOrCreateNode(c))
+      for (let k = 0; k < pathNodes.length - 1; k++) {
+        const u = pathNodes[k]
+        const v = pathNodes[k + 1]
+        if (u.id === v.id || isSameCoordinate(u.coord, v.coord)) continue
+
+        const exists = currentEdges.some(
+          (e) =>
+            !e.deleted &&
+            ((e.source === u.id && e.target === v.id) ||
+              (!lineOneWay && e.source === v.id && e.target === u.id))
+        )
+        if (!exists) {
+          const segCoords: Coordinate[] = [u.coord, v.coord]
+          const lengthMeters = calcPolylineLengthMeters(segCoords)
+          const cost = Number((lengthMeters / 1000).toFixed(6))
+          const reverseCost = lineOneWay ? -1 : cost
+
+          currentEdges.push({
+            id: `TEMP_EDGE_${tempEdgeCounter++}`,
+            isDbEdge: false,
+            source: u.id,
+            target: v.id,
+            coords: segCoords,
+            cost,
+            reverseCost,
+            indoorRouteId,
+          })
+        }
+      }
+    }
+  }
+
+  // Thu thập danh sách edgesToCreate: các edge mới và chưa bị delete
+  const edgesToCreate = currentEdges
+    .filter((e) => !e.isDbEdge && !e.deleted)
+    .map((e) => ({
+      source: e.source,
+      target: e.target,
+      cost: e.cost,
+      reverseCost: e.reverseCost,
+      geometry: lineStringToWkbHex(e.coords),
+      coordinates: e.coords,
+      indoorRouteId: e.indoorRouteId,
+    }))
+
+  return {
+    nodesToCreate,
+    edgesToCreate,
+    edgesToDelete: Array.from(edgesToDeleteSet),
+    gridLinesToCreate,
+    totalOriginalLines: polylines.length,
   }
 }

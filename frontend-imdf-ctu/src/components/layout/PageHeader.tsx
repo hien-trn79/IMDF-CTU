@@ -96,7 +96,8 @@ export default function PageHeader() {
         const fallback = allLocations.find(
           (loc) =>
             loc.roomCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            loc.title.toLowerCase().includes(searchQuery.toLowerCase())
+              loc.anchorName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              loc.title.toLowerCase().includes(searchQuery.toLowerCase())
         )
         if (fallback) {
           handleSelectDestination(fallback)
@@ -109,7 +110,7 @@ export default function PageHeader() {
 
   // Danh sách gợi ý phổ biến khi chưa gõ từ khóa
   const popularSuggestions = allLocations
-    .filter((loc) => loc.roomCode || loc.category === 'building')
+    .filter((loc) => loc.roomCode || loc.anchorName || loc.category === 'building')
     .slice(0, 6)
 
   return (
@@ -218,6 +219,11 @@ export default function PageHeader() {
                               {dest.roomCode && (
                                 <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800 shrink-0">
                                   {dest.roomCode}
+                                </span>
+                              )}
+                              {dest.anchorName && !dest.roomCode && (
+                                <span className="rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-800 shrink-0">
+                                  {dest.anchorName}
                                 </span>
                               )}
                             </div>

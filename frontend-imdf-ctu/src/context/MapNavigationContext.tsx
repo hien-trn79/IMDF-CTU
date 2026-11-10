@@ -2,9 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import type { DestinationItem, RouteData } from '../model/Navigation.model'
 import {
   calculateRoutePath,
+  calculateDistanceMeters,
+  formatDistance,
+  formatDuration,
+  fetchAllSearchableLocations,
+  isIndoorDestination,
   searchLocations,
   searchExternalLocations,
 } from '../services/mapNavigationService'
+import { fetchIndoorShortestPath } from '../services/indoorRoutingService'
+import { useUser } from './UserContext'
 
 interface MapNavigationContextType {
   allLocations: DestinationItem[]
@@ -28,7 +35,11 @@ interface MapNavigationContextType {
   routeError: string | null
   selectDestinationAndRoute: (dest: DestinationItem) => Promise<void>
   calculateRoute: (dest?: DestinationItem) => Promise<void>
-  calculateRouteWithOrigin: (origin: [number, number], dest: DestinationItem) => Promise<void>
+  calculateRouteWithOrigin: (
+    origin: [number, number],
+    dest: DestinationItem,
+    originDestination?: DestinationItem
+  ) => Promise<void>
   clearRoute: () => void
   showLocationModal: boolean
   setShowLocationModal: (show: boolean) => void
@@ -42,8 +53,9 @@ interface MapNavigationContextType {
 const MapNavigationContext = createContext<MapNavigationContextType | undefined>(undefined)
 
 export const MapNavigationProvider = ({ children }: { children: ReactNode }) => {
-  const [allLocations] = useState<DestinationItem[]>([])
-  const [isLoadingLocations] = useState(false)
+  const { token } = useUser()
+  const [allLocations, setAllLocations] = useState<DestinationItem[]>([])
+  const [isLoadingLocations, setIsLoadingLocations] = useState(true)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<DestinationItem[]>([])
@@ -64,6 +76,24 @@ export const MapNavigationProvider = ({ children }: { children: ReactNode }) => 
 
   // Indoor floor selection
   const [selectedFloor, setSelectedFloor] = useState('G')
+
+  useEffect(() => {
+    let active = true
+    fetchAllSearchableLocations()
+      .then((locations) => {
+        if (active) setAllLocations(locations)
+      })
+      .catch((error) => {
+        console.error('Không thể tải dữ liệu địa điểm cho Tab Map:', error)
+        if (active) setAllLocations([])
+      })
+      .finally(() => {
+        if (active) setIsLoadingLocations(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // 2. Tìm kiếm tự động khi `searchQuery` thay đổi
   useEffect(() => {
@@ -147,57 +177,6 @@ export const MapNavigationProvider = ({ children }: { children: ReactNode }) => 
 
   // KHÔNG tự động định vị khi khởi tạo - chỉ định vị khi người dùng nhấn nút
 
-  // 4. Tìm đường đi đến đích (từ vị trí cá nhân)
-  const calculateRoute = useCallback(
-    async (dest?: DestinationItem) => {
-      const target = dest || selectedDestination
-      if (!target) return
-
-      if (!userLocation) {
-        setRouteError('Vui lòng bật định vị để chọn điểm bắt đầu.')
-        return
-      }
-      const origin = userLocation
-
-      setIsRouting(true)
-      setRouteError(null)
-
-      try {
-        const route = await calculateRoutePath(origin, target.coordinates, target)
-        setRouteData(route)
-        setShowLocationModal(true)
-      } catch (err: any) {
-        console.error('Lỗi khi tìm đường:', err)
-        setRouteError(err?.message || 'Không thể tìm đường đi đến địa điểm này')
-      } finally {
-        setIsRouting(false)
-      }
-    },
-    [selectedDestination, userLocation]
-  )
-
-  // 4b. Tìm đường đi từ điểm bắt đầu tuỳ chọn
-  const calculateRouteWithOrigin = useCallback(
-    async (origin: [number, number], dest: DestinationItem) => {
-      setIsRouting(true)
-      setRouteError(null)
-
-      try {
-        const route = await calculateRoutePath(origin, dest.coordinates, dest)
-        setRouteData(route)
-        setSelectedDestination(dest)
-        setShowLocationModal(true)
-        setShowDirectionsModal(false)
-      } catch (err: any) {
-        console.error('Lỗi khi tìm đường:', err)
-        setRouteError(err?.message || 'Không thể tìm đường đi đến địa điểm này')
-      } finally {
-        setIsRouting(false)
-      }
-    },
-    []
-  )
-
   // 5. Chọn điểm đến và hiển thị modal thông tin (KHÔNG tự động tìm đường)
   const selectDestinationAndRoute = useCallback(async (dest: DestinationItem) => {
     setSelectedDestination(dest)
@@ -209,6 +188,131 @@ export const MapNavigationProvider = ({ children }: { children: ReactNode }) => 
     setRouteData(null)
     setRouteError(null)
   }, [])
+
+  const calculateRouteWithOrigin = useCallback(
+    async (
+      origin: [number, number],
+      dest: DestinationItem,
+      originDestination?: DestinationItem
+    ) => {
+      setIsRouting(true)
+      setRouteError(null)
+
+      try {
+        const sourceLevelId = Number(
+          originDestination?.rawProperties?.levelId ?? originDestination?.rawProperties?.level_id
+        )
+        const targetLevelId = Number(dest.rawProperties?.levelId ?? dest.rawProperties?.level_id)
+        const sourceAnchorId = Number(originDestination?.rawProperties?.anchorId)
+        const targetAnchorId = Number(dest.rawProperties?.anchorId)
+        const indoorToIndoor =
+          originDestination !== undefined &&
+          isIndoorDestination(originDestination) &&
+          isIndoorDestination(dest)
+
+        if (indoorToIndoor) {
+          if (
+            !Number.isInteger(sourceLevelId) ||
+            !Number.isInteger(targetLevelId) ||
+            !Number.isInteger(sourceAnchorId) ||
+            !Number.isInteger(targetAnchorId)
+          ) {
+            throw new Error('Hai phòng chưa có đủ anchor hoặc thông tin tầng để tìm đường.')
+          }
+          if (sourceLevelId !== targetLevelId) {
+            throw new Error('Hiện chỉ hỗ trợ tìm đường giữa hai phòng cùng tầng.')
+          }
+
+          const response = await fetchIndoorShortestPath(
+            {
+              sourceAnchorId,
+              targetAnchorId,
+              sourceLevelId,
+              targetLevelId,
+              isOutdoorIncluded: false,
+            },
+            token ?? undefined
+          )
+          const features = (response.features ?? []).filter(
+            (feature) =>
+              feature.geometry?.type === 'LineString' && feature.geometry.coordinates.length >= 2
+          )
+          if (features.length === 0) {
+            throw new Error('Backend không trả về đường đi indoor cho hai phòng đã chọn.')
+          }
+
+          const coordinates = features.flatMap((feature) =>
+            feature.geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number])
+          )
+          let distanceMeters = 0
+          features.forEach((feature) => {
+            const points = feature.geometry.coordinates
+            for (let index = 1; index < points.length; index += 1) {
+              distanceMeters += calculateDistanceMeters(
+                [points[index - 1][1], points[index - 1][0]],
+                [points[index][1], points[index][0]]
+              )
+            }
+          })
+          const durationSeconds = Math.max(1, Math.round(distanceMeters / 1.2))
+          const route: RouteData = {
+            coordinates,
+            distanceMeters,
+            durationSeconds,
+            distanceText: formatDistance(distanceMeters),
+            durationText: formatDuration(durationSeconds),
+            startPoint: origin,
+            endPoint: dest.coordinates,
+            destination: dest,
+            indoorCoordinates: coordinates,
+            indoorGeoJsonFeatures: features,
+            hasIndoorTransition: false,
+            steps: [
+              {
+                instruction: `Đi theo hành lang đến ${dest.title}`,
+                distance: distanceMeters,
+                duration: durationSeconds,
+                isIndoor: true,
+              },
+              {
+                instruction: `Đã đến ${dest.title}`,
+                distance: 0,
+                duration: 0,
+                isIndoor: true,
+              },
+            ],
+          }
+          setRouteData(route)
+          setSelectedFloor(dest.level === '0' ? 'G' : (dest.level ?? 'G'))
+          setShowDirectionsModal(false)
+          return
+        }
+
+        const route = await calculateRoutePath(origin, dest.coordinates, dest)
+        setRouteData(route)
+        setShowDirectionsModal(false)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Không thể tìm đường đi.'
+        console.error('Không thể tính đường đi:', error)
+        setRouteError(message)
+      } finally {
+        setIsRouting(false)
+      }
+    },
+    [token]
+  )
+
+  const calculateRoute = useCallback(
+    async (dest?: DestinationItem) => {
+      const target = dest ?? selectedDestination
+      if (!target || !userLocation) {
+        setRouteError('Vui lòng chọn điểm đến và xác định vị trí bắt đầu.')
+        return
+      }
+      await calculateRouteWithOrigin(userLocation, target)
+    },
+    [calculateRouteWithOrigin, selectedDestination, userLocation]
+  )
 
   return (
     <MapNavigationContext.Provider

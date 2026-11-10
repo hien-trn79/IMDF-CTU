@@ -30,7 +30,9 @@ public class AnchorServiceImpl implements AnchorService {
     public List<Anchor> getAllByUnitLevelId(
         Integer unitLevelId
        ) {
-        return repository.findAllByUnitLevelId(unitLevelId);
+        return unitLevelId == null
+            ? repository.findAll()
+            : repository.findAllByUnitLevelId(unitLevelId);
     }
 
     @Override

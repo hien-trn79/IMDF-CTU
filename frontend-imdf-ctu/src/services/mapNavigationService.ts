@@ -1,4 +1,5 @@
 import type { DestinationItem, RouteData, RouteStep } from '../model/Navigation.model'
+import type { IndoorShortestPathResponse } from '../model/IndoorRouting.model'
 
 // Cổng vào chính toà nhà Khoa CNTT&TT theo mã hex WKB Point được chỉ định:
 // "0000000001405A71363E2F0AAE40240FC5A6800F3F"
@@ -133,8 +134,21 @@ async function fetchOpenings(geoServerUrl: string): Promise<Record<string, [numb
 /**
  * Tải danh sách anchors (điểm neo bên trong phòng) từ GeoServer
  */
-async function fetchAnchors(geoServerUrl: string): Promise<Record<string, [number, number]>> {
-  const anchors: Record<string, [number, number]> = {}
+type AnchorSearchData = {
+  coordinates: [number, number]
+  id?: number
+  name?: string
+}
+
+function parseNumericFeatureId(value: unknown): number | undefined {
+  const match = String(value ?? '').match(/(\d+)(?!.*\d)/)
+  if (!match) return undefined
+  const id = Number(match[1])
+  return Number.isInteger(id) && id > 0 ? id : undefined
+}
+
+async function fetchAnchors(geoServerUrl: string): Promise<Record<string, AnchorSearchData>> {
+  const anchors: Record<string, AnchorSearchData> = {}
   try {
     const res = await fetch(
       `${geoServerUrl}/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=imdf_ctu:anchors&outputFormat=application/json`
@@ -142,10 +156,14 @@ async function fetchAnchors(geoServerUrl: string): Promise<Record<string, [numbe
     if (res.ok) {
       const d = await res.json()
       for (const f of d.features || []) {
-        const unitId = f.properties?.unit_id
+        const unitId = f.properties?.unit_id ?? f.properties?.unitId
         const coords = f.geometry?.coordinates
         if (unitId && Array.isArray(coords) && coords.length >= 2) {
-          anchors[String(unitId).toLowerCase()] = [coords[1], coords[0]]
+          anchors[String(unitId).toLowerCase()] = {
+            id: parseNumericFeatureId(f.id),
+            coordinates: [coords[1], coords[0]],
+            name: f.properties?.anchor_name ?? f.properties?.anchorName,
+          }
         }
       }
     }
@@ -153,6 +171,108 @@ async function fetchAnchors(geoServerUrl: string): Promise<Record<string, [numbe
     console.warn('Lỗi khi tải anchors:', err)
   }
   return anchors
+}
+
+export interface MapLevel {
+  id: number
+  ordinal: number
+  buildingId?: number
+}
+
+export async function fetchMapLevels(buildingId?: number): Promise<MapLevel[]> {
+  const query = buildingId ? `?buildingId=${encodeURIComponent(buildingId)}` : ''
+  const response = await fetch(`/api/levels${query}`)
+  if (!response.ok) throw new Error(`Không thể tải danh sách tầng (HTTP ${response.status}).`)
+  const data = await response.json()
+  return (data.features ?? []).flatMap((feature: any) => {
+    const properties = feature.properties ?? {}
+    const id = Number(feature.id ?? properties.id ?? properties.levelId)
+    const ordinal = Number(properties.ordinal)
+    if (!Number.isInteger(id) || !Number.isInteger(ordinal)) return []
+    return [{
+      id,
+      ordinal,
+      buildingId: Number(properties.buildingId ?? properties.building_id) || undefined,
+    }]
+  })
+}
+
+type ApiFeatureCollection = {
+  features?: Array<{
+    id?: number | string
+    geometry?: any
+    properties?: Record<string, any>
+  }>
+}
+
+async function fetchApiIndoorLocations(): Promise<DestinationItem[]> {
+  const [unitsResponse, anchorsResponse] = await Promise.all([
+    fetch('/api/units?page=0&size=1000&sort=id,ASC'),
+    fetch('/api/anchors'),
+  ])
+  if (!unitsResponse.ok) throw new Error(`Không thể tải Unit từ API (HTTP ${unitsResponse.status}).`)
+  if (!anchorsResponse.ok) throw new Error(`Không thể tải Anchor từ API (HTTP ${anchorsResponse.status}).`)
+
+  const units = (await unitsResponse.json()) as ApiFeatureCollection
+  const anchors = (await anchorsResponse.json()) as ApiFeatureCollection
+  const anchorByUnit = new Map<
+    string,
+    { id?: number; name?: string; coordinates?: [number, number] }
+  >()
+
+  for (const feature of anchors.features ?? []) {
+    const properties = feature.properties ?? {}
+    const unitId = properties.unitId ?? properties.unit_id
+    const coordinates = feature.geometry?.coordinates
+    if (unitId === undefined) continue
+    anchorByUnit.set(String(unitId), {
+      id: parseNumericFeatureId(feature.id),
+      name: properties.anchorName ?? properties.anchor_name,
+      coordinates:
+        Array.isArray(coordinates) && coordinates.length >= 2
+          ? [Number(coordinates[1]), Number(coordinates[0])]
+          : undefined,
+    })
+  }
+
+  return (units.features ?? []).flatMap((feature) => {
+    const properties = feature.properties ?? {}
+    const geometry = feature.geometry
+    const displayPoint = properties.displayPoint
+    const geometryCenter = getGeometryCenter(geometry)
+    const point = Array.isArray(displayPoint?.coordinates)
+      ? [Number(displayPoint.coordinates[1]), Number(displayPoint.coordinates[0])] as [number, number]
+      : geometryCenter
+    if (!point) return []
+
+    const unitId = Number(feature.id ?? properties.id)
+    if (!Number.isInteger(unitId)) return []
+    const anchor = anchorByUnit.get(String(unitId))
+    const ordinal = Number(properties.levelOrdinal ?? properties.ordinal ?? 0)
+    const unitName = String(properties.unitName ?? properties.name ?? `Unit ${unitId}`)
+    const anchorName = anchor?.name
+    return [{
+      id: String(unitId),
+      title: unitName,
+      subtitle: `Tầng ${ordinal === 0 ? 'trệt' : ordinal} · Khoa CNTT & TT`,
+      category: 'room' as const,
+      level: String(ordinal),
+      anchorName,
+      buildingName: 'Khoa Công Nghệ Thông Tin & TT',
+      address: 'Nhà CI, Khoa CNTT&TT, Khu II, Đ. 3 Tháng 2, Cần Thơ',
+      coordinates: anchor?.coordinates ?? point,
+      geometry,
+      anchorCoordinates: anchor?.coordinates,
+      rawProperties: {
+        ...properties,
+        unitId,
+        levelId: properties.levelId,
+        buildingId: properties.buildingId,
+        anchorName,
+        anchorId: anchor?.id ?? parseNumericFeatureId(properties.anchorId ?? properties.anchor_id),
+      },
+    }]
+  })
 }
 
 /**
@@ -170,6 +290,13 @@ export async function fetchAllSearchableLocations(
   ])
 
   try {
+    const apiLocations = await fetchApiIndoorLocations()
+    items.push(...apiLocations)
+  } catch (error) {
+    console.warn('Không tải được Unit/Anchor từ API, tiếp tục dùng GeoServer:', error)
+  }
+
+  try {
     // 1. Tải danh sách phòng học (unit_4326)
     const unitUrl = `${geoServerUrl}/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=imdf_ctu:unit_4326&outputFormat=application/json`
     const unitRes = await fetch(unitUrl).catch(() => null)
@@ -184,6 +311,11 @@ export async function fetchAllSearchableLocations(
         const roomCode = props.room_code || props.code || ''
         const nameVi = props.name_vi || props.name || (roomCode ? `Phòng ${roomCode}` : 'Phòng học')
         const level = props.level !== undefined && props.level !== null ? String(props.level) : '0'
+        const numericId = Number(
+          String(f.id ?? '').substring(String(f.id ?? '').lastIndexOf('.') + 1).replace(/[^0-9]/g, '')
+        )
+        const levelId = props.levelId ?? props.level_id
+        const buildingId = props.buildingId ?? props.building_id
 
         // Tìm toạ độ cửa (door) tương ứng
         const rawId = f.id ? f.id.replace('unit_4326.', '').toLowerCase() : ''
@@ -195,10 +327,12 @@ export async function fetchAllSearchableLocations(
           doors[`door_${rawId.replace('-', '_')}`]
 
         // Tìm toạ độ anchor bên trong phòng
-        let anchorCoord: [number, number] | undefined =
+        const anchorData =
           anchors[rawId] ||
           anchors[codeKey] ||
           anchors[`bm-${codeKey}`]
+        const anchorCoord = anchorData?.coordinates
+        const anchorName = anchorData?.name
 
         items.push({
           id: f.id || `unit_${props.fid || Math.random()}`,
@@ -206,6 +340,7 @@ export async function fetchAllSearchableLocations(
           subtitle: `Tầng ${level} · Khoa CNTT & TT`,
           category: 'room',
           roomCode: roomCode || undefined,
+          anchorName: anchorName || undefined,
           level,
           buildingName: 'Khoa Công Nghệ Thông Tin & TT',
           address: 'Nhà CI, Khoa CNTT&TT, Khu II, Đ. 3 Tháng 2, Cần Thơ',
@@ -213,7 +348,16 @@ export async function fetchAllSearchableLocations(
           geometry: f.geometry,
           doorCoordinates: doorCoord,
           anchorCoordinates: anchorCoord,
-          rawProperties: props,
+          rawProperties: {
+            ...props,
+            unitId: numericId,
+            levelId,
+            buildingId,
+            anchorName,
+            anchorId:
+              anchorData?.id ??
+              parseNumericFeatureId(props.anchorId ?? props.anchor_id),
+          },
         })
       })
     }
@@ -330,6 +474,18 @@ export function searchLocations(
       score += 50
     } else if (normTitle.includes(normQ)) {
       score += 40
+    }
+
+    // Ký hiệu anchor là mã tìm kiếm chính xác của phòng trên topology indoor.
+    if (item.anchorName) {
+      const normAnchorName = normalizeSearchString(item.anchorName)
+      if (normAnchorName === normQ) {
+        score += 120
+      } else if (normAnchorName.startsWith(normQ)) {
+        score += 95
+      } else if (normAnchorName.includes(normQ)) {
+        score += 70
+      }
     }
 
     // Kiểm tra khớp toà nhà / danh mục
@@ -595,7 +751,8 @@ export function isIndoorDestination(dest: DestinationItem): boolean {
 export async function calculateRoutePath(
   start: [number, number], // [lat, lng]
   end: [number, number], // [lat, lng]
-  destination: DestinationItem
+  destination: DestinationItem,
+  indoorPath?: IndoorShortestPathResponse
 ): Promise<RouteData> {
   const isIndoor = isIndoorDestination(destination)
 
@@ -662,7 +819,10 @@ export async function calculateRoutePath(
   const steps: RouteStep[] = []
 
   if (isIndoor) {
-    indoorCoords = buildIndoorCorridorPath(destination)
+    indoorCoords =
+      indoorPath?.segments.flatMap((segment) =>
+        segment.coordinates.map(([lng, lat]) => [lat, lng] as [number, number])
+      ) ?? buildIndoorCorridorPath(destination)
 
     // Tính khoảng cách nội tuyến (indoor distance)
     let indoorDist = 0
@@ -671,8 +831,8 @@ export async function calculateRoutePath(
     }
     const indoorDur = Math.round(indoorDist / 1.0) // Tốc độ đi bộ trong nhà ~1.0 m/s
 
-    totalDistance += indoorDist
-    totalDuration += indoorDur
+    totalDistance += indoorPath?.totalDistanceMeters ?? indoorDist
+    totalDuration += indoorPath?.estimatedTimeSeconds ?? indoorDur
 
     // Nối toạ độ: outdoorCoords (đã kết thúc tại MAIN_ENTRANCE_POINT) + indoorCoords (bắt đầu tại MAIN_ENTRANCE_POINT)
     fullCoordinates = [...outdoorCoords, ...indoorCoords.slice(1)]
@@ -737,6 +897,7 @@ export async function calculateRoutePath(
 
   return {
     coordinates: fullCoordinates,
+    outdoorCoordinates: outdoorCoords,
     distanceMeters: totalDistance,
     durationSeconds: totalDuration,
     distanceText: formatDistance(totalDistance),
@@ -748,5 +909,7 @@ export async function calculateRoutePath(
     hasIndoorTransition: isIndoor,
     mainEntrancePoint: isIndoor ? MAIN_ENTRANCE_POINT : undefined,
     indoorCoordinates: isIndoor ? indoorCoords : undefined,
+    indoorPathSegments: indoorPath?.segments,
+    targetLevelOrdinal: indoorPath?.segments.at(-1)?.ordinal,
   }
 }
