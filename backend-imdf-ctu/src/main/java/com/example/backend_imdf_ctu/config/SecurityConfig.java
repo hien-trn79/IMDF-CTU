@@ -109,6 +109,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/network-edges/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/indoor-routes/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/units/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/amenities/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/anchors/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/openings/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/buildings/**").permitAll()

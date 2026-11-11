@@ -1,5 +1,4 @@
 import {
-  Building2,
   CircleUser,
   GraduationCap,
   Map,
@@ -12,10 +11,12 @@ import {
   LogOut,
 } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useUser } from '../../context/UserContext'
-import { useMapNavigation } from '../../context/MapNavigationContext'
-import type { DestinationItem } from '../../model/Navigation.model'
+import { useNavigateContext } from '../../context/NavigateContext'
+
+// Kiểu của 1 kết quả tìm kiếm (lấy từ context, không cần export thêm interface)
+type SearchItem = ReturnType<ReturnType<typeof useNavigateContext>['searchItems']>[number]
 
 export default function PageHeader() {
   const NAV_LINKS = [
@@ -49,17 +50,14 @@ export default function PageHeader() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const {
-    searchQuery,
-    setSearchQuery,
-    searchResults,
-    isSearchingLocations,
-    allLocations,
-    selectDestinationAndRoute,
-  } = useMapNavigation()
+  const { searchItems, selectDestination } = useNavigateContext()
 
+  const [searchQuery, setSearchQuery] = useState('')
   const [isOpenDropdown, setIsOpenDropdown] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement>(null)
+
+  // Kết quả tìm kiếm tính trực tiếp từ dữ liệu tầng đang tải trong context
+  const searchResults = useMemo(() => searchItems(searchQuery), [searchItems, searchQuery])
 
   const visibleLinks = NAV_LINKS.filter((link) => {
     return !link.role || link.role.includes(authData?.role ?? '')
@@ -77,41 +75,25 @@ export default function PageHeader() {
   }, [])
 
   // Khi chọn 1 địa điểm từ thanh tìm kiếm
-  const handleSelectDestination = (dest: DestinationItem) => {
+  const handleSelectDestination = (dest: SearchItem) => {
     setIsOpenDropdown(false)
     setSearchQuery(dest.title)
     if (location.pathname !== '/map') {
       navigate('/map')
     }
-    selectDestinationAndRoute(dest)
+    selectDestination(dest)
   }
 
-  // Xử lý khi nhấn Enter
+  // Xử lý khi nhấn Enter / Escape
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       if (searchResults.length > 0) {
         handleSelectDestination(searchResults[0])
-      } else if (searchQuery.trim().length > 0) {
-        // Nếu gõ mã phòng mà chưa khớp, tìm thử mục đầu tiên khớp chuỗi con
-        const fallback = allLocations.find(
-          (loc) =>
-            loc.roomCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              loc.anchorName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              loc.title.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        if (fallback) {
-          handleSelectDestination(fallback)
-        }
       }
     } else if (e.key === 'Escape') {
       setIsOpenDropdown(false)
     }
   }
-
-  // Danh sách gợi ý phổ biến khi chưa gõ từ khóa
-  const popularSuggestions = allLocations
-    .filter((loc) => loc.roomCode || loc.anchorName || loc.category === 'building')
-    .slice(0, 6)
 
   return (
     <header className="page-header py-2.5 px-4 bg-white shadow-md flex justify-between items-center z-3000 relative">
@@ -151,7 +133,7 @@ export default function PageHeader() {
             onFocus={() => setIsOpenDropdown(true)}
             onKeyDown={handleKeyDown}
             className="h-11 w-full rounded-full border border-slate-200 bg-slate-50 pl-11 pr-10 font-k2d-regular text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 placeholder:text-slate-400"
-            placeholder="Tìm đường, mã phòng (VD: DI/101, 102), toà nhà..."
+            placeholder="Tìm mã phòng (VD: DI/101, 102), tiện ích..."
           />
 
           {searchQuery && (
@@ -173,9 +155,7 @@ export default function PageHeader() {
         {isOpenDropdown && (
           <div className="absolute left-0 right-0 top-full mt-2 max-h-96 overflow-y-auto rounded-2xl border border-slate-100 bg-white/95 p-2 shadow-2xl backdrop-blur-md z-[3100] animate-in fade-in-50 slide-in-from-top-2 duration-150">
             {searchQuery.trim() ? (
-              isSearchingLocations && searchResults.length === 0 ? (
-                <div className="py-6 text-center text-sm text-slate-500">Đang tìm địa điểm...</div>
-              ) : searchResults.length > 0 ? (
+              searchResults.length > 0 ? (
                 <div className="space-y-1">
                   <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
                     <span>Kết quả tìm kiếm ({searchResults.length})</span>
@@ -185,7 +165,10 @@ export default function PageHeader() {
                   </div>
 
                   {searchResults.map((dest) => {
-                    const isRoom = dest.category === 'room'
+                    const isAnchor = dest.category === 'anchor'
+                    // Tên phòng (unit) gắn với kết quả, nếu có
+                    const unitName: string | undefined = dest.rawProperties?.unitName
+
                     return (
                       <div
                         key={dest.id}
@@ -195,20 +178,10 @@ export default function PageHeader() {
                         <div className="flex items-center gap-3 min-w-0">
                           <div
                             className={`flex size-9 shrink-0 items-center justify-center rounded-xl shadow-sm ${
-                              isRoom
-                                ? 'bg-emerald-500 text-white'
-                                : dest.category === 'building'
-                                  ? 'bg-sky-600 text-white'
-                                  : 'bg-amber-500 text-white'
+                              isAnchor ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
                             }`}
                           >
-                            {isRoom ? (
-                              <GraduationCap size={18} />
-                            ) : dest.category === 'building' ? (
-                              <Building2 size={18} />
-                            ) : (
-                              <MapPin size={18} />
-                            )}
+                            {isAnchor ? <GraduationCap size={18} /> : <MapPin size={18} />}
                           </div>
 
                           <div className="min-w-0">
@@ -216,20 +189,13 @@ export default function PageHeader() {
                               <span className="font-bold text-sm text-slate-800 truncate group-hover:text-sky-700">
                                 {dest.title}
                               </span>
-                              {dest.roomCode && (
+                              {unitName && unitName !== dest.title && (
                                 <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800 shrink-0">
-                                  {dest.roomCode}
-                                </span>
-                              )}
-                              {dest.anchorName && !dest.roomCode && (
-                                <span className="rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-800 shrink-0">
-                                  {dest.anchorName}
+                                  {unitName}
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-500 truncate">
-                              {dest.subtitle || dest.address}
-                            </p>
+                            <p className="text-xs text-slate-500 truncate">{dest.subtitle}</p>
                           </div>
                         </div>
 
@@ -245,42 +211,17 @@ export default function PageHeader() {
                 <div className="py-6 text-center text-sm text-slate-500">
                   <p>Không tìm thấy địa điểm phù hợp với "{searchQuery}"</p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Có thể tìm địa điểm ngoài CTU theo tên hoặc địa chỉ.
+                    Chỉ tìm trong sơ đồ của tầng đang xem. Hãy zoom vào toà nhà hoặc đổi tầng.
                   </p>
                 </div>
               )
             ) : (
-              // Gợi ý địa điểm phổ biến
-              <div className="space-y-1">
-                <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <div className="px-3 py-4 text-center text-sm text-slate-500">
+                <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   <Sparkles size={13} className="text-amber-500" />
-                  <span>Địa điểm & Phòng học gợi ý</span>
+                  <span>Gợi ý</span>
                 </div>
-                {popularSuggestions.map((dest) => (
-                  <div
-                    key={dest.id}
-                    onClick={() => handleSelectDestination(dest)}
-                    className="flex cursor-pointer items-center justify-between rounded-xl p-2 transition hover:bg-slate-100/80"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="flex size-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                        {dest.category === 'room' ? (
-                          <GraduationCap size={15} />
-                        ) : (
-                          <Building2 size={15} />
-                        )}
-                      </div>
-                      <div className="truncate text-sm font-medium text-slate-700">
-                        {dest.title}
-                      </div>
-                    </div>
-                    {dest.roomCode && (
-                      <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">
-                        {dest.roomCode}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                <p className="mt-1.5">Nhập mã phòng hoặc tên tiện ích để tìm trên tầng đang xem.</p>
               </div>
             )}
           </div>

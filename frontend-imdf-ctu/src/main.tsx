@@ -4,17 +4,17 @@ import './index.css'
 import App from './App.tsx'
 import { LayerProvider } from './context/LayerContext.tsx'
 import { UserProvider } from './context/UserContext.tsx'
-import { MapNavigationProvider } from './context/MapNavigationContext.tsx'
 import { LevelProvider } from './context/LevelContext.tsx'
+import { NavigateProvider } from './context/NavigateContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <UserProvider>
       <LayerProvider>
         <LevelProvider>
-          <MapNavigationProvider>
+          <NavigateProvider>
             <App />
-          </MapNavigationProvider>
+          </NavigateProvider>
         </LevelProvider>
       </LayerProvider>
     </UserProvider>

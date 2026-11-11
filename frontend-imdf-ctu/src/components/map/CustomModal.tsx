@@ -1,15 +1,77 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, MapPin, Layers, Hash, Building2, Copy, Check, Code2, AlignLeft } from 'lucide-react'
-import type { BuildingType } from '../../model/Building.model'
+import type { BuildingGeoJsonItem, UnitGeoJsonItem } from '../../model/geoJsonEntity.model'
 
-interface CustomModalProps {
-  building: BuildingType | null
-  isOpen: boolean
-  onClose: () => void
+export interface ModalFeature {
+  id?: string | number | null
+  geometry?: { type?: string; coordinates?: any } | null
+  properties?: Record<string, any> | null
 }
 
-export default function CustomModal({ building, isOpen, onClose }: CustomModalProps) {
+// Bảng ánh xạ tên thuộc tính gốc sang Nhãn hiển thị tiếng Việt
+const FIELD_LABELS: Record<string, string> = {
+  id: 'ID',
+  venueName: 'Tên địa điểm (VenueName)',
+  buildingName: 'Tên tòa nhà (BuildingName)',
+  buildingCategoryName: 'Danh mục tòa nhà',
+  restrictionCategoryId: 'Mã phân quyền (RestrictionID)',
+  restrictionCategoryName: 'Danh mục phân quyền',
+  venueId: 'Mã địa điểm (VenueID)',
+  featureId: 'Mã đối tượng (FeatureID)',
+  addressId: 'Mã địa chỉ (AddressID)',
+  buildingCategoryId: 'Mã loại tòa nhà',
+  unitName: 'Tên phòng',
+  unitCategory: 'Danh mục phòng',
+  unitCategoryId: 'Mã loại phòng',
+  levelOrdinal: 'Tầng',
+  anchorName: 'Tên điểm neo (AnchorName)',
+  anchorCategoryName: 'Danh mục điểm neo',
+  anchorCategoryId: 'Mã loại điểm neo',
+  addressName: 'Tên địa chỉ (AddressName)',
+  addressCategoryName: 'Danh mục địa chỉ',
+  addressCategoryId: 'Mã loại địa chỉ',
+  featureType: 'Loại đối tượng (FeatureType)',
+  geometryType: 'Loại hình học (GeometryType)',
+  coordinates: 'Tọa độ (Coordinates)',
+}
+
+const BUILDING_FIELDS: string[] = [
+  'id',
+  'buildingName',
+  'buildingCategoryName',
+  'restrictionCategoryId',
+  'featureId',
+  'addressId',
+  'buildingCategoryId',
+]
+
+const UNIT_FIELDS: string[] = [
+  'id',
+  'unitName',
+  'featureType',
+  'unitCategory',
+  'restrictionCategory',
+  'levelOrdinal',
+]
+
+interface CustomModalProps {
+  building: BuildingGeoJsonItem | null
+  selectedUnit: UnitGeoJsonItem | null
+  isOpen: boolean
+  onClose: () => void
+  variant?: 'building' | 'unit' // Thêm prop variant để phân biệt loại modal
+}
+
+export default function CustomModal({
+  building,
+  selectedUnit,
+  isOpen,
+  onClose,
+  variant,
+}: CustomModalProps) {
+  const isUnit = variant === 'unit' // Kiểm tra xem modal có phải là loại "unit" hay không
+
   const overlayRef = useRef<HTMLDivElement>(null)
   const scrollBodyRef = useRef<HTMLDivElement>(null)
 
@@ -85,7 +147,7 @@ export default function CustomModal({ building, isOpen, onClose }: CustomModalPr
   useEffect(() => {
     setCopied(false)
     if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
-  }, [building?.id])
+  }, [selectedUnit?.id])
 
   useEffect(() => {
     return () => {
@@ -93,11 +155,34 @@ export default function CustomModal({ building, isOpen, onClose }: CustomModalPr
     }
   }, [])
 
-  if (!isOpen || !building) return null
+  const activeFeature = isUnit ? selectedUnit : building
+  if (!isOpen || !activeFeature) return null
 
-  const { id, geometry, properties } = building
-  const displayName = properties?.['name:vi'] || properties?.name || 'Chưa có thông tin'
-  const coordinatesText = JSON.stringify(geometry?.coordinates ?? [], null, 2)
+  const { id, geometry } = activeFeature
+  const properties = (activeFeature.properties ?? {}) as Record<string, any>
+
+  // Tên hiển thị luôn là tên tòa nhà, kể cả khi đang mở modal unit
+  const displayName = building?.properties?.buildingName || 'Chưa có thông tin'
+  const unitName = selectedUnit?.properties?.unitName || 'Chưa có thông tin'
+
+  const coordinatesText = JSON.stringify(geometry ?? [], null, 2)
+
+  const getFieldLabel = (key: string): string => FIELD_LABELS[key] || key
+
+  const isValid = (v: any) => v !== null && v !== undefined && v !== '' && typeof v !== 'object'
+
+  // Danh sách field hiển thị: building dùng BUILDING_FIELDS, unit dùng UNIT_FIELDS
+  const buildFields = (): [string, string][] => {
+    const source: Record<string, any> = { id, ...properties }
+    const keys = isUnit ? UNIT_FIELDS : BUILDING_FIELDS
+
+    return keys.map((k) => [
+      getFieldLabel(k),
+      isValid(source[k]) ? String(source[k]) : 'Chưa có thông tin',
+    ])
+  }
+
+  const fields = buildFields()
 
   // Toàn bộ feature ở định dạng chuẩn GeoJSON (không chỉ geometry)
   const geojsonFeature = {
@@ -136,7 +221,7 @@ export default function CustomModal({ building, isOpen, onClose }: CustomModalPr
   const modal = (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 z-9999 !important flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ touchAction: 'none' }}
       role="dialog"
       aria-modal="true"
@@ -163,7 +248,7 @@ export default function CustomModal({ building, isOpen, onClose }: CustomModalPr
 
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 pt-3 sm:pt-5 pb-3 sm:pb-4 shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="shrink-0 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 p-2 sm:p-2.5 shadow-lg shadow-sky-500/20">
+            <div className="shrink-0 rounded-2xl bg-linear-to-br from-sky-500 to-sky-700 p-2 sm:p-2.5 shadow-lg shadow-sky-500/20">
               <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div className="min-w-0">
@@ -171,7 +256,7 @@ export default function CustomModal({ building, isOpen, onClose }: CustomModalPr
                 id="building-modal-title"
                 className="text-sm sm:text-lg font-bold text-gray-900 truncate"
               >
-                Thông tin tòa nhà
+                Thông tin chi tiết
               </h2>
               <p className="text-[11px] sm:text-xs text-gray-500 truncate">{displayName}</p>
             </div>
@@ -190,36 +275,49 @@ export default function CustomModal({ building, isOpen, onClose }: CustomModalPr
           className="overflow-y-auto overscroll-contain px-4 sm:px-5 pb-4 sm:pb-5 space-y-3 sm:space-y-4"
           style={{ touchAction: 'pan-y', overscrollBehavior: 'contain' }}
         >
-          <div className="rounded-2xl bg-gradient-to-br from-sky-50 to-sky-100/50 border border-sky-100 px-3.5 sm:px-4 py-3 sm:py-3.5">
+          <div className="rounded-2xl bg-linear-to-br from-sky-50 to-sky-100/50 border border-sky-100 px-3.5 sm:px-4 py-3 sm:py-3.5">
             <p className="text-[10px] sm:text-[11px] font-semibold text-sky-600 uppercase tracking-wider mb-1">
-              Tên công trình
+              {isUnit ? 'Tên phòng' : 'Tên công trình'}
             </p>
-            <p className="text-base sm:text-lg font-bold text-gray-900 break-words leading-snug">
-              {displayName}
+            <p className="text-base sm:text-lg font-bold text-gray-900 warp-break-words leading-snug">
+              {unitName}
             </p>
           </div>
 
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-2.5">
-            <InfoField
-              icon={<Hash className="w-3.5 h-3.5" />}
-              label="ID"
-              value={id || 'Chưa có thông tin'}
-            />
-            <InfoField
-              icon={<Building2 className="w-3.5 h-3.5" />}
-              label="Loại công trình"
-              value={properties?.building || 'Chưa có thông tin'}
-            />
-            <InfoField
-              icon={<MapPin className="w-3.5 h-3.5" />}
-              label="Tên (mặc định)"
-              value={properties?.name || 'Chưa có thông tin'}
-            />
-            <InfoField
-              icon={<MapPin className="w-3.5 h-3.5" />}
-              label="Tên (Tiếng Việt)"
-              value={properties?.['name:vi'] || 'Chưa có thông tin'}
-            />
+            {isUnit ? (
+              fields.map(([key, value]) => (
+                <InfoField
+                  key={key}
+                  icon={<Hash className="w-3.5 h-3.5" />}
+                  label={key}
+                  value={value}
+                />
+              ))
+            ) : (
+              <>
+                <InfoField
+                  icon={<Hash className="w-3.5 h-3.5" />}
+                  label="ID"
+                  value={id !== null && id !== undefined ? String(id) : 'Chưa có thông tin'}
+                />
+                <InfoField
+                  icon={<Building2 className="w-3.5 h-3.5" />}
+                  label="Loại công trình"
+                  value={properties.buildingCategoryName || 'Chưa có thông tin'}
+                />
+                <InfoField
+                  icon={<MapPin className="w-3.5 h-3.5" />}
+                  label="Tên (mặc định)"
+                  value={properties.buildingName || 'Chưa có thông tin'}
+                />
+                <InfoField
+                  icon={<MapPin className="w-3.5 h-3.5" />}
+                  label="Tên (Tiếng Việt)"
+                  value={properties.buildingName || 'Chưa có thông tin'}
+                />
+              </>
+            )}
           </div>
 
           <div>
@@ -336,7 +434,7 @@ function InfoField({
         {icon}
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
       </div>
-      <p className="text-sm font-medium text-gray-900 break-words">{value}</p>
+      <p className="text-sm font-medium text-gray-900 warp-break-words">{value}</p>
     </div>
   )
 }

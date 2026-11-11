@@ -1,6 +1,6 @@
 import { ChevronDown, Layers, AlertTriangle } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
-import { useMapNavigation } from '../../context/MapNavigationContext'
+import { useNavigateContext } from '../../context/NavigateContext'
 
 interface FloorSelectorProps {
   /** Danh sách các tầng có sẵn sơ đồ (VD: ['G', '1', '2']) */
@@ -13,7 +13,7 @@ export default function FloorSelector({
   availableFloors = [],
   totalFloors = ['G', '1', '2', '3'],
 }: FloorSelectorProps) {
-  const { selectedFloor, setSelectedFloor } = useMapNavigation()
+  const { selectedFloor, setSelectedFloor } = useNavigateContext()
   const [isOpen, setIsOpen] = useState(false)
   const [showNoFloorPlan, setShowNoFloorPlan] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -52,7 +52,7 @@ export default function FloorSelector({
         title="Chọn tầng xem sơ đồ"
       >
         <Layers size={17} />
-        <span className="text-xs font-bold min-w-[20px] text-center">
+        <span className="text-xs font-bold min-w-5 text-center">
           {selectedFloor === 'G' ? 'G' : `T${selectedFloor}`}
         </span>
         <ChevronDown
@@ -83,8 +83,8 @@ export default function FloorSelector({
                     isSelected
                       ? 'bg-blue-600 text-white font-bold shadow-sm'
                       : isAvailable
-                      ? 'text-slate-700 hover:bg-sky-50 font-medium'
-                      : 'text-slate-400 hover:bg-slate-50'
+                        ? 'text-slate-700 hover:bg-sky-50 font-medium'
+                        : 'text-slate-400 hover:bg-slate-50'
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -93,15 +93,13 @@ export default function FloorSelector({
                         isSelected
                           ? 'bg-white/25 text-white'
                           : isAvailable
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-slate-100 text-slate-400'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-slate-100 text-slate-400'
                       }`}
                     >
                       {floor === 'G' ? 'G' : floor}
                     </span>
-                    <span>
-                      {floor === 'G' ? 'Tầng trệt' : `Tầng ${floor}`}
-                    </span>
+                    <span>{floor === 'G' ? 'Tầng trệt' : `Tầng ${floor}`}</span>
                   </span>
 
                   {!isAvailable && (
@@ -122,9 +120,7 @@ export default function FloorSelector({
           <div className="flex items-start gap-2">
             <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-bold text-amber-800">
-                Chưa có sơ đồ cho tầng này
-              </p>
+              <p className="text-xs font-bold text-amber-800">Chưa có sơ đồ cho tầng này</p>
               <p className="text-[11px] text-amber-600 mt-0.5">
                 Sơ đồ tầng {selectedFloor === 'G' ? 'trệt' : selectedFloor} đang được cập nhật.
               </p>
