@@ -73,11 +73,13 @@ public class Unit implements GeoJson{
         Map<String, Object> props = new HashMap<>();
         props.put("unitName", this.unitName);
         props.put("featureId", this.feature.getFeatureId());
+        props.put("featureType", this.feature.getFeatureType());
         props.put("levelId", this.level.getId());
         props.put("levelOrdinal", this.level.getOrdinal());
         props.put("unitCategoryId", this.unitCategory.getId());
         props.put("unitCategory", this.unitCategory.getUnitCategoryName());
         props.put("restrictionCategoryId", this.restrictionCategory.getId());
+        props.put("restrictionCategory", this.restrictionCategory.getRestrictionCateName());
         props.put("displayPoint", this.displayPoint); // Sẽ được GeometryConverter xử lý nếu cần
 
         return props;
