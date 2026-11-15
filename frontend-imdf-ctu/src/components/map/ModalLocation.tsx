@@ -8,6 +8,7 @@ import {
   GlobeIcon,
   Loader2,
   GraduationCap,
+  Landmark,
   Layers,
   MapPin,
   Navigation,
@@ -16,24 +17,64 @@ import {
   X,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useMapNavigation } from '../../context/MapNavigationContext'
+import { useNavigateContext } from '../../context/NavigateContext'
+import type { RouteData } from './OutdoorRoutingService'
 
 interface ModalLocationProps {
   setIsCloseModal: (isClose: boolean) => void
   onFitRoute?: () => void
+  // Thông tin lộ trình (nếu có). Chưa có tính năng chỉ đường thì để trống, phần lộ trình sẽ tự ẩn.
+  routeData?: RouteData | null
+  isRouting?: boolean
+  onClearRoute?: () => void
 }
 
-export default function ModalLocation({ setIsCloseModal, onFitRoute }: ModalLocationProps) {
-  const { selectedDestination, routeData, isRouting, clearRoute, setShowDirectionsModal } =
-    useMapNavigation()
+export default function ModalLocation({
+  setIsCloseModal,
+  onFitRoute,
+  routeData = null,
+  isRouting = false,
+  onClearRoute,
+}: ModalLocationProps) {
+  const { selectedDestination, setShowDirectionsModal, buildingData } = useNavigateContext()
 
   const [isCopied, setIsCopied] = useState(false)
   const [showSteps, setShowSteps] = useState(false)
 
   // Nếu không có địa điểm nào được chọn, hiển thị mẫu hoặc mặc định
   const dest = selectedDestination
-  const isRoom = dest?.category === 'room'
-  const roomCode = dest?.roomCode
+
+  // place: địa điểm bên ngoài (Photon/OpenStreetMap); còn lại là dữ liệu trong nhà
+  const isPlace = dest?.category === 'place'
+  const isRoom = dest?.category === 'unit' || dest?.category === 'anchor'
+  const roomCode: string | undefined =
+    dest?.category === 'unit'
+      ? dest.title
+      : dest?.category === 'anchor'
+        ? dest.rawProperties?.unitName
+        : undefined
+
+  // Tên toà nhà lấy từ dữ liệu building (chỉ áp dụng cho địa điểm trong nhà)
+  const buildingProps: any = (buildingData as any)?.properties
+  const buildingName: string | undefined = isPlace
+    ? undefined
+    : (buildingProps?.['name:vi'] ?? buildingProps?.name)
+
+  const [lat, lng] = dest?.coordinates ?? []
+  const googleMapsUrl =
+    isPlace && lat !== undefined
+      ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+      : undefined
+
+  const categoryLabel = isPlace
+    ? (dest?.typeLabel ?? 'Địa điểm')
+    : dest?.category === 'unit'
+      ? 'Phòng học · Giảng đường'
+      : dest?.category === 'anchor'
+        ? 'Điểm mốc trong toà nhà'
+        : dest?.category === 'amenity'
+          ? (dest.rawProperties?.amenityCateName ?? 'Tiện ích')
+          : 'Khu vực'
 
   const handleCopyCode = () => {
     if (!roomCode) return
@@ -57,36 +98,37 @@ export default function ModalLocation({ setIsCloseModal, onFitRoute }: ModalLoca
         {/* TIÊU ĐỀ */}
         <div className="font-bold text-lg leading-relaxed text-primary text-center sm:text-md uppercase tracking-wide flex items-center justify-center gap-1.5">
           <Sparkles size={16} className="text-amber-500" />
-          <span>{isRoom ? 'THÔNG TIN PHÒNG HỌC' : 'KẾT QUẢ TÌM KIẾM'}</span>
+          <span>
+            {isRoom ? 'THÔNG TIN PHÒNG HỌC' : isPlace ? 'THÔNG TIN ĐỊA ĐIỂM' : 'KẾT QUẢ TÌM KIẾM'}
+          </span>
         </div>
 
         {/* BANNER HÌNH ẢNH / MÃ PHÒNG */}
-        <div className="map-photo mt-3 relative flex h-32 bg-linear-to-br from-sky-400 via-indigo-500 to-blue-700 items-end justify-between overflow-hidden rounded-xl p-3 sm:mt-4 sm:h-36 sm:rounded-2xl sm:p-4 shadow-inner">
+        <div className="map-photo mt-3 relative flex h-32 bg-white items-end justify-between overflow-hidden rounded-xl p-3 sm:mt-4 sm:h-36 sm:rounded-2xl sm:p-4 shadow-inner">
           {/* Nền đồ họa hoặc badge */}
-          <div className="absolute inset-0 bg-black/15 backdrop-blur-[1px]" />
+          <img
+            src="/map.jpg"
+            alt="Hình ảnh minh họa"
+            className="absolute inset-0 banner-bg h-full w-full object-cover"
+          />
+
+          {/* <div className="absolute inset-0 bg-black/15 backdrop-blur-[1px]" /> */}
 
           <div className="relative z-10 space-y-1">
-            <div className="flex items-center gap-1.5 text-white/90 text-xs font-semibold">
-              {isRoom ? <GraduationCap size={15} /> : <Layers size={15} />}
-              <span>
-                {isRoom
-                  ? 'Phòng học · Giảng đường'
-                  : dest?.category === 'building'
-                    ? 'Toà nhà'
-                    : 'Khu vực'}
-              </span>
+            <div className="flex items-center gap-1.5 text-black text-xs font-semibold">
+              {isRoom ? (
+                <GraduationCap size={15} />
+              ) : isPlace ? (
+                <Landmark size={15} />
+              ) : (
+                <Layers size={15} />
+              )}
+              <span>Địa điểm</span>
             </div>
-
-            {roomCode && (
-              <div className="inline-flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-md px-2.5 py-1 text-white border border-white/30">
-                <span className="text-[11px] font-medium">Mã phòng:</span>
-                <strong className="text-sm font-extrabold tracking-wider">{roomCode}</strong>
-              </div>
-            )}
           </div>
 
           <div className="relative z-10 rounded-lg bg-white/90 px-2.5 py-1 font-k2d-medium text-[11px] text-slate-700 shadow-sm">
-            {dest?.level !== undefined ? `Tầng ${dest.level}` : 'Khuôn viên CTU'}
+            {dest?.floorLabel ?? (isPlace ? 'Trên bản đồ' : 'Khuôn viên CTU')}
           </div>
         </div>
 
@@ -118,16 +160,47 @@ export default function ModalLocation({ setIsCloseModal, onFitRoute }: ModalLoca
           <div className="flex items-start gap-2.5">
             <MapPin className="text-primary shrink-0 mt-0.5" size={17} />
             <span className="leading-snug">
-              {dest?.address || 'Khu II, Đ. 3 Tháng 2, Ninh Kiều, Cần Thơ, Việt Nam'}
+              {dest?.address ||
+                (isPlace
+                  ? 'Chưa có thông tin địa chỉ'
+                  : 'Khu II, Đ. 3 Tháng 2, Ninh Kiều, Cần Thơ, Việt Nam')}
             </span>
           </div>
 
+          {/* Toạ độ + liên kết Google Maps (địa điểm bên ngoài) */}
+          {isPlace && lat !== undefined && lng !== undefined && (
+            <>
+              <div className="flex items-center gap-2.5">
+                <Navigation className="text-primary shrink-0" size={17} />
+                <span className="font-mono text-xs">
+                  {lat.toFixed(5)}, {lng.toFixed(5)}
+                </span>
+              </div>
+              {googleMapsUrl && (
+                <div className="flex items-center gap-2.5">
+                  <GlobeIcon className="text-primary shrink-0" size={17} />
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#218ac9] hover:underline"
+                  >
+                    Mở trên Google Maps
+                  </a>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-400">
+                Dữ liệu địa điểm: © OpenStreetMap contributors
+              </p>
+            </>
+          )}
+
           {/* Toà nhà / Vị trí */}
-          {dest?.buildingName && (
+          {buildingName && (
             <div className="flex items-center gap-2.5">
               <Layers className="text-primary shrink-0" size={17} />
               <span>
-                Toà nhà: <strong>{dest.buildingName}</strong>
+                Toà nhà: <strong>{buildingName}</strong>
               </span>
             </div>
           )}
@@ -153,27 +226,30 @@ export default function ModalLocation({ setIsCloseModal, onFitRoute }: ModalLoca
             </div>
           )}
 
-          {/* Website */}
-          <div className="flex items-center gap-2.5">
-            <GlobeIcon className="text-primary shrink-0" size={17} />
-            <a
-              href="https://www.ctu.edu.vn/"
-              target="_blank"
-              rel="noreferrer"
-              className="text-[#218ac9] hover:underline"
-            >
-              https://www.ctu.edu.vn/
-            </a>
-          </div>
+          {/* Website + giờ mở cửa: chỉ áp dụng cho địa điểm trong khuôn viên CTU */}
+          {!isPlace && (
+            <>
+              <div className="flex items-center gap-2.5">
+                <GlobeIcon className="text-primary shrink-0" size={17} />
+                <a
+                  href="https://www.ctu.edu.vn/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#218ac9] hover:underline"
+                >
+                  https://www.ctu.edu.vn/
+                </a>
+              </div>
 
-          {/* Thời gian mở cửa */}
-          <div className="flex items-center gap-2.5">
-            <ClockIcon className="text-primary shrink-0" size={17} />
-            <span>7:00 - 21:00</span>
-            <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-              Đang mở cửa
-            </span>
-          </div>
+              <div className="flex items-center gap-2.5">
+                <ClockIcon className="text-primary shrink-0" size={17} />
+                <span>7:00 - 21:00</span>
+                <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                  Đang mở cửa
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* THÔNG TIN LỘ TRÌNH ĐƯỜNG ĐI (KHI ĐÃ TÌM ĐƯỜNG) */}
@@ -197,7 +273,7 @@ export default function ModalLocation({ setIsCloseModal, onFitRoute }: ModalLoca
             </div>
 
             <p className="text-[11px] text-blue-700/80 mt-1">
-              Đường đi bộ theo chỉ dẫn Google Maps từ vị trí của bạn đến đích.
+              Đường đi bộ theo dữ liệu OpenStreetMap (OSRM).
             </p>
 
             {/* Các bước rẽ / di chuyển */}
@@ -234,7 +310,7 @@ export default function ModalLocation({ setIsCloseModal, onFitRoute }: ModalLoca
           {isRouting ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              <span>Đang mở tìm đường...</span>
+              <span>Đang tìm đường...</span>
             </>
           ) : (
             <span>{routeData ? 'Cập nhật đường đi' : 'Bắt đầu chỉ đường'}</span>
@@ -254,15 +330,17 @@ export default function ModalLocation({ setIsCloseModal, onFitRoute }: ModalLoca
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={clearRoute}
-              className="flex items-center justify-center gap-1 rounded-xl border border-red-200 bg-red-50/60 py-2 px-3 text-xs font-semibold text-red-600 hover:bg-red-100/60 transition cursor-pointer"
-              title="Xoá đường đi khỏi bản đồ"
-            >
-              <RotateCcw size={13} />
-              <span>Xoá đường</span>
-            </button>
+            {onClearRoute && (
+              <button
+                type="button"
+                onClick={onClearRoute}
+                className="flex items-center justify-center gap-1 rounded-xl border border-red-200 bg-red-50/60 py-2 px-3 text-xs font-semibold text-red-600 hover:bg-red-100/60 transition cursor-pointer"
+                title="Xoá đường đi khỏi bản đồ"
+              >
+                <RotateCcw size={13} />
+                <span>Xoá đường</span>
+              </button>
+            )}
           </div>
         )}
       </div>
