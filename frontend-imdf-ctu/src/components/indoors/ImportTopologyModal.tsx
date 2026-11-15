@@ -208,7 +208,9 @@ export default function ImportTopologyModal({
 
           // Xác định category nếu feature có sẵn thuộc tính
           let featureCat: GridlineType | undefined = undefined
-          const catProp = String(props.category || props.type || props.routeType || '').toUpperCase()
+          const catProp = String(
+            props.category || props.type || props.routeType || ''
+          ).toUpperCase()
           if (Object.values(GridlineType).includes(catProp as GridlineType)) {
             featureCat = catProp as GridlineType
           }
@@ -242,7 +244,9 @@ export default function ImportTopologyModal({
         }
 
         if (extracted.length === 0) {
-          throw new Error('Tập tin không chứa hình học đường đi (LineString hoặc MultiLineString) hợp lệ.')
+          throw new Error(
+            'Tập tin không chứa hình học đường đi (LineString hoặc MultiLineString) hợp lệ.'
+          )
         }
 
         setParsedLines(extracted)
@@ -380,8 +384,7 @@ export default function ImportTopologyModal({
         createdNodeCount++
 
         if (createdNodeCount % 5 === 0 || createdNodeCount === batchResult.nodesToCreate.length) {
-          const pct =
-            35 + Math.round((createdNodeCount / batchResult.nodesToCreate.length) * 25)
+          const pct = 35 + Math.round((createdNodeCount / batchResult.nodesToCreate.length) * 25)
           setImportProgress(pct)
           setProgressStatusText(
             `Đang tạo NetworkNodes (${createdNodeCount}/${batchResult.nodesToCreate.length})...`
@@ -436,8 +439,7 @@ export default function ImportTopologyModal({
         createdEdgeCount++
 
         if (createdEdgeCount % 5 === 0 || createdEdgeCount === batchResult.edgesToCreate.length) {
-          const pct =
-            65 + Math.round((createdEdgeCount / batchResult.edgesToCreate.length) * 20)
+          const pct = 65 + Math.round((createdEdgeCount / batchResult.edgesToCreate.length) * 20)
           setImportProgress(pct)
           setProgressStatusText(
             `Đang tạo NetworkEdges (${createdEdgeCount}/${batchResult.edgesToCreate.length})...`
@@ -478,7 +480,9 @@ export default function ImportTopologyModal({
       notification.success({
         message: 'Thêm tập tin Topology thành công',
         description: `Đã chuẩn hóa và tạo thành công: ${batchResult.gridLinesToCreate.length} GridLines, ${batchResult.nodesToCreate.length} Nodes, ${batchResult.edgesToCreate.length} Edges${
-          batchResult.edgesToDelete.length > 0 ? ` (tách ${batchResult.edgesToDelete.length} edges cũ)` : ''
+          batchResult.edgesToDelete.length > 0
+            ? ` (tách ${batchResult.edgesToDelete.length} edges cũ)`
+            : ''
         }.`,
         placement: 'topRight',
         duration: 5,
@@ -595,9 +599,12 @@ export default function ImportTopologyModal({
           <label className="block text-xs font-bold text-slate-700">
             <span className="flex items-center gap-1.5 text-slate-800">
               <Layers className="h-3.5 w-3.5 text-sky-600" />
-              Tầng cần import (Level) <span className="text-rose-500">*</span>
+              Tầng sẽ import (Level){' '}
+              <span className="text-rose-500">
+                {selectedLevelId === 4 ? 'Tầng Trệt' : 'Tầng 1'}
+              </span>
             </span>
-            <select
+            {/* <select
               value={selectedLevelId}
               disabled={isImporting}
               onChange={(e) => setSelectedLevelId(e.target.value)}
@@ -615,10 +622,10 @@ export default function ImportTopologyModal({
                   </option>
                 )
               })}
-            </select>
-            <span className="mt-1 block text-[11px] font-normal text-slate-500">
+            </select> */}
+            {/* <span className="mt-1 block text-[11px] font-normal text-slate-500">
               Dữ liệu topology sẽ được gán theo khóa chính <code>levelId</code> từ REST API.
-            </span>
+            </span> */}
           </label>
         </div>
 

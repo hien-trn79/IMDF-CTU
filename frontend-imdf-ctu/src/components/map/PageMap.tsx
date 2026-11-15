@@ -11,8 +11,6 @@ import {
   X,
 } from 'lucide-react'
 
-import type { DestinationItem, RouteData } from '../../model/Navigation.model'
-import { MAIN_ENTRANCE_POINT, MAIN_ENTRANCE_HEX } from '../../services/mapNavigationService'
 import { FLOORS_LEVEL_ID } from '../../context/NavigateContext'
 
 // Khởi tạo icon mặc định của Leaflet
@@ -21,8 +19,12 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { useNavigateContext } from '../../context/NavigateContext'
 import FloorSelector from './FloorSelector'
-import CustomModal, { type ModalFeature } from './CustomModal'
+import CustomModal from './CustomModal'
+import ModalLocation from './ModalLocation'
+import ModalDirections from './ModalDirections'
+import OutdoorRouteLayer from './OutdoorRouteLayer'
 import type { UnitGeoJsonItem } from '../../model/geoJsonEntity.model'
+import { MAIN_ENTRANCE_COORDINATE, MAIN_ENTRANCE_HEX } from './OutdoorRoutingService'
 
 const INDOOR_MIN_ZOOM = 18
 
@@ -75,8 +77,10 @@ const createOnEachUnit =
       click: (e) => {
         L.DomEvent.stopPropagation(e)
         const props = feature?.properties ?? {}
+        // Một số tầng không có feature.id => dự phòng bằng thuộc tính id trong properties
+        console.debug('PageMap: chọn unit', feature) // log kiểm tra dữ liệu (có thể xoá)
         onSelect({
-          id: feature.id,
+          id: feature.id ?? (props as any).unit_id ?? (props as any).id,
           geometry: feature.geometry,
           properties: props,
           type: 'Feature',
@@ -185,42 +189,6 @@ const createMainEntranceIcon = () =>
     iconAnchor: [47, 13],
   })
 
-// Component điều khiển camera và fitBounds
-function RouteMapCameraController({
-  routeData,
-  selectedDestination,
-}: {
-  routeData: RouteData | null
-  selectedDestination: DestinationItem | null
-}) {
-  const map = useMap()
-
-  // Tự động fitBounds khi có lộ trình mới
-  useEffect(() => {
-    const cameraCoordinates = routeData?.indoorGeoJsonFeatures?.length
-      ? routeData.coordinates
-      : routeData?.indoorPathSegments?.length
-        ? (routeData.outdoorCoordinates ?? [])
-        : (routeData?.coordinates ?? [])
-    if (cameraCoordinates.length >= 2) {
-      const bounds = L.latLngBounds(cameraCoordinates.map(([lat, lng]) => [lat, lng]))
-      map.fitBounds(bounds, {
-        padding: [60, 60],
-        maxZoom: 18.5,
-        animate: true,
-      })
-    } else if (selectedDestination) {
-      // Nếu chỉ chọn điểm đến mà chưa vẽ đường, bay đến điểm đến
-      map.flyTo(selectedDestination.coordinates, 18, {
-        animate: true,
-        duration: 1.2,
-      })
-    }
-  }, [routeData, selectedDestination, map])
-
-  return null
-}
-
 // Quan sát sự thay đổi zoom của bản đồ và gọi callback
 function MapZoomObserver({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
   const map = useMap()
@@ -237,6 +205,29 @@ function MapZoomObserver({ onZoomChange }: { onZoomChange: (zoom: number) => voi
   return null
 }
 
+// Bay camera tới điểm đến khi người dùng chọn 1 kết quả tìm kiếm.
+// - Địa điểm trong nhà: zoom tối thiểu UNIT_LABEL_MIN_ZOOM để thấy phòng và nhãn tên phòng.
+// - Địa điểm bên ngoài (Bến Ninh Kiều...): zoom vừa phải (17-19) để còn thấy khu vực xung quanh.
+function FlyToDestination({
+  position,
+  isExternal,
+}: {
+  position: [number, number] | null
+  isExternal: boolean
+}) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!position) return
+    const zoom = isExternal
+      ? Math.min(Math.max(map.getZoom(), 17), 19)
+      : Math.max(map.getZoom(), UNIT_LABEL_MIN_ZOOM)
+    map.flyTo(position, zoom, { animate: true, duration: 1.2 })
+  }, [position, isExternal, map])
+
+  return null
+}
+
 export default function PageMap() {
   const {
     buildingData,
@@ -246,19 +237,25 @@ export default function PageMap() {
     isLoading,
     clearFloorData,
     failedLevelId,
-    currentLevelId,
     isLocationModalOpen,
     selectedDestination,
     setIsLocationModalOpen,
+    searchItems,
+    selectDestination,
 
     selectedFloor,
+
+    userLocation,
+    isLocating,
+    locate,
+    routeData,
+    isRouting,
+    clearRoute,
   } = useNavigateContext()
 
   const [isCloseModal, setIsCloseModal] = useState(false)
   const [mapZoom, setMapZoom] = useState(16.5)
   const mapRef = useRef<L.Map | null>(null)
-
-  const [isLocating, setIsLocating] = useState(false)
 
   // Mở lại modal khi có destination mới
   useEffect(() => {
@@ -266,11 +263,25 @@ export default function PageMap() {
       setIsCloseModal(false)
       setIsLocationModalOpen(true)
     }
-  }, [selectedDestination, setIsLocationModalOpen])
+    // routeData: tìm đường xong thì mở lại modal để xem khoảng cách / thời gian / hướng dẫn
+  }, [selectedDestination, routeData, setIsLocationModalOpen])
+
+  // Căn bản đồ vừa toàn bộ lộ trình (tự động khi có đường mới, hoặc bấm "Toàn cảnh lộ trình")
+  const fitRoute = useCallback(() => {
+    if (routeData) {
+      mapRef.current?.fitBounds(routeData.coordinates, { padding: [60, 60], maxZoom: 18.5 })
+    }
+  }, [routeData])
+  useEffect(fitRoute, [fitRoute])
+
+  // Bấm nút định vị: lấy GPS rồi bay tới vị trí của người dùng
+  const handleLocate = async () => {
+    const position = await locate()
+    if (position) mapRef.current?.flyTo(position, 18, { duration: 1.2 })
+  }
 
   // Chỉ hiển thị lớp phòng học khi zoom đủ gần để thấy tòa nhà
   const isIndoorVisible = mapZoom >= INDOOR_MIN_ZOOM
-  const [failedLevels, setFailedLevels] = useState<Set<number>>(new Set())
   // Tăng số này để kích hoạt tải lại khi bấm "Thử lại"
   const [retryTick, setRetryTick] = useState(0)
 
@@ -311,7 +322,18 @@ export default function PageMap() {
     return null
   }, [selectedDestination])
 
-  const selectedOrdinal = selectedFloor === 'G' ? 0 : Number(selectedFloor)
+  // Phòng/tiện ích trong nhà chỉ hiện ghim khi đang xem đúng tầng của nó
+  const isDestOnOtherFloor =
+    selectedDestination?.levelId !== undefined &&
+    FLOORS_LEVEL_ID[selectedFloor ?? ''] !== selectedDestination.levelId
+
+  const showDestMarker =
+    !!selectedDestination &&
+    !!destinationLatLng &&
+    !isDestOnOtherFloor &&
+    isLocationModalOpen &&
+    !isCloseModal
+
   // Toạ độ tâm bản đồ ban đầu (Khu II ĐH Cần Thơ)
   const initialCenter: [number, number] = [10.03031, 105.76843]
 
@@ -319,16 +341,28 @@ export default function PageMap() {
   // Tự ẩn thông báo lỗi định vị sau 3 giây
 
   const userIcon = useMemo(() => createUserLocationIcon(), [])
-  const isRoomDest = selectedDestination?.category === 'room'
+  // Phòng (unit) / anchor => ghim xanh có ngôi sao; tiện ích và địa điểm bên ngoài => ghim đỏ
+  const isRoomDest =
+    selectedDestination?.category === 'unit' || selectedDestination?.category === 'anchor'
   const destIcon = useMemo(() => createDestinationPinIcon(isRoomDest), [isRoomDest])
   const entranceIcon = useMemo(() => createMainEntranceIcon(), [])
+
+  // Tự mở popup của điểm đến mỗi khi chọn 1 kết quả tìm kiếm
+  const destMarkerRef = useRef<L.Marker | null>(null)
+  useEffect(() => {
+    if (showDestMarker) destMarkerRef.current?.openPopup()
+  }, [destinationLatLng, showDestMarker])
+
+  // Tìm nhanh bằng các chip gợi ý: chọn kết quả đầu tiên khớp từ khoá
+  const handleQuickSearch = (keyword: string) => {
+    const [first] = searchItems(keyword)
+    if (first) selectDestination(first)
+  }
 
   // Quick chips để kiểm thử nhanh các phòng học và toà nhà
   const quickTestChips = [
     { label: 'Phòng 101/DI', code: '101/DI' },
-    { label: 'Phòng 210/DI', code: '210/DI' },
     { label: 'Khoa CNPM', code: 'CNPM/DI' },
-    { label: 'Trường Kinh tế', name: 'Trường Kinh tế' },
     { label: 'Nhà vệ sinh WC1', name: 'WC1' },
   ]
 
@@ -360,6 +394,10 @@ export default function PageMap() {
           maxZoom={22}
         />
         <MapZoomObserver onZoomChange={setMapZoom} />
+        <FlyToDestination
+          position={destinationLatLng}
+          isExternal={selectedDestination?.category === 'place'}
+        />
 
         {/* 1. LỚP HIỂN THỊ CÁC PHÒNG HỌC (UNIT) */}
         {isIndoorVisible && units && (
@@ -371,31 +409,30 @@ export default function PageMap() {
           />
         )}
 
-        {/* 2. ĐƯỜNG ĐI CHỈ DẪN GOOGLE MAPS STYLE (RÕ NÉT, TRỰC QUAN & ĐẸP) */}
+        {/* 2. ĐƯỜNG ĐI NGOÀI TRỜI (OSRM) */}
+        <OutdoorRouteLayer route={routeData} />
 
         {/* 3. VỊ TRÍ ĐỊNH VỊ CÁ NHÂN (GOOGLE MAPS BLUE DOT WITH RADAR PULSE) */}
+        {userLocation && <Marker position={userLocation} icon={userIcon} />}
 
         {/* 4. MARKER ĐIỂM ĐẾN (GOOGLE MAPS PIN) */}
-        {selectedDestination && destinationLatLng && (
-          <Marker position={destinationLatLng} icon={destIcon}>
-            <Popup>
+        {showDestMarker && (
+          <Marker ref={destMarkerRef} position={destinationLatLng!} icon={destIcon}>
+            <Popup autoPan={false}>
               <div className="font-sans p-1">
                 <strong className="text-slate-900 text-sm block">
                   {selectedDestination.title}
                 </strong>
                 {selectedDestination.subtitle && (
-                  <span className="inline-block mt-0.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                    Tên phòng: {selectedDestination.subtitle}
-                  </span>
+                  <p className="text-xs text-slate-600 mt-1">{selectedDestination.subtitle}</p>
                 )}
-                <p className="text-xs text-slate-600 mt-1">{selectedDestination.category}</p>
               </div>
             </Popup>
           </Marker>
         )}
 
         {/* 5. CỔNG VÀO CHÍNH (ĐIỂM VÀO ƯU TIÊN NỘI TUYẾN 0000000001405A71363E2F0AAE40240FC5A6800F3F) */}
-        <Marker position={MAIN_ENTRANCE_POINT} icon={entranceIcon}>
+        <Marker position={MAIN_ENTRANCE_COORDINATE} icon={entranceIcon}>
           <Popup>
             <div className="font-sans p-1 text-center min-w-55">
               <strong className="text-amber-800 text-sm block font-bold">
@@ -459,9 +496,7 @@ export default function PageMap() {
           <button
             key={idx}
             type="button"
-            onClick={() => () => {
-              console.log(`PageMap: Thực hiện tìm nhanh ${chip.code ?? chip.name ?? chip.label}`)
-            }}
+            onClick={() => handleQuickSearch(chip.code ?? chip.name ?? chip.label)}
             className="flex items-center gap-1 rounded-xl bg-slate-50 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-300 border border-slate-200/80 px-2.5 py-1 text-xs font-medium text-slate-700 transition cursor-pointer shrink-0"
           >
             {chip.code ? <GraduationCap size={13} className="text-emerald-600" /> : null}
@@ -474,9 +509,7 @@ export default function PageMap() {
       <div className="absolute bottom-6 right-6 z-1000 flex flex-col gap-2">
         <button
           type="button"
-          onClick={() => {
-            console.log('PageMap: Thực hiện chức năng định vị vị trí của tôi.')
-          }}
+          onClick={handleLocate}
           disabled={isLocating}
           className="flex size-11 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-xl border border-slate-200 hover:bg-sky-50 hover:text-blue-600 active:scale-95 transition cursor-pointer"
           title="Định vị vị trí của tôi"
@@ -494,12 +527,28 @@ export default function PageMap() {
 
       {/* THANH TỔNG QUAN LỘ TRÌNH DƯỚI CÙNG (FLOATING ROUTE SUMMARY BAR) */}
 
+      {/* MODAL THÔNG TIN ĐỊA ĐIỂM TÌM THẤY (phòng, tiện ích, địa điểm bên ngoài) */}
+      {selectedDestination && isLocationModalOpen && !isCloseModal && (
+        <div className="absolute inset-x-2 bottom-2 z-1000 flex max-h-[60%] flex-col md:static md:inset-auto md:max-h-none">
+          <ModalLocation
+            setIsCloseModal={setIsCloseModal}
+            routeData={routeData}
+            isRouting={isRouting}
+            onFitRoute={fitRoute}
+            onClearRoute={clearRoute}
+          />
+        </div>
+      )}
+
+      {/* MODAL CHỌN ĐIỂM ĐI / ĐIỂM ĐẾN ĐỂ TÌM ĐƯỜNG */}
+      <ModalDirections />
+
       {/* MODAL HIỂN THỊ CHI TIẾT ĐỊA ĐIỂM (THIẾT KẾ HIỆN CÓ ĐÃ ĐƯỢC NÂNG CẤP) */}
       {selectedUnit && (
         <CustomModal
           building={buildingData}
           selectedUnit={selectedUnit}
-          isOpen={!isCloseModal}
+          isOpen
           onClose={handleCloseUnitModal}
           variant="unit"
         />

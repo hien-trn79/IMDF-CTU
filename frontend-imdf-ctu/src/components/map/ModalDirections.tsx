@@ -10,192 +10,99 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useMapNavigation } from '../../context/MapNavigationContext'
-import type { DestinationItem } from '../../model/Navigation.model'
-import { searchLocations } from '../../services/mapNavigationService'
+import { useEffect, useRef, useState } from 'react'
+import type { SearchResultItem } from '../../utils/searchUtils'
+import { useNavigateContext } from '../../context/NavigateContext'
+import { searchExternalPlaces } from './Placesearchservice'
+import { createMyLocationItem } from './OutdoorRoutingService'
+
+// Gợi ý khi gõ: tìm trong nhà ngay lập tức + địa điểm bên ngoài (Photon)
+function usePlaceSearch(text: string): SearchResultItem[] {
+  const { searchItems, suggestions } = useNavigateContext()
+  const [external, setExternal] = useState<SearchResultItem[]>([])
+
+  const query = text.trim()
+
+  useEffect(() => {
+    if (!query) {
+      setExternal([])
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      searchExternalPlaces(query, controller.signal, 4)
+        .then(setExternal)
+        .catch(() => {}) // bị huỷ hoặc lỗi mạng: bỏ qua, vẫn còn kết quả trong nhà
+    }, 500)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [query])
+
+  return query ? [...searchItems(query), ...external] : suggestions
+}
 
 export default function ModalDirections() {
+  const { showDirectionsModal, selectedDestination } = useNavigateContext()
+  // key: chọn địa điểm khác ở header khi modal đang mở => form nạp lại đúng điểm đến mới
+  return showDirectionsModal ? <DirectionsForm key={selectedDestination?.id} /> : null
+}
+
+function DirectionsForm() {
   const {
-    allLocations,
-    userLocation,
-    refreshUserLocation,
+    selectedDestination,
+    selectDestination,
+    setShowDirectionsModal,
+    setIsLocationModalOpen,
+    locate,
     isLocating,
     locationError,
-    showDirectionsModal,
-    setShowDirectionsModal,
-    selectedDestination,
-    calculateRouteWithOrigin,
+    calculateRoute,
     isRouting,
-  } = useMapNavigation()
+    routeError,
+  } = useNavigateContext()
 
-  // State cho điểm bắt đầu
-  const [originText, setOriginText] = useState('')
-  const [originLocation, setOriginLocation] = useState<[number, number] | null>(null)
-  const [originDestination, setOriginDestination] = useState<DestinationItem | null>(null)
-  const [originSuggestions, setOriginSuggestions] = useState<DestinationItem[]>([])
-  const [showOriginSuggestions, setShowOriginSuggestions] = useState(false)
-  const [isUsingMyLocation, setIsUsingMyLocation] = useState(false)
+  const [origin, setOrigin] = useState<SearchResultItem | null>(null)
+  const [destination, setDestination] = useState<SearchResultItem | null>(selectedDestination)
+  const [swapTick, setSwapTick] = useState(0) // để trigger swap origin/destination
 
-  // State cho điểm đến
-  const [destText, setDestText] = useState('')
-  const [destLocation, setDestLocation] = useState<DestinationItem | null>(null)
-  const [destSuggestions, setDestSuggestions] = useState<DestinationItem[]>([])
-  const [showDestSuggestions, setShowDestSuggestions] = useState(false)
-
-  const originInputRef = useRef<HTMLInputElement>(null)
-  const destInputRef = useRef<HTMLInputElement>(null)
-  const originContainerRef = useRef<HTMLDivElement>(null)
-  const destContainerRef = useRef<HTMLDivElement>(null)
-
-  // Đồng bộ khi mở modal
-  useEffect(() => {
-    if (showDirectionsModal && selectedDestination) {
-      setDestText(selectedDestination.title)
-      setDestLocation(selectedDestination)
-      setOriginText('')
-      setOriginLocation(null)
-      setOriginDestination(null)
-      setIsUsingMyLocation(false)
-      setTimeout(() => originInputRef.current?.focus(), 100)
-    }
-  }, [showDirectionsModal, selectedDestination])
-
-  // Autocomplete cho Origin
-  useEffect(() => {
-    if (!originText.trim() || isUsingMyLocation) {
-      setOriginSuggestions([])
-      return
-    }
-    const results = searchLocations(originText, allLocations)
-    setOriginSuggestions(results.slice(0, 8))
-  }, [originText, allLocations, isUsingMyLocation])
-
-  // Autocomplete cho Destination
-  useEffect(() => {
-    if (!destText.trim()) {
-      setDestSuggestions([])
-      return
-    }
-    const results = searchLocations(destText, allLocations)
-    setDestSuggestions(results.slice(0, 8))
-  }, [destText, allLocations])
-
-  // Đóng dropdown khi click bên ngoài
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (originContainerRef.current && !originContainerRef.current.contains(e.target as Node)) {
-        setShowOriginSuggestions(false)
-      }
-      if (destContainerRef.current && !destContainerRef.current.contains(e.target as Node)) {
-        setShowDestSuggestions(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // Xử lý nút Định vị vị trí cá nhân
-  const handleUseMyLocation = useCallback(() => {
-    refreshUserLocation()
-    setIsUsingMyLocation(true)
-    setOriginText('Vị trí của tôi')
-    setShowOriginSuggestions(false)
-  }, [refreshUserLocation])
-
-  // Cập nhật origin khi GPS trả về
-  useEffect(() => {
-    if (isUsingMyLocation && userLocation) {
-      setOriginLocation(userLocation)
-    }
-  }, [isUsingMyLocation, userLocation])
-
-  // Chọn địa điểm origin từ gợi ý
-  const handleSelectOrigin = (dest: DestinationItem) => {
-    setOriginText(dest.title)
-    setOriginLocation(dest.coordinates)
-    setOriginDestination(dest)
-    setIsUsingMyLocation(false)
-    setShowOriginSuggestions(false)
+  const handleUseMyLocation = async () => {
+    const position = await locate()
+    if (position) setOrigin(createMyLocationItem(position))
   }
 
-  // Chọn địa điểm dest từ gợi ý
-  const handleSelectDest = (dest: DestinationItem) => {
-    setDestText(dest.title)
-    setDestLocation(dest)
-    setShowDestSuggestions(false)
-  }
-
-  // Đổi chiều origin/dest
+  // Đổi chiều: chỉ hoán đổi 2 điểm, chưa tìm đường
   const handleSwap = () => {
-    const tmpText = originText
-    const tmpLoc = originLocation
-    const tmpUsingMyLoc = isUsingMyLocation
+    setOrigin(destination)
+    setDestination(origin)
+    setSwapTick((t) => t + 1) // đổi key để 2 ô nhập nạp lại chữ
+  }
 
-    setOriginText(destText)
-    setOriginLocation(destLocation?.coordinates || null)
-    setOriginDestination(destLocation)
-    setIsUsingMyLocation(false)
-
-    if (tmpUsingMyLoc && userLocation) {
-      // Tạo custom destination từ vị trí user
-      setDestText(tmpText)
-      setDestLocation({
-        id: 'my-location',
-        title: 'Vị trí của tôi',
-        category: 'custom',
-        coordinates: userLocation,
-        address: 'Vị trí GPS hiện tại',
-      })
-      setOriginDestination(null)
-    } else if (tmpLoc) {
-      const found = allLocations.find(
-        (loc) => loc.coordinates[0] === tmpLoc[0] && loc.coordinates[1] === tmpLoc[1]
-      )
-      setDestText(tmpText)
-      setDestLocation(
-        found || {
-          id: 'custom-origin',
-          title: tmpText,
-          category: 'custom',
-          coordinates: tmpLoc,
-          address: tmpText,
-        }
-      )
-      setOriginDestination(null)
+  const handleStart = async () => {
+    if (!origin || !destination) return
+    // Đồng bộ điểm đến (ghim + modal thông tin) với điểm đến trong form
+    if (destination.id !== selectedDestination?.id) selectDestination(destination)
+    if (await calculateRoute(origin, destination)) {
+      setShowDirectionsModal(false)
+      setIsLocationModalOpen(true)
     }
   }
 
-  // Bắt đầu tìm đường
-  const handleStartNavigation = async () => {
-    const origin = isUsingMyLocation ? userLocation : originLocation
-    if (!origin || !destLocation) return
-    await calculateRouteWithOrigin(
-      origin,
-      destLocation,
-      isUsingMyLocation ? undefined : (originDestination ?? undefined)
-    )
-  }
-
-  const canNavigate =
-    (originLocation || (isUsingMyLocation && userLocation)) && destLocation && !isRouting
-
-  if (!showDirectionsModal) return null
-
-  // Gợi ý phổ biến khi chưa gõ
-  const popularOrigins = allLocations
-    .filter((loc) => loc.roomCode || loc.category === 'building')
-    .slice(0, 5)
+  const canStart = !!origin && !!destination && !isRouting
+  const hint =
+    locationError ??
+    routeError ??
+    (!origin ? 'Vui lòng chọn điểm bắt đầu' : !destination ? 'Vui lòng chọn điểm đến' : '')
 
   return (
     <div className="absolute inset-0 z-2000 isolate flex items-start justify-center sm:items-center p-0 sm:p-4">
-      {/* Overlay */}
       <div
-        className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"
         onClick={() => setShowDirectionsModal(false)}
       />
 
-      {/* Modal Content */}
       <div className="relative z-10 w-full sm:max-w-md md:max-w-lg bg-white/98 backdrop-blur-xl rounded-b-3xl sm:rounded-3xl shadow-[0_20px_60px_-15px_rgba(15,23,42,0.35)] ring-1 ring-black/5 max-h-[85vh] overflow-hidden flex flex-col animate-in slide-in-from-top-4 duration-300">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 pt-4 sm:pt-5 pb-3 border-b border-slate-100">
@@ -210,7 +117,7 @@ export default function ModalDirections() {
           </div>
           <button
             onClick={() => setShowDirectionsModal(false)}
-            className="shrink-0 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:scale-95 transition-all cursor-pointer"
+            className="shrink-0 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -218,196 +125,45 @@ export default function ModalDirections() {
 
         {/* Body */}
         <div className="overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-4 flex-1">
-          {/* Điểm bắt đầu */}
-          <div ref={originContainerRef} className="relative">
-            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200" />
-              <span>Điểm bắt đầu</span>
-            </label>
+          <PlaceField
+            key={`origin-${swapTick}`}
+            label="Điểm bắt đầu"
+            dotClass="bg-blue-500 ring-blue-200"
+            placeholder="Tìm vị trí bắt đầu..."
+            value={origin}
+            onSelect={setOrigin}
+            onUseMyLocation={handleUseMyLocation}
+            isLocating={isLocating}
+          />
 
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                  size={15}
-                />
-                <input
-                  ref={originInputRef}
-                  value={originText}
-                  onChange={(e) => {
-                    setOriginText(e.target.value)
-                    setIsUsingMyLocation(false)
-                    setOriginLocation(null)
-                    setShowOriginSuggestions(true)
-                  }}
-                  onFocus={() => setShowOriginSuggestions(true)}
-                  className={`h-10 w-full rounded-xl border bg-slate-50 pl-9 pr-8 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-100 placeholder:text-slate-400 ${
-                    isUsingMyLocation
-                      ? 'border-blue-400 bg-blue-50/50 text-blue-700 font-medium'
-                      : 'border-slate-200'
-                  }`}
-                  placeholder="Tìm vị trí bắt đầu..."
-                  readOnly={isUsingMyLocation}
-                />
-                {originText && !isUsingMyLocation && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOriginText('')
-                      setOriginLocation(null)
-                      setShowOriginSuggestions(false)
-                    }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition cursor-pointer"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-
-              {/* Nút Định vị vị trí cá nhân */}
-              <button
-                type="button"
-                onClick={handleUseMyLocation}
-                disabled={isLocating}
-                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
-                  isUsingMyLocation
-                    ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-sky-50 hover:text-blue-600 hover:border-sky-300'
-                }`}
-                title="Định vị vị trí của tôi"
-              >
-                <Crosshair size={15} className={isLocating ? 'animate-spin text-blue-600' : ''} />
-                <span className="hidden sm:inline">Vị trí của tôi</span>
-              </button>
-            </div>
-
-            {/* Gợi ý Origin */}
-            {showOriginSuggestions && !isUsingMyLocation && (
-              <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white/98 p-1.5 shadow-xl backdrop-blur-md z-2100 animate-in fade-in-50 slide-in-from-top-1 duration-150">
-                {/* Nút Vị trí của tôi luôn hiển thị trên cùng */}
-                <div
-                  onClick={handleUseMyLocation}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-lg p-2 transition hover:bg-blue-50"
-                >
-                  <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-                    <Crosshair size={14} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-bold text-blue-700">Vị trí của tôi</span>
-                    <p className="text-[11px] text-slate-500">Sử dụng GPS định vị</p>
-                  </div>
-                </div>
-
-                <div className="h-px bg-slate-100 mx-1 my-1" />
-
-                {originText.trim() && originSuggestions.length > 0 ? (
-                  originSuggestions.map((s) => (
-                    <SuggestionItem key={s.id} item={s} onClick={() => handleSelectOrigin(s)} />
-                  ))
-                ) : originText.trim() && originSuggestions.length === 0 ? (
-                  <div className="py-3 text-center text-xs text-slate-500">
-                    Không tìm thấy địa điểm phù hợp
-                  </div>
-                ) : (
-                  <>
-                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                      <Sparkles size={10} className="text-amber-500" />
-                      <span>Gợi ý</span>
-                    </div>
-                    {popularOrigins.map((s) => (
-                      <SuggestionItem key={s.id} item={s} onClick={() => handleSelectOrigin(s)} />
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Nút Swap */}
           <div className="flex items-center justify-center -my-1">
             <button
               type="button"
               onClick={handleSwap}
-              className="rounded-full p-2 border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-blue-600 hover:border-blue-300 active:scale-90 transition cursor-pointer shadow-sm"
+              className="rounded-full p-2 border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-blue-600 active:scale-90 transition cursor-pointer shadow-sm"
               title="Đổi chiều đi / đến"
             >
               <ArrowRightLeft size={15} className="rotate-90" />
             </button>
           </div>
 
-          {/* Điểm đến */}
-          <div ref={destContainerRef} className="relative">
-            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-200" />
-              <span>Điểm đến</span>
-            </label>
-
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                size={15}
-              />
-              <input
-                ref={destInputRef}
-                value={destText}
-                onChange={(e) => {
-                  setDestText(e.target.value)
-                  setDestLocation(null)
-                  setShowDestSuggestions(true)
-                }}
-                onFocus={() => setShowDestSuggestions(true)}
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm text-slate-700 outline-none transition focus:border-red-400 focus:bg-white focus:ring-3 focus:ring-red-100 placeholder:text-slate-400"
-                placeholder="Tìm điểm đến..."
-              />
-              {destText && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDestText('')
-                    setDestLocation(null)
-                    setShowDestSuggestions(false)
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition cursor-pointer"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-
-            {/* Gợi ý Dest */}
-            {showDestSuggestions && (
-              <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white/98 p-1.5 shadow-xl backdrop-blur-md z-2100 animate-in fade-in-50 slide-in-from-top-1 duration-150">
-                {destText.trim() && destSuggestions.length > 0 ? (
-                  destSuggestions.map((s) => (
-                    <SuggestionItem key={s.id} item={s} onClick={() => handleSelectDest(s)} />
-                  ))
-                ) : destText.trim() && destSuggestions.length === 0 ? (
-                  <div className="py-3 text-center text-xs text-slate-500">
-                    Không tìm thấy địa điểm phù hợp
-                  </div>
-                ) : (
-                  <>
-                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                      <Sparkles size={10} className="text-amber-500" />
-                      <span>Gợi ý</span>
-                    </div>
-                    {popularOrigins.map((s) => (
-                      <SuggestionItem key={s.id} item={s} onClick={() => handleSelectDest(s)} />
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          <PlaceField
+            key={`dest-${swapTick}`}
+            label="Điểm đến"
+            dotClass="bg-red-500 ring-red-200"
+            placeholder="Tìm điểm đến..."
+            value={destination}
+            onSelect={setDestination}
+          />
         </div>
 
-        {/* Footer - Nút Tìm đường */}
+        {/* Footer */}
         <div className="border-t border-slate-100 px-4 sm:px-5 py-3 sm:py-4 bg-white/90">
           <button
             type="button"
-            onClick={handleStartNavigation}
-            disabled={!canNavigate}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-600 to-sky-600 py-3 px-4 font-bold text-sm text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-700 hover:to-sky-700 hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleStart}
+            disabled={!canStart}
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-600 to-sky-600 py-3 px-4 font-bold text-sm text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-700 hover:to-sky-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isRouting ? (
               <>
@@ -421,17 +177,8 @@ export default function ModalDirections() {
               </>
             )}
           </button>
-
-          {!canNavigate && !isRouting && (
-            <p className="text-center text-[11px] text-slate-400 mt-2">
-              {isUsingMyLocation && locationError
-                ? locationError
-                : !originLocation && !isUsingMyLocation
-                  ? 'Vui lòng chọn điểm bắt đầu hoặc sử dụng vị trí GPS'
-                  : !destLocation
-                    ? 'Vui lòng chọn điểm đến'
-                    : ''}
-            </p>
+          {hint && !isRouting && (
+            <p className="text-center text-[11px] text-slate-400 mt-2">{hint}</p>
           )}
         </div>
       </div>
@@ -439,9 +186,156 @@ export default function ModalDirections() {
   )
 }
 
-/* ────────────────── SUGGESTION ITEM ────────────────── */
-function SuggestionItem({ item, onClick }: { item: DestinationItem; onClick: () => void }) {
-  const isRoom = item.category === 'room'
+/* ────────────────── Ô NHẬP ĐỊA ĐIỂM + GỢI Ý ────────────────── */
+interface PlaceFieldProps {
+  label: string
+  dotClass: string
+  placeholder: string
+  value: SearchResultItem | null
+  onSelect: (item: SearchResultItem | null) => void
+  onUseMyLocation?: () => void // chỉ ô điểm bắt đầu có
+  isLocating?: boolean
+}
+
+function PlaceField({
+  label,
+  dotClass,
+  placeholder,
+  value,
+  onSelect,
+  onUseMyLocation,
+  isLocating,
+}: PlaceFieldProps) {
+  const [text, setText] = useState(value?.title ?? '')
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const results = usePlaceSearch(text)
+
+  // Giá trị được đặt từ bên ngoài (vd. bấm "Vị trí của tôi") => cập nhật chữ trong ô
+  useEffect(() => {
+    if (value) setText(value.title)
+  }, [value])
+
+  // Đóng gợi ý khi click ra ngoài
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [])
+
+  const pick = (item: SearchResultItem) => {
+    onSelect(item)
+    setText(item.title)
+    setOpen(false)
+  }
+
+  const handleLocate = () => {
+    setOpen(false)
+    onUseMyLocation?.()
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+        <div className={`w-2.5 h-2.5 rounded-full ring-2 ${dotClass}`} />
+        <span>{label}</span>
+      </label>
+
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            size={15}
+          />
+          <input
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value)
+              onSelect(null) // đang gõ lại => chưa chọn địa điểm nào
+              setOpen(true)
+            }}
+            onFocus={() => setOpen(true)}
+            placeholder={placeholder}
+            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-100 placeholder:text-slate-400"
+          />
+          {text && (
+            <button
+              type="button"
+              onClick={() => {
+                setText('')
+                onSelect(null)
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition cursor-pointer"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        {onUseMyLocation && (
+          <button
+            type="button"
+            onClick={handleLocate}
+            disabled={isLocating}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-sky-50 hover:text-blue-600 hover:border-sky-300 transition cursor-pointer whitespace-nowrap"
+            title="Định vị vị trí của tôi"
+          >
+            <Crosshair size={15} className={isLocating ? 'animate-spin text-blue-600' : ''} />
+            <span className="hidden sm:inline">Vị trí của tôi</span>
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white/98 p-1.5 shadow-xl backdrop-blur-md z-2100">
+          {onUseMyLocation && (
+            <>
+              <div
+                onClick={handleLocate}
+                className="flex cursor-pointer items-center gap-2.5 rounded-lg p-2 transition hover:bg-blue-50"
+              >
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                  <Crosshair size={14} />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-blue-700">Vị trí của tôi</span>
+                  <p className="text-[11px] text-slate-500">Sử dụng GPS định vị</p>
+                </div>
+              </div>
+              <div className="h-px bg-slate-100 mx-1 my-1" />
+            </>
+          )}
+
+          {results.length === 0 ? (
+            <div className="py-3 text-center text-xs text-slate-500">
+              Không tìm thấy địa điểm phù hợp
+            </div>
+          ) : (
+            <>
+              {!text.trim() && (
+                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                  <Sparkles size={10} className="text-amber-500" />
+                  <span>Gợi ý</span>
+                </div>
+              )}
+              {results.map((item) => (
+                <SuggestionItem key={item.id} item={item} onClick={() => pick(item)} />
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SuggestionItem({ item, onClick }: { item: SearchResultItem; onClick: () => void }) {
+  const isRoom = item.category === 'unit' || item.category === 'anchor'
+  const isPlace = item.category === 'place'
+  const Icon = isRoom ? GraduationCap : isPlace ? MapPin : Building2
+  const color = isRoom ? 'bg-emerald-500' : isPlace ? 'bg-amber-500' : 'bg-sky-600'
 
   return (
     <div
@@ -449,34 +343,14 @@ function SuggestionItem({ item, onClick }: { item: DestinationItem; onClick: () 
       className="group flex cursor-pointer items-center gap-2.5 rounded-lg p-2 transition hover:bg-sky-50 active:bg-sky-100"
     >
       <div
-        className={`flex size-7 shrink-0 items-center justify-center rounded-lg shadow-sm ${
-          isRoom
-            ? 'bg-emerald-500 text-white'
-            : item.category === 'building'
-              ? 'bg-sky-600 text-white'
-              : 'bg-amber-500 text-white'
-        }`}
+        className={`flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ${color}`}
       >
-        {isRoom ? (
-          <GraduationCap size={14} />
-        ) : item.category === 'building' ? (
-          <Building2 size={14} />
-        ) : (
-          <MapPin size={14} />
-        )}
+        <Icon size={14} />
       </div>
-
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-sm text-slate-800 truncate group-hover:text-sky-700">
-            {item.title}
-          </span>
-          {item.roomCode && (
-            <span className="rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-bold text-emerald-800 shrink-0">
-              {item.roomCode}
-            </span>
-          )}
-        </div>
+        <span className="block truncate text-sm font-semibold text-slate-800 group-hover:text-sky-700">
+          {item.title}
+        </span>
         <p className="text-[11px] text-slate-500 truncate">{item.subtitle || item.address || ''}</p>
       </div>
     </div>
