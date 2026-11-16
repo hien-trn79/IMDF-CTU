@@ -49,8 +49,8 @@ export interface IndoorRouteFeature {
   type: 'Feature'
   id?: number | string
   geometry: {
-    type: 'LineString'
-    coordinates: [number, number][]
+    type: 'LineString' | 'MultiLineString'
+    coordinates: [number, number][] | [number, number][][]
   }
   properties?: Record<string, unknown>
 }

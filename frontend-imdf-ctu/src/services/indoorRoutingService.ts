@@ -1,21 +1,21 @@
-import type {
-  StaircaseNode,
-  UnitFeature,
-} from '../model/IndoorRouting.model'
+import type { StaircaseNode, UnitFeature } from '../model/IndoorRouting.model'
 import type { IndoorRouteFeature } from '../model/Navigation.model'
 import { authHeaders } from './authHeaders'
 
 const API_BASE = 'http://localhost:8081/api'
 
 export interface IndoorGeoJsonResponse {
-  type?: 'FeatureCollection'
+  type: 'FeatureCollection'
   features?: IndoorRouteFeature[]
+  pagination?: Record<string, unknown> | null
 }
 
 export interface IndoorShortestPathRequest {
-  sourceAnchorId: number
-  targetAnchorId: number
-  sourceLevelId: number
+  sourceNodeId: number | null
+  sourceLocationType: string
+  targetNodeId: number
+  targetLocationType: string
+  sourceLevelId: number | null
   targetLevelId: number
   isOutdoorIncluded: boolean
 }
@@ -36,7 +36,10 @@ export async function fetchIndoorShortestPath(
   return response.json() as Promise<IndoorGeoJsonResponse>
 }
 
-export async function fetchStaircaseNodes(levelId: number, token?: string): Promise<StaircaseNode[]> {
+export async function fetchStaircaseNodes(
+  levelId: number,
+  token?: string
+): Promise<StaircaseNode[]> {
   const response = await fetch(`${API_BASE}/routing/staircase-nodes?levelId=${levelId}`, {
     headers: authHeaders(token ?? ''),
   })
@@ -60,15 +63,17 @@ export async function fetchUnitsByLevel(levelId: number, token?: string): Promis
           ? geometry.coordinates?.[0]?.[0]?.[0]
           : null
     if (!Array.isArray(point) || point.length < 2) return []
-    return [{
-      id: Number(feature.id),
-      unitName: props.unitName || 'Phòng',
-      levelId: Number(props.levelId ?? levelId),
-      levelOrdinal: Number(props.levelOrdinal ?? 0),
-      coordinates: [Number(point[0]), Number(point[1])],
-      geometry,
-      unitCategory: props.unitCategory,
-    } satisfies UnitFeature]
+    return [
+      {
+        id: Number(feature.id),
+        unitName: props.unitName || 'Phòng',
+        levelId: Number(props.levelId ?? levelId),
+        levelOrdinal: Number(props.levelOrdinal ?? 0),
+        coordinates: [Number(point[0]), Number(point[1])],
+        geometry,
+        unitCategory: props.unitCategory,
+      } satisfies UnitFeature,
+    ]
   })
 }
 
