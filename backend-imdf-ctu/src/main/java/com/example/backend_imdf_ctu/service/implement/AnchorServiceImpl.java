@@ -41,6 +41,10 @@ public class AnchorServiceImpl implements AnchorService {
             .orElseThrow(() -> new BusinessException(ErrorCode.ANCHOR_NOT_FOUND));
     }
 
+    public Anchor getByUnitId(Integer unitId) {
+        return repository.findByUnitId(unitId);
+    }
+
     @Override
     public Anchor create(AnchorRequest request) {
         Unit unit = unitRepository.findById(request.getUnitId())

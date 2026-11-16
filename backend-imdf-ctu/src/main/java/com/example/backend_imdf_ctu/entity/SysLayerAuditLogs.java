@@ -30,7 +30,7 @@ public class SysLayerAuditLogs {
 
     @Column(name = "performed_by")
     private String performedBy;
- 
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", columnDefinition = "jsonb")
     private Map<String, Object> payload;

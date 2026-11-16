@@ -12,9 +12,14 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { SearchResultItem } from '../../utils/searchUtils'
-import { useNavigateContext } from '../../context/NavigateContext'
+import { FLOORS_LEVEL_ID, useNavigateContext } from '../../context/NavigateContext'
 import { searchExternalPlaces } from './Placesearchservice'
-import { createMyLocationItem } from './OutdoorRoutingService'
+import {
+  createMyLocationItem,
+  MAIN_ENTRANCE_COORDINATE,
+  MAIN_ENTRANCE_HEX,
+} from './OutdoorRoutingService'
+import { fetchIndoorShortestPath } from '../../services/indoorRoutingService'
 
 // Gợi ý khi gõ: tìm trong nhà ngay lập tức + địa điểm bên ngoài (Photon)
 function usePlaceSearch(text: string): SearchResultItem[] {
@@ -33,7 +38,7 @@ function usePlaceSearch(text: string): SearchResultItem[] {
     const timer = setTimeout(() => {
       searchExternalPlaces(query, controller.signal, 4)
         .then(setExternal)
-        .catch(() => {}) // bị huỷ hoặc lỗi mạng: bỏ qua, vẫn còn kết quả trong nhà
+        .catch(() => {})
     }, 500)
     return () => {
       clearTimeout(timer)
@@ -46,11 +51,11 @@ function usePlaceSearch(text: string): SearchResultItem[] {
 
 export default function ModalDirections() {
   const { showDirectionsModal, selectedDestination } = useNavigateContext()
-  // key: chọn địa điểm khác ở header khi modal đang mở => form nạp lại đúng điểm đến mới
   return showDirectionsModal ? <DirectionsForm key={selectedDestination?.id} /> : null
 }
 
 function DirectionsForm() {
+  const navigateCtx = useNavigateContext() as any
   const {
     selectedDestination,
     selectDestination,
@@ -60,33 +65,195 @@ function DirectionsForm() {
     isLocating,
     locationError,
     calculateRoute,
+    clearRoute,
     isRouting,
     routeError,
-  } = useNavigateContext()
+    setIndoorRouteData,
+    setIndoorRouteError,
+    indoorRouteError,
+    loadFloorData,
+  } = navigateCtx
 
   const [origin, setOrigin] = useState<SearchResultItem | null>(null)
   const [destination, setDestination] = useState<SearchResultItem | null>(selectedDestination)
-  const [swapTick, setSwapTick] = useState(0) // để trigger swap origin/destination
+  const [swapTick, setSwapTick] = useState(0)
 
   const handleUseMyLocation = async () => {
     const position = await locate()
     if (position) setOrigin(createMyLocationItem(position))
   }
 
-  // Đổi chiều: chỉ hoán đổi 2 điểm, chưa tìm đường
   const handleSwap = () => {
     setOrigin(destination)
     setDestination(origin)
-    setSwapTick((t) => t + 1) // đổi key để 2 ô nhập nạp lại chữ
+    setSwapTick((t) => t + 1)
+  }
+
+  const resolveLocationEntityId = (item: SearchResultItem): number | null => {
+    const candidates =
+      item.category === 'unit'
+        ? [
+            item.unitId,
+            item.rawProperties?.unit_id,
+            item.rawProperties?.unitId,
+            item.rawProperties?.id,
+            item.id,
+          ]
+        : [item.rawProperties?.id, item.id]
+
+    for (const candidate of candidates) {
+      if (candidate === null || candidate === undefined || candidate === '') continue
+      const parsed = Number(candidate)
+      if (Number.isInteger(parsed) && parsed > 0) {
+        return parsed
+      }
+    }
+    return null
+  }
+
+  const switchToLevel = async (levelId: number | null | undefined) => {
+    if (levelId == null) return
+    const floorEntry = Object.entries(FLOORS_LEVEL_ID).find(([, id]) => id === levelId)
+    if (floorEntry) {
+      navigateCtx.setSelectedFloor?.(floorEntry[0])
+    }
+    await loadFloorData(levelId)
   }
 
   const handleStart = async () => {
     if (!origin || !destination) return
-    // Đồng bộ điểm đến (ghim + modal thông tin) với điểm đến trong form
-    if (destination.id !== selectedDestination?.id) selectDestination(destination)
-    if (await calculateRoute(origin, destination)) {
-      setShowDirectionsModal(false)
-      setIsLocationModalOpen(true)
+
+    const isOutdoorOrigin = origin.category === 'place'
+    const isOutdoorDest = destination.category === 'place'
+
+    const mainEntranceItem: SearchResultItem = {
+      id: MAIN_ENTRANCE_HEX,
+      title: 'Cổng chính',
+      subtitle: 'Cổng chính trường CNTT & TT',
+      category: 'place',
+      coordinates: MAIN_ENTRANCE_COORDINATE,
+    }
+
+    try {
+      setIndoorRouteError(null)
+
+      // 1. Hoàn toàn trong tòa nhà (cùng tầng hoặc khác tầng)
+      if (!isOutdoorOrigin && !isOutdoorDest) {
+        if (origin.levelId == null || destination.levelId == null) {
+          throw new Error('Thiếu thông tin tầng của điểm bắt đầu hoặc điểm đến')
+        }
+
+        const sourceNodeId = resolveLocationEntityId(origin)
+        const targetNodeId = resolveLocationEntityId(destination)
+
+        if (sourceNodeId == null || targetNodeId == null) {
+          throw new Error('Không xác định được ID điểm đi hoặc điểm đến')
+        }
+
+        clearRoute?.()
+        const payload: any = {
+          sourceAnchorId: sourceNodeId,
+          targetAnchorId: targetNodeId,
+          sourceNodeId,
+          sourceLocationType: origin.category,
+          targetNodeId,
+          targetLocationType: destination.category,
+          sourceLevelId: origin.levelId,
+          targetLevelId: destination.levelId,
+          isOutdoorIncluded: false,
+        }
+
+        const data = await fetchIndoorShortestPath(payload)
+        if (destination.id !== selectedDestination?.id) selectDestination(destination)
+        setIndoorRouteData(data)
+
+        // Vào đúng tầng xuất phát ban đầu
+        await switchToLevel(origin.levelId)
+
+        setShowDirectionsModal(false)
+        setIsLocationModalOpen(true)
+        return
+      }
+
+      if (destination.id !== selectedDestination?.id) selectDestination(destination)
+
+      // 2a. Ngoài trời -> Trong nhà: OSRM tới cổng chính + Indoor từ cổng chính tới đích
+      if (isOutdoorOrigin && !isOutdoorDest) {
+        if (destination.levelId == null) {
+          throw new Error('Thiếu thông tin tầng của điểm đến')
+        }
+        const targetNodeId = resolveLocationEntityId(destination)
+        if (targetNodeId == null) {
+          throw new Error('Không xác định được ID điểm đến')
+        }
+
+        const ok = await calculateRoute(origin, mainEntranceItem)
+        if (!ok) return
+
+        const indoorData = await fetchIndoorShortestPath({
+          sourceAnchorId: 0,
+          targetAnchorId: targetNodeId,
+          sourceNodeId: null,
+          sourceLocationType: 'anchor',
+          targetNodeId,
+          targetLocationType: destination.category,
+          sourceLevelId: null,
+          targetLevelId: destination.levelId,
+          isOutdoorIncluded: true,
+        } as any)
+        setIndoorRouteData(indoorData)
+
+        const entranceLevelId = Object.values(FLOORS_LEVEL_ID).sort((a, b) => a - b)[0]
+        await switchToLevel(entranceLevelId)
+
+        setShowDirectionsModal(false)
+        setIsLocationModalOpen(true)
+        return
+      }
+
+      // 2b. Trong nhà -> Ngoài trời: Indoor từ điểm xuất phát ra cổng chính + OSRM từ cổng chính tới đích
+      if (!isOutdoorOrigin && isOutdoorDest) {
+        if (origin.levelId == null) {
+          throw new Error('Thiếu thông tin tầng của điểm bắt đầu')
+        }
+        const sourceNodeId = resolveLocationEntityId(origin)
+        if (sourceNodeId == null) {
+          throw new Error('Không xác định được ID điểm đi')
+        }
+
+        const ok = await calculateRoute(mainEntranceItem, destination)
+        if (!ok) return
+
+        const indoorData = await fetchIndoorShortestPath({
+          sourceAnchorId: sourceNodeId,
+          targetAnchorId: 0,
+          sourceNodeId,
+          sourceLocationType: origin.category,
+          targetNodeId: null,
+          targetLocationType: 'anchor',
+          sourceLevelId: origin.levelId,
+          targetLevelId: null,
+          isOutdoorIncluded: true,
+        } as any)
+        setIndoorRouteData(indoorData)
+
+        await switchToLevel(origin.levelId)
+
+        setShowDirectionsModal(false)
+        setIsLocationModalOpen(true)
+        return
+      }
+
+      // 2c. Ngoài trời -> Ngoài trời
+      setIndoorRouteData(null)
+      const ok = await calculateRoute(origin, destination)
+      if (ok) {
+        setShowDirectionsModal(false)
+        setIsLocationModalOpen(true)
+      }
+    } catch (error) {
+      console.error('Lỗi khi tìm đường đi:', error)
+      setIndoorRouteError(error instanceof Error ? error.message : 'Không thể tìm đường đi')
     }
   }
 
@@ -94,6 +261,7 @@ function DirectionsForm() {
   const hint =
     locationError ??
     routeError ??
+    indoorRouteError ??
     (!origin ? 'Vui lòng chọn điểm bắt đầu' : !destination ? 'Vui lòng chọn điểm đến' : '')
 
   return (
@@ -193,7 +361,7 @@ interface PlaceFieldProps {
   placeholder: string
   value: SearchResultItem | null
   onSelect: (item: SearchResultItem | null) => void
-  onUseMyLocation?: () => void // chỉ ô điểm bắt đầu có
+  onUseMyLocation?: () => void
   isLocating?: boolean
 }
 
@@ -211,12 +379,10 @@ function PlaceField({
   const containerRef = useRef<HTMLDivElement>(null)
   const results = usePlaceSearch(text)
 
-  // Giá trị được đặt từ bên ngoài (vd. bấm "Vị trí của tôi") => cập nhật chữ trong ô
   useEffect(() => {
     if (value) setText(value.title)
   }, [value])
 
-  // Đóng gợi ý khi click ra ngoài
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
@@ -253,7 +419,7 @@ function PlaceField({
             value={text}
             onChange={(e) => {
               setText(e.target.value)
-              onSelect(null) // đang gõ lại => chưa chọn địa điểm nào
+              onSelect(null)
               setOpen(true)
             }}
             onFocus={() => setOpen(true)}

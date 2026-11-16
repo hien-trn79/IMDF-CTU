@@ -23,7 +23,6 @@ import type { RouteData } from './OutdoorRoutingService'
 interface ModalLocationProps {
   setIsCloseModal: (isClose: boolean) => void
   onFitRoute?: () => void
-  // Thông tin lộ trình (nếu có). Chưa có tính năng chỉ đường thì để trống, phần lộ trình sẽ tự ẩn.
   routeData?: RouteData | null
   isRouting?: boolean
   onClearRoute?: () => void
@@ -36,15 +35,21 @@ export default function ModalLocation({
   isRouting = false,
   onClearRoute,
 }: ModalLocationProps) {
-  const { selectedDestination, setShowDirectionsModal, buildingData } = useNavigateContext()
+  const navigateCtx = useNavigateContext() as any
+  const {
+    selectedDestination,
+    setShowDirectionsModal,
+    buildingData,
+    indoorRouteData,
+    setIndoorRouteData,
+    clearRoute,
+  } = navigateCtx
 
   const [isCopied, setIsCopied] = useState(false)
   const [showSteps, setShowSteps] = useState(false)
 
-  // Nếu không có địa điểm nào được chọn, hiển thị mẫu hoặc mặc định
   const dest = selectedDestination
 
-  // place: địa điểm bên ngoài (Photon/OpenStreetMap); còn lại là dữ liệu trong nhà
   const isPlace = dest?.category === 'place'
   const isRoom = dest?.category === 'unit' || dest?.category === 'anchor'
   const roomCode: string | undefined =
@@ -54,7 +59,6 @@ export default function ModalLocation({
         ? dest.rawProperties?.unitName
         : undefined
 
-  // Tên toà nhà lấy từ dữ liệu building (chỉ áp dụng cho địa điểm trong nhà)
   const buildingProps: any = (buildingData as any)?.properties
   const buildingName: string | undefined = isPlace
     ? undefined
@@ -66,21 +70,23 @@ export default function ModalLocation({
       ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
       : undefined
 
-  const categoryLabel = isPlace
-    ? (dest?.typeLabel ?? 'Địa điểm')
-    : dest?.category === 'unit'
-      ? 'Phòng học · Giảng đường'
-      : dest?.category === 'anchor'
-        ? 'Điểm mốc trong toà nhà'
-        : dest?.category === 'amenity'
-          ? (dest.rawProperties?.amenityCateName ?? 'Tiện ích')
-          : 'Khu vực'
+  const hasIndoorRoute = Boolean(indoorRouteData?.features && indoorRouteData.features.length > 0)
+  const hasAnyRoute = Boolean(routeData) || hasIndoorRoute
 
   const handleCopyCode = () => {
     if (!roomCode) return
     navigator.clipboard.writeText(roomCode)
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 2000)
+  }
+
+  const handleClearAllRoutes = () => {
+    if (onClearRoute) {
+      onClearRoute()
+    } else {
+      clearRoute?.()
+    }
+    setIndoorRouteData?.(null)
   }
 
   return (
@@ -105,14 +111,11 @@ export default function ModalLocation({
 
         {/* BANNER HÌNH ẢNH / MÃ PHÒNG */}
         <div className="map-photo mt-3 relative flex h-32 bg-white items-end justify-between overflow-hidden rounded-xl p-3 sm:mt-4 sm:h-36 sm:rounded-2xl sm:p-4 shadow-inner">
-          {/* Nền đồ họa hoặc badge */}
           <img
             src="/map.jpg"
             alt="Hình ảnh minh họa"
             className="absolute inset-0 banner-bg h-full w-full object-cover"
           />
-
-          {/* <div className="absolute inset-0 bg-black/15 backdrop-blur-[1px]" /> */}
 
           <div className="relative z-10 space-y-1">
             <div className="flex items-center gap-1.5 text-black text-xs font-semibold">
@@ -141,7 +144,6 @@ export default function ModalLocation({
             {dest?.subtitle && <p className="text-xs text-slate-500 mt-0.5">{dest.subtitle}</p>}
           </div>
 
-          {/* Nút sao chép mã phòng nếu có */}
           {roomCode && (
             <button
               onClick={handleCopyCode}
@@ -154,9 +156,8 @@ export default function ModalLocation({
           )}
         </div>
 
-        {/* THÔNG TIN CHI TIẾT ĐỊA ĐIỂM HIỆN CÓ */}
+        {/* THÔNG TIN CHI TIẾT ĐỊA ĐIỂM */}
         <div className="mt-3 space-y-2 text-xs sm:text-sm text-slate-700 border-t border-slate-100 pt-3">
-          {/* Địa chỉ */}
           <div className="flex items-start gap-2.5">
             <MapPin className="text-primary shrink-0 mt-0.5" size={17} />
             <span className="leading-snug">
@@ -167,7 +168,6 @@ export default function ModalLocation({
             </span>
           </div>
 
-          {/* Toạ độ + liên kết Google Maps (địa điểm bên ngoài) */}
           {isPlace && lat !== undefined && lng !== undefined && (
             <>
               <div className="flex items-center gap-2.5">
@@ -195,7 +195,6 @@ export default function ModalLocation({
             </>
           )}
 
-          {/* Toà nhà / Vị trí */}
           {buildingName && (
             <div className="flex items-center gap-2.5">
               <Layers className="text-primary shrink-0" size={17} />
@@ -205,7 +204,6 @@ export default function ModalLocation({
             </div>
           )}
 
-          {/* Cổng vào chính ưu tiên của đường nội tuyến */}
           {isRoom && (
             <div className="flex items-start gap-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 p-2 text-xs">
               <span className="text-sm shrink-0 mt-0.5">🚪</span>
@@ -226,7 +224,6 @@ export default function ModalLocation({
             </div>
           )}
 
-          {/* Website + giờ mở cửa: chỉ áp dụng cho địa điểm trong khuôn viên CTU */}
           {!isPlace && (
             <>
               <div className="flex items-center gap-2.5">
@@ -252,32 +249,43 @@ export default function ModalLocation({
           )}
         </div>
 
-        {/* THÔNG TIN LỘ TRÌNH ĐƯỜNG ĐI (KHI ĐÃ TÌM ĐƯỜNG) */}
-        {routeData && (
+        {/* THÔNG TIN LỘ TRÌNH ĐƯỜNG ĐI */}
+        {hasAnyRoute && (
           <div className="mt-3.5 rounded-xl border border-blue-200 bg-blue-50/70 p-3 animate-in fade-in duration-200">
             <div className="flex items-center justify-between text-blue-900">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <Footprints size={17} className="text-blue-600" />
-                <span>{routeData.distanceText}</span>
-                <span className="text-blue-400">·</span>
-                <span className="text-emerald-700 font-semibold">{routeData.durationText}</span>
+                {routeData ? (
+                  <>
+                    <span>{routeData.distanceText}</span>
+                    <span className="text-blue-400">·</span>
+                    <span className="text-emerald-700 font-semibold">{routeData.durationText}</span>
+                  </>
+                ) : (
+                  <span>Lộ trình nội tuyến</span>
+                )}
               </div>
 
-              <button
-                onClick={() => setShowSteps((prev) => !prev)}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-0.5 cursor-pointer"
-              >
-                <span>{showSteps ? 'Thu gọn' : 'Chi tiết'}</span>
-                {showSteps ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
+              {routeData?.steps && routeData.steps.length > 0 && (
+                <button
+                  onClick={() => setShowSteps((prev) => !prev)}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-0.5 cursor-pointer"
+                >
+                  <span>{showSteps ? 'Thu gọn' : 'Chi tiết'}</span>
+                  {showSteps ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+              )}
             </div>
 
             <p className="text-[11px] text-blue-700/80 mt-1">
-              Đường đi bộ theo dữ liệu OpenStreetMap (OSRM).
+              {routeData && hasIndoorRoute
+                ? 'Kết hợp đường đi ngoài trời (OSRM) và đường đi trong tòa nhà.'
+                : routeData
+                  ? 'Đường đi bộ theo dữ liệu OpenStreetMap (OSRM).'
+                  : 'Đường đi nội tuyến theo tầng. Bấm vào marker cầu thang để chuyển tầng.'}
             </p>
 
-            {/* Các bước rẽ / di chuyển */}
-            {showSteps && routeData.steps && routeData.steps.length > 0 && (
+            {showSteps && routeData?.steps && routeData.steps.length > 0 && (
               <div className="mt-2.5 max-h-40 overflow-y-auto space-y-1.5 border-t border-blue-200/60 pt-2 text-xs text-slate-700 pr-1">
                 {routeData.steps.map((step, idx) => (
                   <div key={idx} className="flex items-start gap-2">
@@ -313,11 +321,11 @@ export default function ModalLocation({
               <span>Đang tìm đường...</span>
             </>
           ) : (
-            <span>{routeData ? 'Cập nhật đường đi' : 'Bắt đầu chỉ đường'}</span>
+            <span>{hasAnyRoute ? 'Cập nhật đường đi' : 'Bắt đầu chỉ đường'}</span>
           )}
         </button>
 
-        {routeData && (
+        {hasAnyRoute && (
           <div className="flex gap-2">
             {onFitRoute && (
               <button
@@ -330,17 +338,15 @@ export default function ModalLocation({
               </button>
             )}
 
-            {onClearRoute && (
-              <button
-                type="button"
-                onClick={onClearRoute}
-                className="flex items-center justify-center gap-1 rounded-xl border border-red-200 bg-red-50/60 py-2 px-3 text-xs font-semibold text-red-600 hover:bg-red-100/60 transition cursor-pointer"
-                title="Xoá đường đi khỏi bản đồ"
-              >
-                <RotateCcw size={13} />
-                <span>Xoá đường</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleClearAllRoutes}
+              className="flex items-center justify-center gap-1 rounded-xl border border-red-200 bg-red-50/60 py-2 px-3 text-xs font-semibold text-red-600 hover:bg-red-100/60 transition cursor-pointer"
+              title="Xoá đường đi khỏi bản đồ"
+            >
+              <RotateCcw size={13} />
+              <span>Xoá đường</span>
+            </button>
           </div>
         )}
       </div>

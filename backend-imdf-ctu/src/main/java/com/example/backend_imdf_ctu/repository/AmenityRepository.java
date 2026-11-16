@@ -10,4 +10,6 @@ import java.util.List;
 public interface AmenityRepository extends JpaRepository<Amenity, Integer> {
 
     List<Amenity> findAllByLevelId(Integer levelId);
+
+    Amenity findAmenityByAmenityName(String amenityName, Integer levelId);
 }

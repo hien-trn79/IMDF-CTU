@@ -14,6 +14,7 @@ import {
   type SearchResultItem,
 } from '../utils/searchUtils'
 import { useOutdoorRouting } from '../components/map/UseOutdoorRouting'
+import type { IndoorGeoJsonResponse } from '../services/indoorRoutingService'
 
 // Định vị GPS + tìm đường (userLocation, locate, routeData, calculateRoute, clearRoute...)
 type OutdoorRouting = ReturnType<typeof useOutdoorRouting>
@@ -50,6 +51,10 @@ interface NavigateContextType extends OutdoorRouting {
   prepareSearch: () => Promise<void>
   selectDestination: (item: SearchResultItem) => void
   selectedDestination: SearchResultItem | null
+  indoorRouteData: IndoorGeoJsonResponse | null
+  setIndoorRouteData: (data: IndoorGeoJsonResponse | null) => void
+  indoorRouteError: string | null
+  setIndoorRouteError: (error: string | null) => void
 
   // Loading & Map instance
   isLoading: boolean
@@ -124,6 +129,8 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
   const [loadedLevelId, setLoadedLevelId] = useState<number | null>(null)
 
   const [selectedDestination, setSelectedDestination] = useState<SearchResultItem | null>(null)
+  const [indoorRouteData, setIndoorRouteData] = useState<IndoorGeoJsonResponse | null>(null)
+  const [indoorRouteError, setIndoorRouteError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [showDirectionsModal, setShowDirectionsModal] = useState<boolean>(false)
 
@@ -131,7 +138,11 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
   const [failedLevelId, setFailedLevelId] = useState<number | null>(null)
 
   const routing = useOutdoorRouting()
-  const { clearRoute } = routing
+  const clearRoute = useCallback(() => {
+    routing.clearRoute()
+    setIndoorRouteData(null)
+    setIndoorRouteError(null)
+  }, [routing])
 
   // Cache du lieu theo ordinal de tranh goi API lan nua
   const dataCache = useMemo(() => new Map<number, FloorData>(), [])
@@ -348,6 +359,10 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
       prepareSearch,
       selectDestination,
       selectedDestination,
+      indoorRouteData,
+      setIndoorRouteData,
+      indoorRouteError,
+      setIndoorRouteError,
 
       isLoading,
       isLocationModalOpen,
@@ -357,6 +372,7 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
       setShowDirectionsModal,
 
       ...routing,
+      clearRoute,
     }),
     [
       currentBuildingId,
@@ -380,11 +396,14 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
       prepareSearch,
       selectDestination,
       selectedDestination,
+      indoorRouteData,
+      indoorRouteError,
 
       isLoading,
       showDirectionsModal,
       isLocationModalOpen,
       routing,
+      clearRoute,
     ]
   )
 

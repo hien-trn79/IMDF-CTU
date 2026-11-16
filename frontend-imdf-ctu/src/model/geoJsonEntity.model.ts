@@ -128,22 +128,24 @@ export interface UnitGeoJson {
   }
 }
 
+export interface AnchorGeojsonItem {
+  type: 'Feature'
+  id: string
+  geometry: GeoJSON.Geometry
+  properties: {
+    unitName: string
+    featureType: string
+    unitId: number
+    anchorName: string
+    featureId: string
+    createAt: string
+    ordinal: number
+  }
+}
+
 export interface AnchorGeojson {
   type: 'FeatureCollection'
-  features: Array<{
-    type: 'Feature'
-    id: string
-    geometry: GeoJSON.Geometry
-    properties: {
-      unitName: string
-      featureType: string
-      unitId: number
-      anchorName: string
-      featureId: string
-      createAt: string
-      ordinal: number
-    }
-  }>
+  features: AnchorGeojsonItem[]
   pagination: {
     totalPages: number
     pageSize: number

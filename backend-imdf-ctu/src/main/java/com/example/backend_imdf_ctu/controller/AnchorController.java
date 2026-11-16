@@ -49,6 +49,14 @@ public class AnchorController {
         return ResponseEntity.ok(geoJsonMapper.toFeature(anchor));
     }
 
+    // [GET] /anchors/unit?{unitId}
+    @GetMapping("/unit")
+    public ResponseEntity<GeoJsonFeature> getByUnitId(@RequestParam(name = "unitId") Integer unitId) {
+        Anchor anchor = service.getByUnitId(unitId);
+        return ResponseEntity.ok(geoJsonMapper.toFeature(anchor));
+    }
+
+
     // [PUT] /anchors/{id}
     @PutMapping("/{id}")
     public ResponseEntity<GeoJsonFeature> update(@PathVariable Integer id,@Valid @RequestBody AnchorRequest request) {

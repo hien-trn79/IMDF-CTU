@@ -10,6 +10,8 @@ public interface AnchorService {
 
     Anchor getById(Integer id);
 
+    Anchor getByUnitId(Integer unitId);
+
     Anchor create(AnchorRequest request);
 
     Anchor update(Integer id, AnchorRequest request);

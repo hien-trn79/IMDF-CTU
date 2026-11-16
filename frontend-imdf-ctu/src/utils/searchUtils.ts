@@ -11,6 +11,7 @@ export interface SearchResultItem {
   typeLabel?: string // VD: "Quán cà phê" (chỉ có với địa điểm bên ngoài)
   levelId?: number
   levelOrdinal?: number
+  unitId?: number
   coordinates?: [number, number]
   geometry?: GeoJSON.Geometry
   rawProperties?: Record<string, any>
@@ -81,7 +82,7 @@ export function buildFloorEntries(
 ): SearchEntry[] {
   const entries: SearchEntry[] = []
 
-  data.unitData?.features?.forEach((f: any, i: number) => {
+  data.unitData?.features?.forEach((f: any) => {
     const p = f?.properties ?? {}
     const name = pickString(p, ['unit_name', 'unitName', 'name:vi', 'name'])
     if (!name) return
@@ -92,13 +93,14 @@ export function buildFloorEntries(
 
     entries.push({
       item: {
-        id: `unit-${levelId}-${f.id ?? i}`,
+        id: `${f.id}`,
         title: name,
         subtitle: floorLabel,
         category: 'unit',
         floorLabel,
         levelId,
         levelOrdinal: typeof p.ordinal === 'number' ? p.ordinal : undefined,
+        unitId: typeof f.id === 'number' ? f.id : Number(f.id),
         geometry: f.geometry,
         rawProperties: p,
       },
