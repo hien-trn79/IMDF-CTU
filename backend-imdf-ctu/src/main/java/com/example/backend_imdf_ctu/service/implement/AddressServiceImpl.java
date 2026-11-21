@@ -31,6 +31,13 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    public AddressResponse getById(Integer id) {
+        return repository.findById(id)
+            .map(mapper::toResponse)
+            .orElseThrow(() -> new RuntimeException("Address not found"));
+    }
+
+    @Override
     public AddressResponse create(AddressRequest request) {
         Feature feature = featureRepository.findById(request.getFeatureId())
             .orElseThrow(() -> new RuntimeException("Feature not found"));
@@ -38,5 +45,25 @@ public class AddressServiceImpl implements AddressService {
         Address entity = mapper.toEntity(request, feature);
 
         return mapper.toResponse(repository.save(entity));
+    }
+
+    @Override
+    public AddressResponse update(Integer id, AddressRequest request) {
+        Feature feature = featureRepository.findById(request.getFeatureId())
+            .orElseThrow(() -> new RuntimeException("Feature not found"));
+
+        Address entity = repository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Address not found"));
+
+        mapper.update(entity, request, feature);
+        return mapper.toResponse(repository.save(entity));
+    }
+
+    @Override
+    public void delete(Integer id) {
+        Address entity = repository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Address not found"));
+
+        repository.delete(entity);
     }
 }

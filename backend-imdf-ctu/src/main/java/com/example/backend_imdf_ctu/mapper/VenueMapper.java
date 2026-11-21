@@ -28,6 +28,8 @@ public class VenueMapper {
     ) {
         Venue entity = new Venue();
 
+        entity.setVenueName(request.getVenueName());
+
         entity.setFeature(feature);
         entity.setVenueCategory(venueCategory);
         entity.setAddress(address);
@@ -51,6 +53,7 @@ public class VenueMapper {
         Address address,
         RestrictionCategory restrictionCategory
     ) {
+        venue.setVenueName(request.getVenueName());
         venue.setHours(request.getHours());
         venue.setPhone(request.getPhone());
         venue.setWebsite(request.getWebsite());

@@ -31,15 +31,11 @@ import java.util.Map;
 @Service
 @Transactional(readOnly = true)
 public class VenueServiceImpl implements VenueService {
-    private static final int SRID = 4326;
 
     private final VenueRepository venueRepository;
     private final VenueCategoryRepository categoryRepository;
     private final AddressRepository addressRepository;
     private final VenueMapper venueMapper;
-    private final GeometryConverter geometryConverter;
-    private final MultiPolygonNormalizer normalizer;
-    private final HistoryRecorder historyRecorder;
 
     private final FeatureRepository featureRepository;
     private final RestrictionCateRepository restrictionCateRepository;
@@ -49,9 +45,6 @@ public class VenueServiceImpl implements VenueService {
                             VenueCategoryRepository categoryRepository,
                             AddressRepository addressRepository,
                             VenueMapper venueMapper,
-                            GeometryConverter geometryConverter,
-                            MultiPolygonNormalizer normalizer,
-                            HistoryRecorder historyRecorder,
                             FeatureRepository featureRepository,
                             RestrictionCateRepository restrictionCateRepository
     ) {
@@ -59,9 +52,6 @@ public class VenueServiceImpl implements VenueService {
         this.categoryRepository = categoryRepository;
         this.addressRepository = addressRepository;
         this.venueMapper = venueMapper;
-        this.geometryConverter = geometryConverter;
-        this.normalizer = normalizer;
-        this.historyRecorder = historyRecorder;
         this.featureRepository = featureRepository;
         this.restrictionCateRepository = restrictionCateRepository;
     }

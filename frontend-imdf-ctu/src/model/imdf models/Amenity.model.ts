@@ -4,6 +4,11 @@ export interface AmenityCategoryResponse {
   amenityVietNameseName: string
 }
 
+export interface AmenityCategoryRequest {
+  amenityCateName: string
+  amenityVietNameseName: string
+}
+
 export interface AmenityResquestPayload {
   amenityName: string
   geometry: {

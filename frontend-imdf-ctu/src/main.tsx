@@ -6,6 +6,7 @@ import { LayerProvider } from './context/LayerContext.tsx'
 import { UserProvider } from './context/UserContext.tsx'
 import { LevelProvider } from './context/LevelContext.tsx'
 import { NavigateProvider } from './context/NavigateContext.tsx'
+import { DashboardContextProvider } from './context/DashboardContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')!).render(
       <LayerProvider>
         <LevelProvider>
           <NavigateProvider>
-            <App />
+            <DashboardContextProvider>
+              <App />
+            </DashboardContextProvider>
           </NavigateProvider>
         </LevelProvider>
       </LayerProvider>

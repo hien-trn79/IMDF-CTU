@@ -21,9 +21,29 @@ public class AddressController {
          return service.getAll();
     }
 
+    // [GET] /addresses/{id}
+    @GetMapping("/{id}")
+    public AddressResponse getById(@PathVariable Integer id) {
+        return service.getById(id);
+    }
+
     // [POST] /addresses
     @PostMapping
     public AddressResponse create(@RequestBody AddressRequest request) {
         return service.create(request);
+    }
+
+    // [PUT] /addresses/{id}
+    @PutMapping("/{id}")
+    public AddressResponse update(
+        @PathVariable Integer id,
+        @RequestBody AddressRequest request) {
+        return service.update(id, request);
+    }
+
+    // [DELETE] /addresses/{id}
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Integer id) {
+        service.delete(id);
     }
 }
