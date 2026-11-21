@@ -39,4 +39,21 @@ public class AddressMapper {
         entity.setFeature(feature);
         return entity;
     }
+
+    public void update(
+        Address entity,
+        AddressRequest request,
+        Feature feature)
+    {
+        entity.setAddress(request.getAddress());
+        entity.setUnit(request.getUnit());
+        entity.setLocality(request.getLocality());
+        entity.setProvince(request.getProvince());
+        entity.setCountry(request.getCountry());
+        entity.setPostalCode(request.getPostalCode());
+        entity.setPostalCodeExtension(request.getPostalCodeExtension());
+        entity.setPostalCodeVanity(request.getPostalCodeVanity());
+
+        entity.setFeature(feature);
+    }
 }

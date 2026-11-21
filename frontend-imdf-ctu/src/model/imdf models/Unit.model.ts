@@ -13,3 +13,8 @@ export interface UnitCategoriesResponse {
   unitCategoryName: string
   unitCategoryVietnameseName: string
 }
+
+export interface UnitCategoryRequest {
+  unitCategoryName: string
+  unitCategoryVietnameseName: string
+}

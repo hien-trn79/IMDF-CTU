@@ -123,6 +123,8 @@ public class BuildingServiceImpl implements BuildingService {
     public void delete(Integer id) {
         Building building = repository.findById(id)
             .orElseThrow(() -> new BusinessException(ErrorCode.BUILDING_NOT_FOUND, "Building not found with id: " + id));
-        repository.delete(building);
+
+        building.setIsDeleted(true);
+        repository.save(building);
     }
 }

@@ -13,6 +13,7 @@ import {
   Store,
   X,
   LogOut,
+  Home,
 } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -108,6 +109,12 @@ function useExternalPlaces(query: string, enabled: boolean) {
 export default function PageHeader() {
   const NAV_LINKS = [
     {
+      label: 'Dashboard',
+      to: '/dashboard',
+      icon: (<Home className="w-4 h-4" />) as ReactNode,
+      role: ['ADMIN'],
+    },
+    {
       label: 'Route',
       to: '/route',
       icon: (<Route className="w-4 h-4" />) as ReactNode,
@@ -119,12 +126,7 @@ export default function PageHeader() {
       icon: (<MapPin className="w-4 h-4" />) as ReactNode,
       role: ['ADMIN'],
     },
-    {
-      label: 'Account',
-      to: '/account',
-      icon: (<CircleUser className="w-4 h-4" />) as ReactNode,
-      role: ['USER', 'ADMIN'],
-    },
+
     {
       label: 'Map',
       to: '/map',

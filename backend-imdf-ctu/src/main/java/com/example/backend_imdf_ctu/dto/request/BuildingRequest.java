@@ -11,7 +11,6 @@ public class BuildingRequest {
 
     private GeoJsonGeometry geometry; // WKT representation of MultiPolygon
 
-    @NotNull(message = "Feature ID cannot be null")
     private Integer featureId;
 
     private Integer addressId;

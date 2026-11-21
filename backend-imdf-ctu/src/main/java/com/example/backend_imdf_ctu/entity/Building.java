@@ -67,6 +67,8 @@ public class Building implements GeoJson {
     @JoinColumn(name = "venue_id", referencedColumnName = "id")
     private Venue venue;
 
+    private Boolean isDeleted;
+
     // === Triển khai các phương thức từ GeoJsonEntity ===
 
     @Override
@@ -78,6 +80,7 @@ public class Building implements GeoJson {
         props.put("buildingCategoryId", this.buildingCategory.getId());
         props.put("buildingCategoryName", this.buildingCategory.getBuildingCategoryVietnameseName());
         props.put("restrictionCategoryId", this.restrictionCategory.getId());
+        props.put("restrictionCategoryName", this.restrictionCategory.getRestrictionCateName());
         props.put("venueId", this.venue.getId());
         props.put("venueName", this.venue.getVenueName());
         props.put("displayPoint", this.displayPoint); // Sẽ được GeometryConverter xử lý nếu cần
