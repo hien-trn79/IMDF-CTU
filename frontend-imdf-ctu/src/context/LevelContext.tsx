@@ -57,17 +57,20 @@ export function LevelProvider({ children }: { children: ReactNode }) {
           sort: 'id,ASC',
           levelId,
         })
-        const response = await fetch(`/api/units?${params}`, {
+        const response = await fetch(`http://localhost:8081/api/units?${params}`, {
           headers: authHeaders(token ?? ''),
           signal: controller.signal,
         })
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        if (!response.ok) {
+          setUnitGeoJson({ type: 'FeatureCollection', features: [] } as any)
+          return
+        }
         const data = (await response.json()) as UnitGeoJson
         setUnitGeoJson(data)
       } catch (error) {
         if ((error as Error).name === 'AbortError') return
         console.error('Lỗi khi tải UnitGeojson theo level:', error)
-        setUnitGeoJson(null)
+        setUnitGeoJson({ type: 'FeatureCollection', features: [] } as any)
         setUnitsError('Không tải được dữ liệu unit của tầng.')
       } finally {
         if (!controller.signal.aborted) setIsLoadingUnits(false)

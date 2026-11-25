@@ -4,11 +4,11 @@ import L from 'leaflet'
 import type { IndoorGeoJsonResponse } from '../../services/indoorRoutingService'
 import type { IndoorRouteFeature } from '../../model/Navigation.model'
 import { segmentCoordsToLatLng } from '../../services/indoorRoutingService'
-import { FLOORS_LEVEL_ID } from '../../context/NavigateContext'
 
 interface IndoorRouteLayerProps {
   route: IndoorGeoJsonResponse | null
   activeLevelId?: number
+  floorLevelIds: Record<string, number>
   onSwitchLevel?: (targetLevelId: number) => void
 }
 
@@ -123,22 +123,24 @@ const stitchRoute = (features: IndoorRouteFeature[]): [number, number][] => {
   }, [])
 }
 
-const getFloorRank = (levelId: number): number => {
-  const entries = Object.entries(FLOORS_LEVEL_ID)
+const getFloorRank = (levelId: number, floorLevelIds: Record<string, number>): number => {
+  const entries = Object.entries(floorLevelIds)
   const index = entries.findIndex(([, id]) => id === levelId)
   if (index !== -1) {
     const [floorName] = entries[index]
-    const matchedNum = floorName.match(/\d+/)
-    if (matchedNum) return Number(matchedNum[0])
+    if (floorName === 'G') return 0
+    const ordinal = Number(floorName)
+    if (Number.isFinite(ordinal)) return ordinal
     return index
   }
   return levelId
 }
 
-const formatFloorLabel = (levelId: number): string => {
-  const entry = Object.entries(FLOORS_LEVEL_ID).find(([, id]) => id === levelId)
+const formatFloorLabel = (levelId: number, floorLevelIds: Record<string, number>): string => {
+  const entry = Object.entries(floorLevelIds).find(([, id]) => id === levelId)
   if (!entry) return `Tầng ${levelId}`
   const raw = entry[0].trim()
+  if (raw === 'G') return 'Tầng trệt'
   return /^tầng/i.test(raw) ? raw : `Tầng ${raw}`
 }
 
@@ -153,6 +155,7 @@ const createStairIcon = (label: string) =>
 export default function IndoorRouteLayer({
   route,
   activeLevelId,
+  floorLevelIds,
   onSwitchLevel,
 }: IndoorRouteLayerProps) {
   const allFeatures = useMemo(() => {
@@ -201,8 +204,9 @@ export default function IndoorRouteLayer({
 
     if (nextLevelId == null || nextLevelId === activeLevelId) return null
 
-    const isNextFloorHigher = getFloorRank(nextLevelId) > getFloorRank(activeLevelId)
-    const targetFloorText = formatFloorLabel(nextLevelId)
+    const isNextFloorHigher =
+      getFloorRank(nextLevelId, floorLevelIds) > getFloorRank(activeLevelId, floorLevelIds)
+    const targetFloorText = formatFloorLabel(nextLevelId, floorLevelIds)
     const label = isNextFloorHigher
       ? `Di chuyển ${targetFloorText}`
       : `Di chuyển ${targetFloorText}`
@@ -217,7 +221,7 @@ export default function IndoorRouteLayer({
       : currentFloorCoords[0]
 
     return { position, label, nextLevelId }
-  }, [allFeatures, activeLevelId])
+  }, [allFeatures, activeLevelId, floorLevelIds])
 
   const stairIcon = useMemo(() => {
     if (!stairTransition) return null

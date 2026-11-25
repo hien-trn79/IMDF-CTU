@@ -129,13 +129,14 @@ export default function ImportTopologyModal({
   }, [currentLevelId])
 
   // Map ID tòa nhà -> tên tòa nhà
-  const buildingMap = useMemo(() => {
+  const _buildingMap = useMemo(() => {
     const map = new Map<number, string>()
     for (const b of buildings) {
       map.set(Number(b.id), b.properties?.buildingName || `Tòa nhà #${b.id}`)
     }
     return map
   }, [buildings])
+  void _buildingMap
 
   // 2. Fetch danh sách IndoorRoutes theo LevelId được chọn từ REST API
   useEffect(() => {

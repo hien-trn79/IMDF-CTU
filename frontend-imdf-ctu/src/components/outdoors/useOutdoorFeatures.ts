@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLevel } from '../../context/LevelContext'
 import { useUser } from '../../context/UserContext'
 import { authHeaders } from '../../services/authHeaders'
@@ -6,12 +6,20 @@ import { authHeaders } from '../../services/authHeaders'
 export function useOutdoorFeatures(
   selectedBuildingId?: number,
   selectedLevelOrdinal?: number,
-  selectedLevelGeometry?: GeoJSON.Geometry
+  _selectedLevelGeometry?: GeoJSON.Geometry
 ) {
   const { unitGeoJson, isLoadingUnits, selectedTables, selectedLevelId, dataVersion } = useLevel()
   const { token } = useUser()
   const [tableFeatures, setTableFeatures] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
+
+  // Cache dữ liệu theo key: table-buildingId-levelId để load tức thì khi chuyển tab/tầng
+  const cacheRef = useRef<Map<string, any[]>>(new Map())
+
+  // Xóa cache khi dataVersion thay đổi (do thêm/sửa/xóa)
+  useEffect(() => {
+    cacheRef.current.clear()
+  }, [dataVersion])
 
   useEffect(() => {
     if (!selectedLevelId || selectedTables.length === 0) {
@@ -21,11 +29,35 @@ export function useOutdoorFeatures(
 
     const controller = new AbortController()
     const fetchRows = async () => {
+      const apiTables = selectedTables.filter((table) => table !== 'unit')
+      if (apiTables.length === 0) {
+        setTableFeatures([])
+        return
+      }
+
+      // Kiểm tra xem tất cả các table cần lấy đã có trong cache chưa
+      const missingTables: string[] = []
+      const cachedResults: any[] = []
+
+      for (const table of apiTables) {
+        const cacheKey = `${table}-${selectedBuildingId}-${selectedLevelId}`
+        if (cacheRef.current.has(cacheKey)) {
+          cachedResults.push(...(cacheRef.current.get(cacheKey) || []))
+        } else {
+          missingTables.push(table)
+        }
+      }
+
+      // Nếu tất cả đã có trong cache, set luôn không cần gọi API (tốc độ tức thì)
+      if (missingTables.length === 0) {
+        setTableFeatures(cachedResults)
+        return
+      }
+
       setIsLoading(true)
       try {
-        const apiTables = selectedTables.filter((table) => table !== 'unit')
-        const tableResults = await Promise.all(
-          apiTables.map(async (table) => {
+        const newResults = await Promise.all(
+          missingTables.map(async (table) => {
             const query =
               table === 'level'
                 ? `?buildingId=${selectedBuildingId}&page=0&size=100&sort=id,ASC`
@@ -41,24 +73,27 @@ export function useOutdoorFeatures(
             const rows = Array.isArray(data)
               ? data
               : (data.content ?? data.data?.content ?? data.features ?? data.data?.features ?? [])
-            return rows
+
+            const filtered = rows
               .filter((row: any) =>
-                belongsToSelectedLevel(
-                  row,
-                  table,
-                  selectedLevelId,
-                  selectedLevelOrdinal,
-                  selectedLevelGeometry
-                )
+                belongsToSelectedLevel(row, table, selectedLevelId, selectedLevelOrdinal)
               )
               .map((row: any, index: number) => ({
                 feature: toGeoJsonFeature(table, row),
                 layer: { id: `api-${table}`, layerName: table },
                 index,
               }))
+
+            // Lưu vào cache
+            const cacheKey = `${table}-${selectedBuildingId}-${selectedLevelId}`
+            cacheRef.current.set(cacheKey, filtered)
+            return filtered
           })
         )
-        setTableFeatures(tableResults.flat())
+
+        if (!controller.signal.aborted) {
+          setTableFeatures([...cachedResults, ...newResults.flat()])
+        }
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           console.error('Lỗi khi tải các bảng outdoor:', error)
@@ -68,13 +103,13 @@ export function useOutdoorFeatures(
         if (!controller.signal.aborted) setIsLoading(false)
       }
     }
+
     fetchRows()
     return () => controller.abort()
   }, [
     selectedTables,
     selectedLevelId,
     selectedLevelOrdinal,
-    selectedLevelGeometry,
     dataVersion,
     token,
     selectedBuildingId,
@@ -108,84 +143,42 @@ function toGeoJsonFeature(table: string, row: any) {
   }
 }
 
+// Tối ưu hóa cực nhanh O(1) thay vì lặp kiểm tra điểm trong đa giác (pointInRing) nặng nề
 function belongsToSelectedLevel(
   row: any,
   table: string,
   selectedLevelId: string | null,
-  selectedLevelOrdinal?: number,
-  selectedLevelGeometry?: GeoJSON.Geometry
+  selectedLevelOrdinal?: number
 ) {
   if (!selectedLevelId) return false
   const properties = row?.properties ?? row
-  const ordinal = properties?.ordinal ?? row?.ordinal
 
   if (table === 'level') {
+    const ordinal = properties?.ordinal ?? row?.ordinal
     return selectedLevelOrdinal !== undefined && Number(ordinal) === Number(selectedLevelOrdinal)
   }
 
-  const candidates = [
-    row?.levelId,
-    row?.level,
-    row?.level_id,
-    row?.ordinal,
-    properties?.levelId,
-    properties?.level,
-    properties?.level_id,
-    properties?.ordinal,
-  ]
-    .filter((value) => value !== undefined && value !== null)
-    .map(String)
-  return (
-    candidates.includes(String(selectedLevelId)) ||
-    (selectedLevelOrdinal !== undefined && candidates.includes(String(selectedLevelOrdinal))) ||
-    String(row?.id) === String(selectedLevelId) ||
-    (candidates.length === 0 &&
-      selectedLevelGeometry != null &&
-      geometryIsInside(row?.geometry, selectedLevelGeometry))
-  )
-}
+  // Nếu có levelId
+  const rowLevelId =
+    properties?.levelId ??
+    properties?.level_id ??
+    properties?.level ??
+    row?.levelId ??
+    row?.level_id ??
+    row?.level
 
-function geometryIsInside(candidate: any, boundary: GeoJSON.Geometry) {
-  const point = firstCoordinate(candidate?.coordinates)
-  if (!point) return false
-  return ringsOf((boundary as GeoJSON.Geometry & { coordinates?: unknown }).coordinates).some(
-    (ring) => pointInRing(point, ring)
-  )
-}
+  if (rowLevelId !== undefined && rowLevelId !== null) {
+    return String(rowLevelId) === String(selectedLevelId)
+  }
 
-function firstCoordinate(value: any): [number, number] | null {
-  if (!Array.isArray(value)) return null
-  if (typeof value[0] === 'number' && typeof value[1] === 'number') {
-    return [value[0], value[1]]
+  // Nếu có ordinal
+  const rowOrdinal = properties?.ordinal ?? row?.ordinal
+  if (rowOrdinal !== undefined && rowOrdinal !== null && selectedLevelOrdinal !== undefined) {
+    return Number(rowOrdinal) === Number(selectedLevelOrdinal)
   }
-  for (const child of value) {
-    const point = firstCoordinate(child)
-    if (point) return point
-  }
-  return null
-}
 
-function ringsOf(value: any): number[][][] {
-  if (!Array.isArray(value)) return []
-  if (
-    value.length > 2 &&
-    value.every((point: any) => Array.isArray(point) && typeof point[0] === 'number')
-  ) {
-    return [value]
-  }
-  return value.flatMap((child: any) => ringsOf(child))
-}
-
-function pointInRing(point: [number, number], ring: number[][]) {
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    const intersects =
-      yi > point[1] !== yj > point[1] && point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi
-    if (intersects) inside = !inside
-  }
-  return inside
+  // Backend đã lọc theo ?levelId=${selectedLevelId} ở URL endpoint
+  return true
 }
 
 function parseWktPoint(value: unknown) {

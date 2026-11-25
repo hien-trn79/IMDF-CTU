@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { SearchResultItem } from '../../utils/searchUtils'
-import { FLOORS_LEVEL_ID, useNavigateContext } from '../../context/NavigateContext'
+import { useNavigateContext } from '../../context/NavigateContext'
 import { searchExternalPlaces } from './Placesearchservice'
 import {
   createMyLocationItem,
@@ -55,7 +55,7 @@ export default function ModalDirections() {
 }
 
 function DirectionsForm() {
-  const navigateCtx = useNavigateContext() as any
+  const navigateCtx = useNavigateContext()
   const {
     selectedDestination,
     selectDestination,
@@ -72,6 +72,7 @@ function DirectionsForm() {
     setIndoorRouteError,
     indoorRouteError,
     loadFloorData,
+    floorLevelIds,
   } = navigateCtx
 
   const [origin, setOrigin] = useState<SearchResultItem | null>(null)
@@ -113,7 +114,7 @@ function DirectionsForm() {
 
   const switchToLevel = async (levelId: number | null | undefined) => {
     if (levelId == null) return
-    const floorEntry = Object.entries(FLOORS_LEVEL_ID).find(([, id]) => id === levelId)
+    const floorEntry = Object.entries(floorLevelIds).find(([, id]) => id === levelId)
     if (floorEntry) {
       navigateCtx.setSelectedFloor?.(floorEntry[0])
     }
@@ -203,7 +204,7 @@ function DirectionsForm() {
         } as any)
         setIndoorRouteData(indoorData)
 
-        const entranceLevelId = Object.values(FLOORS_LEVEL_ID).sort((a, b) => a - b)[0]
+        const entranceLevelId = Object.values(floorLevelIds).sort((a, b) => a - b)[0]
         await switchToLevel(entranceLevelId)
 
         setShowDirectionsModal(false)

@@ -57,7 +57,7 @@ const UNIT_FIELDS: string[] = [
 
 interface CustomModalProps {
   building: BuildingGeoJsonItem | null
-  selectedUnit: UnitGeoJsonItem | null
+  selectedUnit?: UnitGeoJsonItem | null
   isOpen: boolean
   onClose: () => void
   variant?: 'building' | 'unit' // Thêm prop variant để phân biệt loại modal

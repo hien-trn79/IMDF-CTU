@@ -64,6 +64,13 @@ export default function ModalAddIndoor({
 
   useEffect(() => {
     if (!isOpen) return
+    if (!selectedLevelIndoorId) {
+      setRoutes([])
+      setError('Tòa nhà chưa cấu hình Tầng (Level). Vui lòng chọn Tầng trước khi tạo đường đi.')
+      return
+    }
+
+    setError(null)
     fetch(`http://localhost:8081/api/indoor-routes?levelId=${selectedLevelIndoorId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -71,12 +78,16 @@ export default function ModalAddIndoor({
     })
       .then((response) => response.json())
       .then((routeList: IndoorRouteResponse[]) => {
-        setRoutes(routeList)
-        if (routeList.length > 0) {
+        setRoutes(routeList || [])
+        if (routeList && routeList.length > 0) {
           setData((prev) => ({
             ...prev,
             indoorRouteId: prev.indoorRouteId || routeList[0].id,
           }))
+        } else {
+          setError(
+            'Tầng hiện tại chưa được cấu hình Tuyến đường (Indoor Route). Vui lòng tạo Tuyến đường trước khi thêm đối tượng đường đi!'
+          )
         }
       })
       .catch((routeError: unknown) => {
@@ -224,6 +235,7 @@ export default function ModalAddIndoor({
       open={isOpen}
       onOk={createGridlineAndTopology}
       okText={saving ? 'Đang chuẩn hóa & Lưu...' : 'Lưu đường đi'}
+      okButtonProps={{ disabled: !data.indoorRouteId || routes.length === 0 }}
       cancelText="Đóng"
       confirmLoading={saving}
       mask={false}

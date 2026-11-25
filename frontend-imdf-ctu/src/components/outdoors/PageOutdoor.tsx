@@ -66,6 +66,7 @@ export default function PageOutdoor() {
     toggleTable,
   } = useLevel()
   const [selectedBuilding, setSelectedBuilding] = useState<number | 1>(1)
+  const [buildingCoordinates, setBuildingCoordinates] = useState<[number, number] | null>(null)
   const [levelsOfBuilding, setLevelsOfBuilding] = useState<LevelGeoJson['features'] | []>([])
   const selectedLevelOrdinal = levelsOfBuilding.find(
     (level) => String(level.id) === String(selectedLevelId)
@@ -79,6 +80,16 @@ export default function PageOutdoor() {
     selectedLevelGeometry
   )
   const { token } = useUser()
+
+  const emptyTableMessage = useMemo(() => {
+    if (!selectedBuilding) {
+      return 'Vui lòng chọn Tòa nhà để xem dữ liệu'
+    }
+    if (!selectedLevelId || levelsOfBuilding.length === 0) {
+      return 'Tòa nhà chưa cấu hình Tầng (Level) hoặc không tìm thấy bảng dữ liệu'
+    }
+    return `Chưa có dữ liệu cho bảng ${selectedTable} thuộc tầng này`
+  }, [selectedBuilding, selectedLevelId, levelsOfBuilding.length, selectedTable])
 
   useEffect(() => {
     notification.config({
@@ -239,19 +250,20 @@ export default function PageOutdoor() {
         if (!coordinate) throw new Error('Một feature không có tọa độ hợp lệ.')
         const properties = feature.properties ?? {}
         console.log('selectedTable', selectedTable)
-        // Neu selectedTable là 'unit' thì gọi unitService.create
-        if (selectedTable === 'units') {
+        // Neu selectedTable là 'unit' hoặc 'units' thì gọi unitService.create
+        if (selectedTable === 'unit' || selectedTable === 'units') {
           await unitService.create(
             {
               unitName: String(
                 properties.name_vi ??
                   properties.name ??
+                  properties.unitName ??
                   properties.id ??
                   `Unit ${properties.fid ?? imported + 1}`
               ),
               geometry: feature.geometry,
               displayPoint: properties.displayPoint ?? { type: 'Point', coordinates: coordinate },
-              featureId: null,
+              featureId: Number(properties.featureId) || null,
               levelId: Number(selectedLevelId),
               unitCategoryId: Number(properties.unitCategoryId) || 1,
               restrictionCategoryId: Number(properties.restrictionCategoryId) || 1,
@@ -259,13 +271,18 @@ export default function PageOutdoor() {
             token ?? undefined
           )
         } else if (selectedTable === 'anchors') {
-          const unitIdTemp = selectedLevelId === '4' ? 58 : 5
+          const fallbackUnitId = unitGeoJson?.features?.[0]?.id
+            ? Number(unitGeoJson.features[0].id)
+            : selectedLevelId === '4'
+              ? 58
+              : 5
+          const targetUnitId = Number(properties.unitId) || fallbackUnitId
 
           const payload: AnchorRequestPayload = {
             anchorName: String(properties.anchorName ?? `Anchor ${properties.fid ?? imported + 1}`),
             geometry: feature.geometry,
-            featureId: 63,
-            unitId: unitIdTemp,
+            featureId: Number(properties.featureId) || 63,
+            unitId: targetUnitId,
           }
           const response = await fetch(`http://localhost:8081/api/anchors`, {
             method: 'POST',
@@ -277,7 +294,13 @@ export default function PageOutdoor() {
           })
           if (!response.ok) throw new Error(`Thêm Anchor thất bại (HTTP ${response.status}).`)
         } else if (selectedTable === 'amenities') {
-          const unitIdTemp = selectedLevelId === '4' ? 58 : 5
+          const fallbackUnitId = unitGeoJson?.features?.[0]?.id
+            ? Number(unitGeoJson.features[0].id)
+            : selectedLevelId === '4'
+              ? 58
+              : 5
+          const targetUnitId = Number(properties.unitId) || fallbackUnitId
+
           const payload: any = {
             amenityName: String(
               properties.amenityName ?? `Amenity ${properties.fid ?? imported + 1}`
@@ -289,8 +312,8 @@ export default function PageOutdoor() {
             amenityCategoryId: Number(
               properties.amenityCategoryId ?? properties.amenityCateId ?? 12
             ),
-            featureId: 64,
-            unitId: unitIdTemp,
+            featureId: Number(properties.featureId) || 64,
+            unitId: targetUnitId,
             levelId: Number(selectedLevelId),
           }
 
@@ -406,6 +429,7 @@ export default function PageOutdoor() {
           }`}
         >
           <OutdoorMap
+            buildingCoordinates={buildingCoordinates}
             setObjectCount={setObjectCount}
             selectedFeature={selectedFeature}
             features={features}
@@ -436,6 +460,7 @@ export default function PageOutdoor() {
           {/* BẢNG NỔI TRÊN KHUNG MAP (kiểu bảng thuộc tính QGIS) */}
           <div ref={panelRef} className="absolute right-1 bottom-1 left-1 z-1000">
             <OutdoorTable
+              emptyMessage={emptyTableMessage}
               features={features}
               loading={isLoading}
               selectedFeature={selectedFeature}
@@ -466,6 +491,7 @@ export default function PageOutdoor() {
           selectedTables={selectedTables}
           onTableChange={setSelectedTable}
           onTableToggle={toggleTable}
+          onBuildingCoordinatesChange={setBuildingCoordinates}
         />
       </aside>
 
@@ -560,13 +586,9 @@ export default function PageOutdoor() {
         onCreated={() => {
           setIsOpenAddModal(false)
           setDrawing(false)
-          if (selectedTable === 'unit') {
-            // Giữ lại Line vừa vẽ để người dùng vẫn nhìn thấy sau khi tạo Unit.
-            reloadUnits()
-          } else {
-            setDrawCoordinates([])
-            reloadData()
-          }
+          setDrawCoordinates([])
+          reloadUnits()
+          reloadData()
         }}
       />
     </div>

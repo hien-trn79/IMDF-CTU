@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router'
+import { NavLink } from 'react-router'
 
 export default function DashboardSidebar() {
   const DASHBOARD_SIDEBAR_NAV = [
@@ -52,9 +52,8 @@ export default function DashboardSidebar() {
     },
   ]
 
-  const activeNav = DASHBOARD_SIDEBAR_NAV.find((nav) => nav.to === window.location.pathname)
-
-  const navigate = useNavigate()
+  // const activeNav = DASHBOARD_SIDEBAR_NAV.find((nav) => nav.to === window.location.pathname)
+  // const navigate = useNavigate()
 
   return (
     <div className="p-2 rounded-xl border border-slate-200 bg-white shadow-sm">

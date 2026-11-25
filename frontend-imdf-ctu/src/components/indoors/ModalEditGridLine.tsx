@@ -18,6 +18,7 @@ interface ModalEditGridLineProps {
   onClose: () => void
   gridLineItem: any // IndoorFeatureItem
   token: string
+  levelId: number | null
   nodes: NetworkNodeResponse[]
   edges: NetworkEdgeResponse[]
   onUpdated: () => void
@@ -29,6 +30,7 @@ export default function ModalEditGridLine({
   onClose,
   gridLineItem,
   token,
+  levelId,
   onUpdated,
   onDelete,
 }: ModalEditGridLineProps) {
@@ -48,9 +50,9 @@ export default function ModalEditGridLine({
   const gridLineId = feature?.id ? Number(feature.id) : null
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || levelId === null) return
     indoorRouteService
-      .getAll(token)
+      .getAll(token, levelId)
       .then(setRoutes)
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : 'Không tải được danh sách tuyến đường')
@@ -76,7 +78,7 @@ export default function ModalEditGridLine({
       })
       setCoords(parsed.length > 0 ? parsed : feature.geometry?.coordinates || [])
     }
-  }, [isOpen, gridLineItem, token])
+  }, [isOpen, gridLineItem, levelId, token])
 
   const handleSave = async () => {
     setError(null)

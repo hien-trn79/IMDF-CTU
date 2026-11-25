@@ -4,8 +4,14 @@ import { authHeaders } from '../services/authHeaders'
 import { useUser } from './UserContext'
 
 interface LayerContextValue {
+  selectedVenueId: number | null
+  setSelectedVenueId: (id: number | null) => void
+  selectedBuildingId: number | null
+  setSelectedBuildingId: (id: number | null) => void
   selectedLevelIndoorId: string | null
   setSelectedLevelIndoorId: (levelIndoorId: string | null) => void
+  buildingCoordinates: [number, number] | null
+  setBuildingCoordinates: (coords: [number, number] | null) => void
   PreTopologyGeojson: PreTopologyResponse | null
   reloadData: () => void
   dataVersion: number
@@ -21,7 +27,10 @@ const tableDefaultValue = 'grid-lines'
 
 export function LayerProvider({ children }: { children: React.ReactNode }) {
   const { token } = useUser()
+  const [selectedVenueId, setSelectedVenueId] = useState<number | null>(2)
+  const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(1)
   const [selectedLevelIndoorId, setSelectedLevelIndoorId] = useState<string | null>('3')
+  const [buildingCoordinates, setBuildingCoordinates] = useState<[number, number] | null>(null)
   const [PreTopologyGeojson, setPreTopologyGeojson] = useState<PreTopologyResponse | null>(null)
   const [reloadVersion, setReloadVersion] = useState(0)
   const [selectedTableIndoor, setSelectedTableIndoor] = useState<string>(tableDefaultValue)
@@ -81,8 +90,14 @@ export function LayerProvider({ children }: { children: React.ReactNode }) {
   return (
     <LayerContext.Provider
       value={{
+        selectedVenueId,
+        setSelectedVenueId,
+        selectedBuildingId,
+        setSelectedBuildingId,
         selectedLevelIndoorId,
         setSelectedLevelIndoorId,
+        buildingCoordinates,
+        setBuildingCoordinates,
         PreTopologyGeojson,
         reloadData,
         dataVersion: reloadVersion,

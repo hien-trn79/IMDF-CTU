@@ -21,6 +21,7 @@ export interface IndoorFeatureItem {
 interface IndoorTableProps {
   features?: IndoorFeatureItem[]
   loading?: boolean
+  emptyMessage?: string
   selectedFeature?: IndoorFeatureItem | null
   onSelectFeature?: (item: IndoorFeatureItem) => void
   onOpenDetailModal?: (item: IndoorFeatureItem | null) => void
@@ -64,6 +65,7 @@ const EMPTY_FEATURES: IndoorFeatureItem[] = []
 export default function IndoorTable({
   features = EMPTY_FEATURES,
   loading = false,
+  emptyMessage,
   selectedFeature = null,
   onSelectFeature,
   onOpenDetailModal,
@@ -210,7 +212,8 @@ export default function IndoorTable({
         }`}
       >
         <span className="truncate text-xs font-semibold text-slate-700">
-          Danh sách chi tiết (Indoor) — Tổng: {features.length}, Đã chọn: {selectedCount}
+          Danh sách chi tiết (Indoor) — Tổng: {features.length}
+          {features.length === 0 ? ' (Chưa cài đặt hoặc không tìm thấy bảng)' : `, Đã chọn: ${selectedCount}`}
         </span>
         <Tooltip title={collapsed ? 'Mở rộng bảng' : 'Thu gọn bảng'}>
           <button
@@ -263,7 +266,9 @@ export default function IndoorTable({
             })}
             locale={{
               emptyText: (
-                <span className="text-slate-400">Hãy bật layer ở thanh bên để xem dữ liệu</span>
+                <span className="text-slate-400 font-medium py-3 block">
+                  {emptyMessage || 'Chưa cài đặt hoặc không tìm thấy bảng'}
+                </span>
               ),
             }}
             pagination={{

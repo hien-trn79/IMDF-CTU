@@ -20,6 +20,7 @@ export interface OutdoorFeatureItem {
 interface OutdoorTableProps {
   features?: OutdoorFeatureItem[]
   loading?: boolean
+  emptyMessage?: string
   // Feature đang được chọn (để tô sáng dòng giống QGIS)
   selectedFeature?: OutdoorFeatureItem | null
   // Click dòng hoặc nút "Xem trên bản đồ"
@@ -68,6 +69,7 @@ const EMPTY_FEATURES: OutdoorFeatureItem[] = []
 export default function OutdoorTable({
   features = EMPTY_FEATURES,
   loading = false,
+  emptyMessage,
   selectedFeature = null,
   onSelectFeature,
   onOpenDetailModal,
@@ -247,7 +249,8 @@ export default function OutdoorTable({
         }`}
       >
         <span className="truncate text-xs font-semibold text-slate-700">
-          Danh sách chi tiết — Tổng: {features.length}, Đã chọn: {selectedCount}
+          Danh sách chi tiết — Tổng: {features.length}
+          {features.length === 0 ? ' (Chưa cài đặt hoặc không tìm thấy bảng)' : `, Đã chọn: ${selectedCount}`}
         </span>
         <Tooltip title={collapsed ? 'Mở rộng bảng' : 'Thu gọn bảng'}>
           <button
@@ -300,7 +303,9 @@ export default function OutdoorTable({
             })}
             locale={{
               emptyText: (
-                <span className="text-slate-400">Chưa có dữ liệu trong layer đang chọn</span>
+                <span className="text-slate-400 font-medium py-3 block">
+                  {emptyMessage || 'Chưa có dữ liệu trong layer đang chọn'}
+                </span>
               ),
             }}
             pagination={{
