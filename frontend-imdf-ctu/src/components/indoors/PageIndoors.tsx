@@ -60,9 +60,7 @@ export default function PageIndoors() {
   const [editEdgeItem, setEditEdgeItem] = useState<NetworkEdgeItem | null>(null)
   const [isOpenImportTopology, setIsOpenImportTopology] = useState(false)
   const [importTopologyFile, setImportTopologyFile] = useState<File | null>(null)
-  const [selectedIndoorFeature, setSelectedIndoorFeature] = useState<IndoorFeatureItem | null>(
-    null
-  )
+  const [selectedIndoorFeature, setSelectedIndoorFeature] = useState<IndoorFeatureItem | null>(null)
 
   const { authData } = useUser()
   const token = authData?.token || ''
@@ -138,85 +136,171 @@ export default function PageIndoors() {
     setIsOpenSelectedFeatureModal(true)
   }
   // FETCH TOAN BO DATA DU LIEU TU PHIA BACKEND
-  const { selectedLevelIndoorId, selectedTableIndoor } = useLayerContext()
+  const { selectedLevelIndoorId, selectedTableIndoor, selectedBuildingId, buildingCoordinates } =
+    useLayerContext()
+
+  const emptyTableMessage = useMemo(() => {
+    if (!selectedBuildingId) {
+      return 'Vui lòng chọn Tòa nhà để xem dữ liệu'
+    }
+    if (!selectedLevelIndoorId) {
+      return 'Tòa nhà chưa cấu hình Tầng (Level) hoặc không tìm thấy bảng'
+    }
+    if (selectedTableIndoor === 'grid-lines') {
+      return 'Chưa cài đặt hoặc không tìm thấy bảng Đồ thị đường đi (PreTopology)'
+    }
+    if (selectedTableIndoor === 'nodes') {
+      return 'Chưa cài đặt hoặc không tìm thấy bảng Đỉnh (Nodes)'
+    }
+    if (selectedTableIndoor === 'edges') {
+      return 'Chưa cài đặt hoặc không tìm thấy bảng Cạnh (Edges)'
+    }
+    return 'Chưa cài đặt hoặc không tìm thấy bảng dữ liệu'
+  }, [selectedBuildingId, selectedLevelIndoorId, selectedTableIndoor])
+
+  // Cache topology theo tầng để chuyển tầng tức thì
+  const topologyCacheRef = useRef<
+    Map<
+      string,
+      {
+        preTopology: PreTopologyResponse
+        nodesData: NetworkNodeFeature
+        edgesData: NetworkEdgeFeature
+        nodes: NetworkNodeItem[]
+        edges: NetworkEdgeItem[]
+      }
+    >
+  >(new Map())
 
   useEffect(() => {
-    if (!selectedLevelIndoorId) return
+    topologyCacheRef.current.clear()
+  }, [topologyReloadKey])
 
-    const fetchPretopologyData = async () => {
-      try {
-        const response = await fetch(
-          `http://localhost:8081/api/grid-lines?levelId=${selectedLevelIndoorId}`,
-          {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders(token),
-          },
-          }
-        )
-        if (response.ok) {
-          const data: PreTopologyResponse = await response.json()
-          setPreTopologyData(data)
-        }
-      } catch (error) {
-        console.error('Lỗi khi fetch dữ liệu pre-topology:', error)
-      }
+  useEffect(() => {
+    if (!selectedLevelIndoorId) {
+      setPreTopologyData(null)
+      setNodesData(null)
+      setEdgesData(null)
+      setNetworkNodes([])
+      setNetworkEdges([])
+      setSelectedFeature(null)
+      setSelectedIndoorFeature(null)
+      return
     }
 
-    const fetchTopology = async () => {
+    // Nếu đã có trong cache, khôi phục ngay lập tức (0ms)
+    const cached = topologyCacheRef.current.get(selectedLevelIndoorId)
+    if (cached) {
+      setPreTopologyData(cached.preTopology)
+      setNodesData(cached.nodesData)
+      setEdgesData(cached.edgesData)
+      setNetworkNodes(cached.nodes)
+      setNetworkEdges(cached.edges)
+      return
+    }
+
+    // Reset dữ liệu cũ khi bắt đầu tải tầng mới
+    setPreTopologyData(null)
+    setNodesData(null)
+    setEdgesData(null)
+    setNetworkNodes([])
+    setNetworkEdges([])
+    setSelectedFeature(null)
+    setSelectedIndoorFeature(null)
+
+    let isMounted = true
+
+    const fetchAll = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:8081/api/indoor-routes?levelId=${selectedLevelIndoorId}`,
-          { headers: authHeaders(token) }
-        )
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        const routes = (await response.json()) as Array<{ id: number }>
-        await fetchPretopologyData()
-        if (routes.length > 0) {
-          const nodeFetches = routes.map((r) =>
-            fetch(`http://localhost:8081/api/network-nodes?routeId=${r.id}`, {
-              headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-            }).then((res) => (res.ok ? res.json() : { features: [] }))
-          )
-          const edgeFetches = routes.map((r) =>
-            fetch(`http://localhost:8081/api/network-edges?routeId=${r.id}`, {
-              headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-            }).then((res) => (res.ok ? res.json() : { features: [] }))
-          )
+        const [preTopoRes, routesRes] = await Promise.all([
+          fetch(`http://localhost:8081/api/grid-lines?levelId=${selectedLevelIndoorId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders(token),
+            },
+          }),
+          fetch(`http://localhost:8081/api/indoor-routes?levelId=${selectedLevelIndoorId}`, {
+            headers: authHeaders(token),
+          }),
+        ])
 
-          const [allNodesRes, allEdgesRes] = await Promise.all([
-            Promise.all(nodeFetches),
-            Promise.all(edgeFetches),
-          ])
+        let loadedPreTopo: PreTopologyResponse = { type: 'FeatureCollection', features: [] }
+        if (preTopoRes.ok) {
+          loadedPreTopo = await preTopoRes.json()
+        }
 
-          const rawNodes = allNodesRes.flatMap((d) => d.features || []).map(normalizeNode)
-          const rawEdges = allEdgesRes.flatMap((d) => d.features || []).map(normalizeEdge)
+        let loadedNodes: NetworkNodeItem[] = []
+        let loadedEdges: NetworkEdgeItem[] = []
 
-          const uniqueNodes = Array.from(new Map(rawNodes.map((n) => [n.id, n])).values())
-          const uniqueEdges = Array.from(new Map(rawEdges.map((e) => [e.id, e])).values())
+        if (routesRes.ok) {
+          const routes = (await routesRes.json()) as Array<{ id: number }>
+          if (routes && routes.length > 0) {
+            const nodeFetches = routes.map((r) =>
+              fetch(`http://localhost:8081/api/network-nodes?routeId=${r.id}`, {
+                headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+              }).then((res) => (res.ok ? res.json() : { features: [] }))
+            )
+            const edgeFetches = routes.map((r) =>
+              fetch(`http://localhost:8081/api/network-edges?routeId=${r.id}`, {
+                headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+              }).then((res) => (res.ok ? res.json() : { features: [] }))
+            )
 
-          setNodesData({ type: 'FeatureCollection', features: uniqueNodes })
-          setNetworkNodes(uniqueNodes)
-          setEdgesData({ type: 'FeatureCollection', features: uniqueEdges })
-          setNetworkEdges(uniqueEdges)
-        } else {
+            const [allNodesRes, allEdgesRes] = await Promise.all([
+              Promise.all(nodeFetches),
+              Promise.all(edgeFetches),
+            ])
+
+            const rawNodes = allNodesRes.flatMap((d) => d.features || []).map(normalizeNode)
+            const rawEdges = allEdgesRes.flatMap((d) => d.features || []).map(normalizeEdge)
+
+            loadedNodes = Array.from(new Map(rawNodes.map((n) => [n.id, n])).values())
+            loadedEdges = Array.from(new Map(rawEdges.map((e) => [e.id, e])).values())
+          }
+        }
+
+        const loadedNodesData: NetworkNodeFeature = {
+          type: 'FeatureCollection',
+          features: loadedNodes,
+        }
+        const loadedEdgesData: NetworkEdgeFeature = {
+          type: 'FeatureCollection',
+          features: loadedEdges,
+        }
+
+        // Lưu vào cache
+        topologyCacheRef.current.set(selectedLevelIndoorId, {
+          preTopology: loadedPreTopo,
+          nodesData: loadedNodesData,
+          edgesData: loadedEdgesData,
+          nodes: loadedNodes,
+          edges: loadedEdges,
+        })
+
+        if (isMounted) {
+          setPreTopologyData(loadedPreTopo)
+          setNodesData(loadedNodesData)
+          setEdgesData(loadedEdgesData)
+          setNetworkNodes(loadedNodes)
+          setNetworkEdges(loadedEdges)
+        }
+      } catch (error) {
+        console.error('Lỗi khi tải dữ liệu topology tầng:', error)
+        if (isMounted) {
+          setPreTopologyData({ type: 'FeatureCollection', features: [] })
           setNodesData({ type: 'FeatureCollection', features: [] })
           setEdgesData({ type: 'FeatureCollection', features: [] })
           setNetworkNodes([])
           setNetworkEdges([])
         }
-      } catch (error) {
-        console.error('Lỗi khi fetch route/topology theo tầng:', error)
       }
     }
 
-    fetchTopology()
+    fetchAll()
 
     return () => {
-      setPreTopologyData(null)
-      setNodesData(null)
-      setEdgesData(null)
+      isMounted = false
     }
   }, [selectedLevelIndoorId, token, topologyReloadKey])
 
@@ -307,6 +391,7 @@ export default function PageIndoors() {
           }`}
         >
           <IndoorMap
+            buildingCoordinates={buildingCoordinates}
             showGridLines={showGridLines}
             gridLineData={
               preTopologyData ? preTopologyData : { type: 'FeatureCollection', features: [] }
@@ -347,6 +432,7 @@ export default function PageIndoors() {
           {/* BANG NOI */}
           <div ref={panelRef} className="absolute right-1 bottom-1 left-1 z-1000">
             <IndoorTable
+              emptyMessage={emptyTableMessage}
               features={indoorTableFeatures}
               loading={isLoading}
               selectedFeature={selectedIndoorFeature}
@@ -464,6 +550,7 @@ export default function PageIndoors() {
           onClose={() => setEditGridLineItem(null)}
           gridLineItem={editGridLineItem}
           token={token}
+          levelId={selectedLevelIndoorId ? Number(selectedLevelIndoorId) : null}
           nodes={networkNodes}
           edges={networkEdges}
           onUpdated={() => {
@@ -484,6 +571,7 @@ export default function PageIndoors() {
         onClose={() => setEditNodeItem(null)}
         node={editNodeItem}
         token={token}
+        levelId={selectedLevelIndoorId ? Number(selectedLevelIndoorId) : null}
         onUpdated={() => {
           reloadTopology()
           setEditNodeItem(null)
@@ -501,6 +589,7 @@ export default function PageIndoors() {
         onClose={() => setEditEdgeItem(null)}
         edge={editEdgeItem}
         token={token}
+        levelId={selectedLevelIndoorId ? Number(selectedLevelIndoorId) : null}
         onUpdated={() => {
           reloadTopology()
           setEditEdgeItem(null)

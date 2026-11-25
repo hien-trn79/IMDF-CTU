@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
@@ -30,6 +30,17 @@ interface OutdoorMapProps {
   coordinates: [number, number][]
   onCoordinatesChange: (coordinates: [number, number][]) => void
   pointMode: boolean
+  buildingCoordinates?: [number, number] | null
+}
+
+function MapCenterUpdater({ center }: { center?: [number, number] | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (center && center[0] && center[1]) {
+      map.flyTo(center, 18, { duration: 1 })
+    }
+  }, [center, map])
+  return null
 }
 
 export default function OutdoorMap({
@@ -43,8 +54,9 @@ export default function OutdoorMap({
   coordinates,
   onCoordinatesChange,
   pointMode,
+  buildingCoordinates,
 }: OutdoorMapProps) {
-  const position: [number, number] = [10.03031, 105.76843]
+  const position: [number, number] = buildingCoordinates || [10.03031, 105.76843]
 
   const [selectedBuilding, setSelectedBuilding] = useState<any>(null)
   const [isOpenModal, setIsOpenModal] = useState(false)
@@ -112,6 +124,7 @@ export default function OutdoorMap({
         maxZoom={22}
         style={{ height: '100%', width: '100%', minHeight: '100%' }}
       >
+        <MapCenterUpdater center={buildingCoordinates} />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

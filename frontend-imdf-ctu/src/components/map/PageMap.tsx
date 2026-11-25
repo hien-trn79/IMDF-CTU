@@ -4,8 +4,6 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Crosshair, AlertTriangle, GraduationCap, Loader2, Sparkles } from 'lucide-react'
 
-import { FLOORS_LEVEL_ID } from '../../context/NavigateContext'
-
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
@@ -16,14 +14,13 @@ import ModalLocation from './ModalLocation'
 import ModalDirections from './ModalDirections'
 import OutdoorRouteLayer from './OutdoorRouteLayer'
 import IndoorRouteLayer from './IndoorRouteLayer'
-import type { UnitGeoJsonItem } from '../../model/geoJsonEntity.model'
 import { MAIN_ENTRANCE_COORDINATE, MAIN_ENTRANCE_HEX } from './OutdoorRoutingService'
+import type { UnitGeojsonItem } from '../../model/imdf models/Unit.model'
+import type { BuildingGeojsonItem } from '../../model/Building.model'
 
 const INDOOR_MIN_ZOOM = 18
 
 const UNIT_LABEL_MIN_ZOOM = 20
-
-const AVAILABLE_FLOORS = Object.keys(FLOORS_LEVEL_ID)
 
 const UNIT_STYLE: L.PathOptions = {
   color: '#0059e8',
@@ -42,7 +39,7 @@ const UNIT_HOVER_STYLE: L.PathOptions = {
 }
 
 const createOnEachUnit =
-  (onSelect: (unit: UnitGeoJsonItem) => void) => (feature: UnitGeoJsonItem, layer: L.Layer) => {
+  (onSelect: (unit: UnitGeojsonItem) => void) => (feature: UnitGeojsonItem, layer: L.Layer) => {
     const name = getUnitName(feature?.properties)
 
     if (name) {
@@ -204,10 +201,13 @@ function FlyToDestination({
 }
 
 export default function PageMap() {
-  const navigateCtx = useNavigateContext() as any
+  const navigateCtx = useNavigateContext()
   const {
     buildingData,
-    unitData,
+    unitsData,
+    currentBuildingId,
+    setCurrentBuildingId,
+    floorLevelIds,
     loadFloorData,
     loadedLevelId,
     isLoading,
@@ -227,6 +227,9 @@ export default function PageMap() {
     indoorRouteData,
     isRouting,
     clearRoute,
+
+    // danh sach toà nhà
+    buildings: buildingsRaw,
   } = navigateCtx
 
   const [isCloseModal, setIsCloseModal] = useState(false)
@@ -281,13 +284,10 @@ export default function PageMap() {
 
   const handleSwitchLevel = useCallback(
     (targetLevelId: number) => {
-      const floorEntry = Object.entries(FLOORS_LEVEL_ID).find(([, id]) => id === targetLevelId)
-      if (floorEntry && setSelectedFloor) {
-        setSelectedFloor(floorEntry[0])
-      }
-      void loadFloorData(targetLevelId)
+      const floorEntry = Object.entries(floorLevelIds).find(([, id]) => id === targetLevelId)
+      if (floorEntry) setSelectedFloor(floorEntry[0])
     },
-    [loadFloorData, setSelectedFloor]
+    [floorLevelIds, setSelectedFloor]
   )
 
   const isIndoorVisible = mapZoom >= INDOOR_MIN_ZOOM
@@ -296,21 +296,22 @@ export default function PageMap() {
   useEffect(() => {
     if (!isIndoorVisible) return
 
-    const levelId = FLOORS_LEVEL_ID[selectedFloor ?? '']
+    const levelId = floorLevelIds[selectedFloor ?? '']
     if (levelId === undefined) {
       clearFloorData()
       return
     }
 
     void loadFloorData(levelId)
-  }, [selectedFloor, loadFloorData, clearFloorData, retryTick, isIndoorVisible])
+  }, [selectedFloor, floorLevelIds, loadFloorData, clearFloorData, retryTick, isIndoorVisible])
 
-  const units = unitData
+  const activeLevelId = floorLevelIds[selectedFloor ?? '']
+  const units = loadedLevelId === activeLevelId ? unitsData : null
 
   const isUnitsLoading = isIndoorVisible && isLoading
   const isUnitsFailed = isIndoorVisible && !isLoading && failedLevelId !== null
 
-  const [selectedUnit, setSelectedUnit] = useState<UnitGeoJsonItem | null>(null)
+  const [selectedUnit, setSelectedUnit] = useState<UnitGeojsonItem | null>(null)
   const handleCloseUnitModal = useCallback(() => setSelectedUnit(null), [])
   const handleEachUnit = useMemo(() => createOnEachUnit(setSelectedUnit), [setSelectedUnit])
 
@@ -329,7 +330,7 @@ export default function PageMap() {
 
   const isDestOnOtherFloor =
     selectedDestination?.levelId !== undefined &&
-    FLOORS_LEVEL_ID[selectedFloor ?? ''] !== selectedDestination.levelId
+    activeLevelId !== selectedDestination.levelId
 
   const showDestMarker =
     !!selectedDestination &&
@@ -361,6 +362,46 @@ export default function PageMap() {
     { label: 'Khoa CNPM', code: 'CNPM/DI' },
     { label: 'Nhà vệ sinh WC1', name: 'WC1' },
   ]
+
+  // Xu ly chon select building
+  const buildingList = useMemo<BuildingGeojsonItem[]>(() => {
+    if (!buildingsRaw) return []
+    if (Array.isArray(buildingsRaw)) return buildingsRaw
+    return buildingsRaw.features ?? []
+  }, [buildingsRaw])
+  const availableFloors = useMemo(
+    () =>
+      Object.keys(floorLevelIds).sort((a, b) => {
+        const ordinal = (floor: string) => (floor === 'G' ? 0 : Number(floor))
+        return ordinal(a) - ordinal(b)
+      }),
+    [floorLevelIds]
+  )
+
+  const handleSelectBuilding = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const raw = event.target.value
+    if (!raw) {
+      setCurrentBuildingId(null)
+      setSelectedFloor(null)
+      clearFloorData()
+      clearRoute()
+      return
+    }
+    setCurrentBuildingId(Number(raw))
+    setSelectedFloor(null)
+    clearFloorData()
+    clearRoute()
+
+    const building = buildingList.find((b) => String(b.id) === raw)
+    const point = building?.properties?.displayPoint?.coordinates
+    if (point && mapRef.current) {
+      const [lng, lat] = point // GeoJSON là [lng, lat]
+      mapRef.current.flyTo([lat, lng], Math.max(mapRef.current.getZoom(), INDOOR_MIN_ZOOM), {
+        animate: true,
+        duration: 1.2,
+      })
+    }
+  }
 
   return (
     <div
@@ -406,7 +447,8 @@ export default function PageMap() {
         <OutdoorRouteLayer route={routeData} />
         <IndoorRouteLayer
           route={indoorRouteData}
-          activeLevelId={FLOORS_LEVEL_ID[selectedFloor ?? '']}
+          activeLevelId={activeLevelId}
+          floorLevelIds={floorLevelIds}
           onSwitchLevel={handleSwitchLevel}
         />
 
@@ -509,10 +551,35 @@ export default function PageMap() {
         </button>
       </div>
 
+      {/* Chọn toà nhà */}
+      <div className="absolute left-6 bottom-6 z-1000 bg-white rounded-2xl">
+        <select
+          id="indoorBuildings"
+          name="indoorBuildings"
+          value={currentBuildingId ?? ''}
+          onChange={handleSelectBuilding}
+          disabled={buildingList.length === 0}
+          className="block w-full rounded-2xl border bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-700 shadow-sm hover:border-sky-400 focus:border-sky-500 focus:ring focus:ring-sky-200 focus:ring-opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          aria-label="Chọn toà nhà"
+        >
+          <option value="">
+            {buildingList.length === 0 ? 'Không có toà nhà' : 'Chọn toà nhà...'}
+          </option>
+          {buildingList.map((building) => (
+            <option key={building.id} value={building.id}>
+              {building.properties.buildingName}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* BỘ CHỌN TẦNG */}
-      {isIndoorVisible && (
+      {isIndoorVisible && availableFloors.length > 0 && (
         <div className="absolute bottom-20 right-6 z-1000">
-          <FloorSelector availableFloors={AVAILABLE_FLOORS} />
+          <FloorSelector
+            availableFloors={availableFloors}
+            totalFloors={availableFloors}
+          />
         </div>
       )}
 

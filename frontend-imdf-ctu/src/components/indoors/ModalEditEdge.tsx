@@ -19,6 +19,7 @@ interface ModalEditEdgeProps {
   onClose: () => void
   edge: NetworkEdgeResponse | null
   token: string
+  levelId: number | null
   onUpdated: () => void
   onDeleted: (id: number) => void
 }
@@ -28,6 +29,7 @@ export default function ModalEditEdge({
   onClose,
   edge,
   token,
+  levelId,
   onUpdated,
   onDeleted,
 }: ModalEditEdgeProps) {
@@ -47,9 +49,9 @@ export default function ModalEditEdge({
   const lengthMeters = coords.length >= 2 ? calcPolylineLengthMeters(coords) : 0
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || levelId === null) return
     indoorRouteService
-      .getAll(token)
+      .getAll(token, levelId)
       .then(setRoutes)
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : 'Không tải được danh sách tuyến đường')
@@ -66,7 +68,7 @@ export default function ModalEditEdge({
       })
       setError(null)
     }
-  }, [isOpen, edge, token])
+  }, [isOpen, edge, levelId, token])
 
   const handleSave = async () => {
     setError(null)

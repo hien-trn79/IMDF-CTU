@@ -1,19 +1,20 @@
 import {
   Building2,
-  ChevronDown,
   Compass,
   Layers3,
   Loader2,
+  MapPin,
   Plus,
   RotateCcw,
   UploadCloud,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { message } from 'antd'
 import { useLevel } from '../../context/LevelContext'
 import { useUser } from '../../context/UserContext'
-import type { BuildingGeoJson, LevelGeoJson } from '../../model/geoJsonEntity.model'
+import type { VenueGeoJson, BuildingGeoJson, LevelGeoJson } from '../../model/geoJsonEntity.model'
 
-const API_BASE = 'http://localhost:8081/api' // nên chuyển sang import.meta.env.VITE_API_URL
+const API_BASE = 'http://localhost:8081/api'
 
 interface OutdoorSidebarProps {
   objectCount: number
@@ -30,6 +31,8 @@ interface OutdoorSidebarProps {
   onPublish?: () => void
   isPublishing?: boolean
   roleLabel?: string
+  onReload?: () => void
+  onBuildingCoordinatesChange?: (coords: [number, number] | null) => void
 }
 
 export default function OutdoorSidebar({
@@ -47,9 +50,14 @@ export default function OutdoorSidebar({
   onPublish: _onPublish,
   isPublishing: _isPublishing = false,
   roleLabel = 'ADMIN',
+  onReload,
+  onBuildingCoordinatesChange,
 }: OutdoorSidebarProps) {
-  const { dataVersion } = useLevel()
+  const { dataVersion, reloadUnits, reloadData } = useLevel()
   const { token } = useUser()
+
+  const [venues, setVenues] = useState<VenueGeoJson>()
+  const [selectedVenueId, setSelectedVenueId] = useState<number>(2)
 
   const [buildings, setBuildings] = useState<BuildingGeoJson['features'] | []>([])
   const [isLoadingBuildings, setIsLoadingBuildings] = useState(false)
@@ -61,63 +69,119 @@ export default function OutdoorSidebar({
 
   const isLoadingLayers = isLoadingBuildings || isLoadingLevels
 
-  const [isBuildingOpen, setIsBuildingOpen] = useState(false)
-
-  const selectedBuilding = buildings.find((b) => String(b.id) === String(selectedBuildingId))
-
   const authHeaders: HeadersInit = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 
-  // ---------- Fetch danh sách tòa nhà ----------
+  // 1. Fetch danh sách Venues
   useEffect(() => {
-    const controller = new AbortController()
+    let isMounted = true
+    const fetchVenues = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/venues`, { headers: authHeaders })
+        if (res.ok) {
+          const data: VenueGeoJson = await res.json()
+          if (!isMounted) return
+          setVenues(data)
+          if (data.features && data.features.length > 0) {
+            if (!selectedVenueId || !data.features.some((v) => Number(v.id) === selectedVenueId)) {
+              setSelectedVenueId(Number(data.features[0].id))
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching venues:', err)
+      }
+    }
+    if (token) fetchVenues()
+    return () => {
+      isMounted = false
+    }
+  }, [token])
 
+  // 2. Fetch danh sách tòa nhà theo Venue
+  useEffect(() => {
+    let isMounted = true
+    if (!selectedVenueId) {
+      setBuildings([])
+      return
+    }
+
+    const controller = new AbortController()
     const fetchBuildings = async () => {
       setIsLoadingBuildings(true)
       setBuildingsError(null)
       try {
-        const res = await fetch(`${API_BASE}/buildings?venueId=2&page=0&size=100&sort=id%2CASC`, {
-          headers: authHeaders,
-          signal: controller.signal,
-        })
+        const res = await fetch(
+          `${API_BASE}/buildings?venueId=${selectedVenueId}&page=0&size=100&sort=id%2CASC`,
+          {
+            headers: authHeaders,
+            signal: controller.signal,
+          }
+        )
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data: BuildingGeoJson = await res.json()
         const features = data.features ?? []
+        if (!isMounted) return
         setBuildings(features)
 
-        const exists = features.some((b) => String(b.id) === String(selectedBuildingId))
+        const exists = features.some((b) => Number(b.id) === selectedBuildingId)
         if (!exists && features.length > 0) {
           const firstId = Number(features[0].id)
-          if (!Number.isNaN(firstId)) setSelectedBuildingId(firstId)
+          if (!Number.isNaN(firstId)) {
+            setSelectedBuildingId(firstId)
+            if (features[0].properties?.displayPoint?.coordinates) {
+              const [lng, lat] = features[0].properties.displayPoint.coordinates
+              onBuildingCoordinatesChange?.([lat, lng])
+            }
+          }
+        } else if (features.length === 0) {
+          setSelectedBuildingId(0)
+          setLevels([])
+          setActiveLevelId('')
+          onLevelChange?.(null)
         }
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
         console.error('Error fetching buildings:', err)
-        setBuildings([])
-        setBuildingsError('Không tải được danh sách tòa nhà.')
+        if (isMounted) {
+          setBuildings([])
+          setBuildingsError('Không tải được danh sách tòa nhà.')
+        }
       } finally {
-        if (!controller.signal.aborted) setIsLoadingBuildings(false)
+        if (isMounted) setIsLoadingBuildings(false)
       }
     }
 
-    fetchBuildings()
-    return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+    if (token) fetchBuildings()
+    return () => {
+      isMounted = false
+      controller.abort()
+    }
+  }, [selectedVenueId, token])
 
-  // ---------- Fetch tầng theo tòa nhà ----------
+  // 3. Fetch tầng theo tòa nhà
   useEffect(() => {
-    if (!selectedBuildingId) return
-    const controller = new AbortController()
-
-    const fetchLevels = async () => {
-      setIsLoadingLevels(true)
-      setLevelsError(null)
+    let isMounted = true
+    if (!selectedBuildingId) {
       setLevels([])
       setActiveLevelId('')
       onLevelChange?.(null)
+      return
+    }
+
+    // Cập nhật tọa độ building
+    const currentBuilding = buildings.find((b) => Number(b.id) === selectedBuildingId)
+    if (currentBuilding?.properties?.displayPoint?.coordinates) {
+      const [lng, lat] = currentBuilding.properties.displayPoint.coordinates
+      onBuildingCoordinatesChange?.([lat, lng])
+    }
+
+    const controller = new AbortController()
+    const fetchLevels = async () => {
+      setIsLoadingLevels(true)
+      setLevelsError(null)
 
       try {
         const res = await fetch(`${API_BASE}/levels?buildingId=${selectedBuildingId}`, {
@@ -126,31 +190,42 @@ export default function OutdoorSidebar({
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data: LevelGeoJson = await res.json()
+        if (!isMounted) return
         const sorted = [...(data.features ?? [])].sort(
           (a, b) => Number(a.properties.ordinal) - Number(b.properties.ordinal)
         )
         setLevels(sorted as LevelGeoJson['features'])
 
-        // Tự chọn tầng đầu tiên cho giống giao diện mẫu ("Tầng 1")
         if (sorted.length > 0) {
-          const firstId = String(sorted[0].id)
-          setActiveLevelId(firstId)
-          onLevelChange?.(firstId)
+          const currentExists = sorted.some((l) => String(l.id) === activeLevelId)
+          const chosenId = currentExists ? activeLevelId : String(sorted[0].id)
+          setActiveLevelId(chosenId)
+          onLevelChange?.(chosenId)
+        } else {
+          // Tòa nhà chưa có tầng
+          setActiveLevelId('')
+          onLevelChange?.(null)
         }
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
         console.error('Lỗi khi fetch levels:', err)
-        setLevels([])
-        setLevelsError('Không tải được danh sách tầng.')
+        if (isMounted) {
+          setLevels([])
+          setActiveLevelId('')
+          onLevelChange?.(null)
+          setLevelsError('Không tải được danh sách tầng.')
+        }
       } finally {
-        if (!controller.signal.aborted) setIsLoadingLevels(false)
+        if (isMounted) setIsLoadingLevels(false)
       }
     }
 
-    fetchLevels()
-    return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBuildingId, token, setLevels, dataVersion])
+    if (token) fetchLevels()
+    return () => {
+      isMounted = false
+      controller.abort()
+    }
+  }, [selectedBuildingId, buildings, token, dataVersion])
 
   const handleLevelChange = (levelId: string) => {
     setActiveLevelId(levelId)
@@ -158,16 +233,32 @@ export default function OutdoorSidebar({
   }
 
   const tableOptions = [
+    { value: 'unit', label: 'Unit - Phòng' },
     { value: 'anchors', label: 'Anchor - Điểm neo' },
     { value: 'amenities', label: 'Amenity - Tiện ích' },
-    { value: 'unit', label: 'Unit - Phòng' },
     { value: 'level', label: 'Level - Tầng' },
   ]
 
+  const handleRefresh = () => {
+    reloadUnits()
+    reloadData()
+    onReload?.()
+  }
+
+  const handleDrawClick = () => {
+    if (!activeLevelId) {
+      message.warning(
+        'Tòa nhà hiện tại chưa có Tầng (Level). Vui lòng cấu hình Tầng trước khi vẽ đối tượng!'
+      )
+      return
+    }
+    setIsOpenAddModal(true)
+  }
+
   return (
-    <aside className="page-ourdoor-sidebar w-full shrink-0 space-y-4 sm:w-70 lg:w-72.5">
-      {/* ================= CARD 1: QUẢN LÝ INDOOR ================= */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <aside className="page-ourdoor-sidebar w-full shrink-0 space-y-2 sm:w-70 lg:w-72.5">
+      {/* ================= CARD 1: QUẢN LÝ ĐỊA ĐIỂM (IMDF) ================= */}
+      <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
         {/* Header */}
         <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-3">
           <span className="flex items-center gap-2 text-sm font-bold text-blue-700">
@@ -178,68 +269,166 @@ export default function OutdoorSidebar({
             {roleLabel}
           </span>
         </div>
-        {/* Chọn tầng */}
-        <label
-          htmlFor="level-select"
-          className="mb-1.5 block px-0.5 text-xs font-semibold text-slate-500"
-        >
-          Chọn tầng mặt bằng:
-        </label>
-        <div className="relative mb-3">
-          <Compass className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <select
-            id="level-select"
-            value={activeLevelId}
-            onChange={(e) => handleLevelChange(e.target.value)}
-            disabled={isLoadingLevels || levels.length === 0}
-            className={`h-11 w-full cursor-pointer appearance-none rounded-2xl border bg-slate-50 pl-10 pr-10 text-sm font-bold outline-none transition
-              focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100
-              disabled:cursor-not-allowed disabled:text-slate-400
-              ${activeLevelId ? 'border-sky-200 text-slate-800' : 'border-slate-200 text-slate-500'}`}
-          >
-            <option value="">
-              {isLoadingLevels
-                ? 'Đang tải tầng...'
-                : levels.length === 0
-                  ? 'Không có tầng nào'
-                  : 'Chọn tầng'}
-            </option>
-            {levels.map((level) => (
-              <option key={level.id} value={level.id}>
-                Tầng {level.properties.ordinal}
-              </option>
-            ))}
-          </select>
-          {isLoadingLevels ? (
-            <Loader2 className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
-          ) : (
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          )}
-        </div>
-        {levelsError && (
-          <p className="-mt-1 mb-3 rounded-lg bg-red-50 px-2.5 py-2 text-xs text-red-600">
-            {levelsError}
-          </p>
-        )}
 
-        {/* Actions */}
-        <div className="mb-3 grid grid-cols-2 gap-2.5">
-          <button className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60">
-            <RotateCcw className={`h-4 w-4 ${isLoadingLayers ? 'animate-spin' : ''}`} />
+        <div className="space-y-3">
+          {/* Chọn Venue */}
+          <div className="mb-3">
+            <label
+              htmlFor="venue-select"
+              className="mb-1 flex items-center text-xs font-semibold text-blue-700"
+            >
+              <MapPin className="mr-1 inline h-3.5 w-3.5" />
+              Chọn Venue:
+            </label>
+            <select
+              id="venue-select"
+              value={selectedVenueId}
+              onChange={(e) => setSelectedVenueId(Number(e.target.value))}
+              className="h-11 w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-bold text-slate-800 outline-none transition focus:border-sky-400 focus:bg-white"
+            >
+              {venues && venues.features.length > 0 ? (
+                venues.features.map((venue) => (
+                  <option key={venue.id} value={venue.id}>
+                    {venue.properties.venueName}
+                  </option>
+                ))
+              ) : (
+                <option value="">-- Chưa có Venue --</option>
+              )}
+            </select>
+          </div>
+
+          {/* Chọn Building */}
+          <div className="mb-3">
+            <label
+              htmlFor="building-select"
+              className="mb-1 flex items-center text-xs font-semibold text-blue-700"
+            >
+              <Building2 className="mr-1 inline h-3.5 w-3.5" />
+              Chọn Building:
+            </label>
+            <select
+              id="building-select"
+              value={selectedBuildingId || ''}
+              onChange={(e) => setSelectedBuildingId(Number(e.target.value))}
+              disabled={isLoadingBuildings || buildings.length === 0}
+              className="h-11 w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-bold text-slate-800 outline-none transition focus:border-sky-400 focus:bg-white disabled:bg-slate-100 disabled:text-slate-400"
+            >
+              {isLoadingBuildings ? (
+                <option value="">Đang tải danh sách tòa nhà...</option>
+              ) : buildings.length > 0 ? (
+                buildings.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.properties.buildingName}
+                  </option>
+                ))
+              ) : (
+                <option value="">-- Chưa cấu hình Tòa nhà --</option>
+              )}
+            </select>
+          </div>
+
+          {/* Chọn Tầng (Level) */}
+          <div className="mb-2">
+            <label
+              htmlFor="level-select"
+              className="mb-1 flex items-center text-xs font-semibold text-blue-700"
+            >
+              <Compass className="mr-1 inline h-3.5 w-3.5" />
+              Chọn Tầng (Level):
+            </label>
+            <select
+              id="level-select"
+              value={activeLevelId}
+              onChange={(e) => handleLevelChange(e.target.value)}
+              disabled={isLoadingLevels || levels.length === 0}
+              className={`h-11 w-full cursor-pointer appearance-none rounded-2xl border bg-slate-50 px-3.5 text-sm font-bold outline-none transition
+                focus:border-sky-400 focus:bg-white
+                disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400
+                ${activeLevelId ? 'border-sky-200 text-slate-800' : 'border-slate-200 text-slate-500'}`}
+            >
+              {isLoadingLevels ? (
+                <option value="">Đang tải tầng...</option>
+              ) : levels.length > 0 ? (
+                levels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    Tầng {level.properties.ordinal}
+                  </option>
+                ))
+              ) : (
+                <option value="">-- Tòa nhà chưa cấu hình Tầng --</option>
+              )}
+            </select>
+            {levelsError && <p className="mt-1 text-[11px] text-red-600">{levelsError}</p>}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= CARD 2: BẢNG LỚP DỮ LIỆU IMDF (GIỐNG ROUTE) ================= */}
+      <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-3 text-sm font-bold text-blue-700">
+          <span className="flex items-center gap-2">
+            <Layers3 className="h-4 w-4" />
+            Bảng lớp dữ liệu IMDF
+          </span>
+        </div>
+
+        {/* Nút Làm mới & Vẽ đối tượng */}
+        <div className="mb-2.5 grid grid-cols-2 gap-2">
+          <button
+            onClick={handleRefresh}
+            className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60 cursor-pointer"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${isLoadingLayers ? 'animate-spin' : ''}`} />
             Làm mới
           </button>
           <button
-            onClick={() => setIsOpenAddModal(true)}
+            onClick={handleDrawClick}
             title="Thêm feature mới lên tầng đang chọn"
-            className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/30 transition hover:bg-blue-700 active:scale-[0.98]"
+            className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
             Vẽ đối tượng
           </button>
         </div>
 
-        {/* NUT THEM DU LIEU GEOJSON */}
-        <label className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-sm font-bold text-emerald-700 shadow-sm hover:border-emerald-400 hover:bg-emerald-100">
+        {/* Khung tabs chọn bảng dữ liệu giống hệt bên Route */}
+        <ul
+          role="listbox"
+          aria-label="Danh sách lớp dữ liệu IMDF"
+          className="mt-2 ml-1 max-h-68 space-y-0.5 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5"
+        >
+          {tableOptions.map((option) => {
+            const isTabActive = selectedTables.includes(option.value)
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="tab"
+                aria-selected={isTabActive}
+                onClick={() => {
+                  onTableToggle(option.value)
+                  onTableChange(option.value)
+                }}
+                className={`relative flex shrink-0 whitespace-nowrap px-2.5 py-2 text-xs font-semibold transition-colors w-full text-left ${
+                  isTabActive
+                    ? 'text-sky-700 font-bold bg-sky-50/70 rounded-lg'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {option.label}
+                <span
+                  className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-colors ${
+                    isTabActive ? 'bg-sky-500' : 'bg-transparent'
+                  }`}
+                />
+              </button>
+            )
+          })}
+        </ul>
+
+        {/* Nút Thêm dữ liệu GeoJSON */}
+        <label className="mt-3 flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-700 shadow-xs hover:border-emerald-400 hover:bg-emerald-100 transition">
           <UploadCloud className="h-4 w-4" />
           Thêm dữ liệu GeoJSON
           <input
@@ -253,118 +442,6 @@ export default function OutdoorSidebar({
             }}
           />
         </label>
-
-        {/* NUT PUSHLISH LÊN GEOSERVER */}
-        {/* <button
-          onClick={onPublish}
-          disabled={!onPublish || isPublishing}
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-sm font-bold text-white shadow-sm shadow-emerald-600/30 transition hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isPublishing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <UploadCloud className="h-4 w-4" />
-          )}
-          Publish Layer lên GeoServer
-        </button>
-
-        {layerCatalogError && (
-          <p className="mt-3 rounded-lg bg-red-50 px-2.5 py-2 text-[11px] text-red-600">
-            Không đọc được danh sách layer: {layerCatalogError}
-          </p>
-        )} */}
-      </section>
-
-      {/* ============ CARD 2: DANH MỤC TÒA NHÀ CHỨA DỮ LIỆU NỘI KHU ============ */}
-      {/* DANH MUC TOA NHA; FROM BACKEND */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-start justify-between gap-3 px-0.5">
-          <span className="flex items-start gap-2 text-sm font-semibold leading-snug text-slate-700">
-            <Layers3 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-            Danh mục tòa nhà
-          </span>
-          <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs font-semibold text-slate-400">
-            {buildings.length} tòa nhà
-          </span>
-        </div>
-
-        {isLoadingBuildings ? (
-          <p className="flex items-center gap-2 px-2 py-2 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
-          </p>
-        ) : buildingsError ? (
-          <p className="rounded-lg bg-red-50 px-2.5 py-2 text-xs text-red-600">{buildingsError}</p>
-        ) : buildings.length === 0 ? (
-          <p className="px-2 py-2 text-sm text-slate-500">Không có tòa nhà nào.</p>
-        ) : (
-          <div>
-            {/* ===== Tab building lớn (giả lập select) ===== */}
-            <button
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded={isBuildingOpen}
-              onClick={() => setIsBuildingOpen((v) => !v)}
-              className={`flex w-full items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-left transition-all duration-150 ${
-                isBuildingOpen
-                  ? 'border-sky-300 ring-2 ring-sky-100'
-                  : 'border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-[11px] font-semibold text-slate-400">Tòa nhà</span>
-                <span className="block truncate text-sm font-bold text-slate-800">
-                  {selectedBuilding?.properties.buildingName ?? 'Chọn tòa nhà'}
-                </span>
-              </span>
-
-              {selectedBuilding && (
-                <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-700">
-                  {isLoadingLevels ? '…' : `${levels.length} tầng`}
-                </span>
-              )}
-
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 ${
-                  isBuildingOpen ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-            {/* ===== Danh sách building con (chỉ đóng khi bấm lại ô lớn) ===== */}
-            {isBuildingOpen && (
-              <ul
-                role="listbox"
-                aria-label="Danh sách tòa nhà"
-                className="mt-2 ml-2 max-h-68 space-y-0.5 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5"
-              >
-                {tableOptions.map((option) => {
-                  const isTabActive = selectedTables.includes(option.value)
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="tab"
-                      aria-selected={isTabActive}
-                      onClick={() => {
-                        onTableToggle(option.value)
-                        onTableChange(option.value)
-                      }}
-                      className={`relative flex shrink-0 whitespace-nowrap px-2.5 py-2 text-xs font-semibold transition-colors ${
-                        isTabActive ? 'text-sky-700' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      {option.label}
-                      <span
-                        className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-colors ${
-                          isTabActive ? 'bg-sky-500' : 'bg-transparent'
-                        }`}
-                      />
-                    </button>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-        )}
       </section>
     </aside>
   )

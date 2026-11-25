@@ -4,7 +4,7 @@ import type { RestrictionCategoryResponse } from '../../model/imdf models/Restri
 import { useEffect, useState } from 'react'
 
 export default function PageDashboard() {
-  const [restrictionCategories, setRestrictionCategories] = useState<RestrictionCategoryResponse[]>(
+  const [_restrictionCategories, setRestrictionCategories] = useState<RestrictionCategoryResponse[]>(
     []
   )
 

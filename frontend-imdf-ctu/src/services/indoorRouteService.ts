@@ -25,8 +25,8 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export const indoorRouteService = {
-  async getAll(token: string, levelId?: number): Promise<IndoorRouteResponse[]> {
-    const url = levelId !== undefined ? `${API_BASE}?levelId=${levelId}` : API_BASE
+  async getAll(token: string, levelId: number): Promise<IndoorRouteResponse[]> {
+    const url = `${API_BASE}?levelId=${levelId}`
     const res = await fetch(url, { headers: authHeaders(token) })
     return handleResponse<IndoorRouteResponse[]>(res)
   },

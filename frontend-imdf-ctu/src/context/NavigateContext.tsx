@@ -1,11 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  AmenityGeojson,
-  AnchorGeojson,
-  BuildingGeoJsonItem,
-  LevelGeoJson,
-  UnitGeoJson,
-} from '../model/geoJsonEntity.model'
+// import type {
+//   AmenityGeojson,
+//   AnchorGeojson,
+//   LevelGeoJson,
+//   UnitGeoJson,
+// } from '../model/geoJsonEntity.model'
 import {
   buildFloorEntries,
   pickSuggestions,
@@ -15,12 +14,16 @@ import {
 } from '../utils/searchUtils'
 import { useOutdoorRouting } from '../components/map/UseOutdoorRouting'
 import type { IndoorGeoJsonResponse } from '../services/indoorRoutingService'
+import type { BuildingGeojsonItem, BuildingGeojsonResponse } from '../model/Building.model'
+import type { LevelGeoJson } from '../model/imdf models/Level.model'
+import type { UnitGeojson } from '../model/imdf models/Unit.model'
+import type { AnchorGeojson } from '../model/imdf models/Anchor.model'
+import type { AmenityGeojson } from '../model/imdf models/Amenity.model'
 
 // Định vị GPS + tìm đường (userLocation, locate, routeData, calculateRoute, clearRoute...)
 type OutdoorRouting = ReturnType<typeof useOutdoorRouting>
 
 interface NavigateContextType extends OutdoorRouting {
-  // Lấy thông tin building, sau đó sẽ set FLOORS_LEVEL_ID
   currentBuildingId: number | null
   setCurrentBuildingId: (id: number | null) => void
 
@@ -29,16 +32,20 @@ interface NavigateContextType extends OutdoorRouting {
   loadedLevelId: number | null
   setLoadedLevelId: (id: number) => void
   setCurrentLevelId: (id: number) => void
-  availableLevels: LevelGeoJson['features'] | undefined
-  setAvailableLevels: (levels: LevelGeoJson['features']) => void
   selectedFloor: string | null
-  setSelectedFloor: (floor: string) => void
+  setSelectedFloor: (floor: string | null) => void
+  floorLevelIds: Record<string, number>
 
-  buildingData: BuildingGeoJsonItem | null
-  levelData: LevelGeoJson | null
-  unitData: UnitGeoJson | null
-  anchorData: AnchorGeojson | null
-  amenityData: AmenityGeojson | null
+  // Venue
+  currentVenueId: number
+  setCurrentVenueId: (id: number) => void
+
+  buildings: BuildingGeojsonResponse | undefined
+  buildingData: BuildingGeojsonItem | null
+  levelsData: LevelGeoJson | null
+  unitsData: UnitGeojson | null
+  anchorsData: AnchorGeojson | null
+  amenitiesData: AmenityGeojson | null
 
   // Action
   clearFloorData: () => void
@@ -67,27 +74,23 @@ interface NavigateContextType extends OutdoorRouting {
   setIsLocationModalOpen: (open: boolean) => void
 }
 
-export const FLOORS_LEVEL_ID: Record<string, number> = {
-  G: 4,
-  1: 3,
-}
-
-// Tên cũ (PageMap.tsx đang import tên này) => trỏ cùng 1 bảng, sửa 1 chỗ là đủ
-export const FLOOR_LEVEL_IDS = FLOORS_LEVEL_ID
-
 interface FloorData {
-  unitData: UnitGeoJson
-  anchorData: AnchorGeojson
-  amenityData: AmenityGeojson
+  unitsData: UnitGeojson
+  anchorsData: AnchorGeojson
+  amenitiesData: AmenityGeojson
 }
 
-const floorNameOf = (levelId: number): string | undefined =>
-  Object.keys(FLOORS_LEVEL_ID).find((name) => FLOORS_LEVEL_ID[name] === levelId)
+const floorNameOf = (levelId: number, levels: LevelGeoJson['features']): string | undefined => {
+  const level = levels.find((feature) => Number(feature.id) === levelId)
+  const ordinal = level?.properties.ordinal
+  if (typeof ordinal !== 'number') return undefined
+  return ordinal === 0 ? 'G' : String(ordinal)
+}
 
-const floorLabelOf = (levelId: number): string => {
-  const name = floorNameOf(levelId)
-  if (!name) return ''
-  return name === 'G' ? 'Tầng trệt' : `Tầng ${name}`
+const floorLabelOf = (levelId: number, levels: LevelGeoJson['features']): string => {
+  const name = floorNameOf(levelId, levels)
+  if (name === 'G') return 'Tầng trệt'
+  return name ? `Tầng ${name}` : `Tầng ${levelId}`
 }
 
 // Báo lỗi khi fetch dữ liệu bị hủy (ví dụ khi người dùng chuyển tầng trước khi fetch xong)
@@ -106,26 +109,29 @@ async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
 
 // Gọi song song 3 API units / anchors / amenities của 1 tầng
 async function fetchFloor(levelId: number, signal: AbortSignal): Promise<FloorData> {
-  const [unitData, anchorData, amenityData] = await Promise.all([
-    fetchJson<UnitGeoJson>(`${API_BASE_URL}/units?levelId=${levelId}`, signal),
+  const [unitsData, anchorsData, amenitiesData] = await Promise.all([
+    fetchJson<UnitGeojson>(`${API_BASE_URL}/units?levelId=${levelId}`, signal),
     fetchJson<AnchorGeojson>(`${API_BASE_URL}/anchors?levelId=${levelId}`, signal),
     fetchJson<AmenityGeojson>(`${API_BASE_URL}/amenities?levelId=${levelId}`, signal),
   ])
-  return { unitData, anchorData, amenityData }
+  return { unitsData, anchorsData, amenitiesData }
 }
 
 export const NavigateProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentBuildingId, setCurrentBuildingId] = useState<number | null>(1)
 
-  const [currentLevelId, setCurrentLevelId] = useState<number>(FLOORS_LEVEL_ID.G)
-  const [availableLevels, setAvailableLevels] = useState<LevelGeoJson['features']>()
-  const [selectedFloor, setSelectedFloor] = useState<string>('G')
+  const [currentLevelId, setCurrentLevelId] = useState<number>(0)
+  const [selectedFloor, setSelectedFloor] = useState<string | null>(null)
 
-  const [buildingData, setBuildingData] = useState<BuildingGeoJsonItem | null>(null)
-  const [levelData, setLevelData] = useState<LevelGeoJson | null>(null)
-  const [unitData, setUnitData] = useState<UnitGeoJson | null>(null)
-  const [anchorData, setAnchorData] = useState<AnchorGeojson | null>(null)
-  const [amenityData, setAmenityData] = useState<AmenityGeojson | null>(null)
+  // Venue
+  const [currentVenueId, setCurrentVenueId] = useState<number>(2)
+
+  const [buildings, setBuildings] = useState<BuildingGeojsonResponse>()
+  const [buildingData, setBuildingData] = useState<BuildingGeojsonItem | null>(null)
+  const [levelsData, setLevelData] = useState<LevelGeoJson | null>(null)
+  const [unitsData, setUnitsData] = useState<UnitGeojson | null>(null)
+  const [anchorsData, setAnchorsData] = useState<AnchorGeojson | null>(null)
+  const [amenitiesData, setAmenitiesData] = useState<AmenityGeojson | null>(null)
   const [loadedLevelId, setLoadedLevelId] = useState<number | null>(null)
 
   const [selectedDestination, setSelectedDestination] = useState<SearchResultItem | null>(null)
@@ -142,7 +148,7 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
     routing.clearRoute()
     setIndoorRouteData(null)
     setIndoorRouteError(null)
-  }, [routing])
+  }, [routing.clearRoute])
 
   // Cache du lieu theo ordinal de tranh goi API lan nua
   const dataCache = useMemo(() => new Map<number, FloorData>(), [])
@@ -163,36 +169,123 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
     }
   }, [])
 
-  // Du lieu building [GET] /buildings/{buildingId}: tai doc lap voi du lieu tang.
-  // (Truoc day chi tai khi tang chua co trong cache, nhung tang co the da duoc nap nen
-  // bang prepareSearch => buildingData khong bao gio duoc tai => modal thong tin khong hien.)
+  const floorLevelIds = useMemo(() => {
+    const result: Record<string, number> = {}
+    for (const level of levelsData?.features ?? []) {
+      const id = Number(level.id)
+      const ordinal = level.properties.ordinal
+      if (!Number.isInteger(id) || typeof ordinal !== 'number') continue
+      result[ordinal === 0 ? 'G' : String(ordinal)] = id
+    }
+    return result
+  }, [levelsData])
+
   useEffect(() => {
-    if (currentBuildingId === null) {
-      setBuildingData(null)
-      return
+    const controller = new AbortController()
+    setBuildings(undefined)
+
+    if (currentVenueId === null) {
+      console.warn('NavigateContext: currentVenueId is null, cannot fetch building data')
+      return () => controller.abort()
     }
 
-    const controller = new AbortController()
-    fetchJson<BuildingGeoJsonItem>(
-      `${API_BASE_URL}/buildings/${currentBuildingId}`,
+    fetchJson<BuildingGeojsonResponse>(
+      `${API_BASE_URL}/buildings?venueId=${currentVenueId}`,
       controller.signal
     )
-      .then((building) => {
-        if (!controller.signal.aborted) setBuildingData(building)
+      .then((data) => {
+        if (!controller.signal.aborted) setBuildings(data)
       })
       .catch((error) => {
         if (!isAbortError(error)) {
-          console.error('NavigateContext: Lỗi khi tải dữ liệu toà nhà:', error)
+          console.error('NavigateContext: Lỗi khi tải danh sách toà nhà:', error)
         }
       })
 
     return () => controller.abort()
-  }, [currentBuildingId])
+  }, [currentVenueId])
+
+  // Tải building và levels theo building đang được chọn.
+  useEffect(() => {
+    const controller = new AbortController()
+    setBuildingData(null)
+    setLevelData(null)
+    setSelectedFloor(null)
+    setUnitsData(null)
+    setAnchorsData(null)
+    setAmenitiesData(null)
+    setCurrentLevelId(0)
+    setLoadedLevelId(null)
+    setFailedLevelId(null)
+    setIsLoading(false)
+    setSelectedDestination(null)
+    setIsLocationModalOpen(false)
+    abortRef.current?.abort()
+    abortRef.current = null
+    prefetchRef.current?.abort()
+    prefetchRef.current = null
+    dataCache.clear()
+    setIndexVersion((version) => version + 1)
+    clearRoute()
+
+    if (currentVenueId === null) {
+      console.warn('NavigateContext: currentVenueId is null, cannot fetch building data')
+      return () => controller.abort()
+    }
+
+    if (currentBuildingId !== null) {
+      fetchJson<BuildingGeojsonItem>(
+        `${API_BASE_URL}/buildings/${currentBuildingId}`,
+        controller.signal
+      )
+        .then((building) => {
+          if (!controller.signal.aborted) setBuildingData(building)
+        })
+        .catch((error) => {
+          if (!isAbortError(error)) {
+            console.error('NavigateContext: Lỗi khi tải dữ liệu tòa nhà:', error)
+          }
+        })
+
+      fetchJson<LevelGeoJson>(
+        `${API_BASE_URL}/levels?buildingId=${currentBuildingId}`,
+        controller.signal
+      )
+        .then((levels) => {
+          if (!controller.signal.aborted) setLevelData(levels)
+        })
+        .catch((error) => {
+          if (!isAbortError(error)) {
+            console.error('NavigateContext: Lỗi khi tải danh sách tầng:', error)
+          }
+        })
+    }
+
+    return () => controller.abort()
+  }, [currentBuildingId, currentVenueId, dataCache, clearRoute])
+
+  useEffect(() => {
+    const floors = Object.keys(floorLevelIds).sort((a, b) => {
+      const ordinal = (floor: string) => (floor === 'G' ? 0 : Number(floor))
+      return ordinal(a) - ordinal(b)
+    })
+    if (floors.length === 0) {
+      setSelectedFloor(null)
+      setCurrentLevelId(0)
+      return
+    }
+    const nextFloor =
+      selectedFloor && Object.prototype.hasOwnProperty.call(floorLevelIds, selectedFloor)
+        ? selectedFloor
+        : floors[0]
+    if (selectedFloor !== nextFloor) setSelectedFloor(nextFloor)
+    setCurrentLevelId(floorLevelIds[nextFloor])
+  }, [floorLevelIds, selectedFloor])
 
   const applyFloorData = useCallback((levelId: number, data: FloorData | null) => {
-    setUnitData(data?.unitData ?? null)
-    setAnchorData(data?.anchorData ?? null)
-    setAmenityData(data?.amenityData ?? null)
+    setUnitsData(data?.unitsData ?? null)
+    setAnchorsData(data?.anchorsData ?? null)
+    setAmenitiesData(data?.amenitiesData ?? null)
     // Tầng mà dữ liệu bên trên thực sự thuộc về (PageMap dùng làm key vẽ lại lớp unit)
     setLoadedLevelId(data ? levelId : null)
   }, [])
@@ -258,7 +351,7 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
   // Nạp nền dữ liệu các tầng chưa có trong cache để tìm kiếm được trên mọi tầng.
   // Gọi nhiều lần vẫn an toàn (đang chạy hoặc đã đủ cache thì bỏ qua).
   const prepareSearch = useCallback(async () => {
-    const pending = Object.values(FLOORS_LEVEL_ID).filter((id) => !dataCache.has(id))
+    const pending = Object.values(floorLevelIds).filter((id) => !dataCache.has(id))
     if (pending.length === 0) return
     if (prefetchRef.current && !prefetchRef.current.signal.aborted) return
 
@@ -286,23 +379,28 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
     } finally {
       if (prefetchRef.current === controller) prefetchRef.current = null
     }
-  }, [dataCache])
+  }, [dataCache, floorLevelIds])
 
-  // Nạp nền ngay khi ứng dụng mở
   useEffect(() => {
-    void prepareSearch()
-  }, [prepareSearch])
+    if (Object.keys(floorLevelIds).length > 0) void prepareSearch()
+  }, [floorLevelIds, prepareSearch])
 
   // Chỉ mục tìm kiếm của mọi tầng đã nạp (unit + anchor + amenity)
   const entries = useMemo<SearchEntry[]>(() => {
     const result: SearchEntry[] = []
     dataCache.forEach((data, levelId) => {
-      result.push(...buildFloorEntries(levelId, floorLabelOf(levelId), data))
+      result.push(
+        ...buildFloorEntries(levelId, floorLabelOf(levelId, levelsData?.features ?? []), {
+          unitData: data.unitsData,
+          anchorData: data.anchorsData,
+          amenityData: data.amenitiesData,
+        })
+      )
     })
     return result
     // indexVersion đổi khi cache thay đổi (dataCache là Map nên React không tự theo dõi)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataCache, indexVersion])
+  }, [dataCache, indexVersion, levelsData])
 
   // Tìm kiếm nhanh theo ký hiệu / tên phòng, tiện ích trên mọi tầng (không phân biệt dấu, hoa thường)
   const searchItems = useCallback(
@@ -321,22 +419,27 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
     (item: SearchResultItem) => {
       clearRoute() // đổi điểm đến => đường cũ không còn đúng
       if (item.levelId !== undefined) {
-        const floor = floorNameOf(item.levelId)
+        const floor = floorNameOf(item.levelId, levelsData?.features ?? [])
         if (floor) setSelectedFloor(floor)
       }
       // Tạo object mới để chọn lại cùng 1 địa điểm vẫn kích hoạt bay tới và mở popup
       setSelectedDestination({ ...item })
     },
-    [clearRoute]
+    [clearRoute, levelsData]
   )
 
   const value = useMemo<NavigateContextType>(
     () => ({
+      // venue
+      currentVenueId,
+      setCurrentVenueId,
+
+      buildings,
       buildingData,
-      levelData,
-      unitData,
-      anchorData,
-      amenityData,
+      levelsData,
+      unitsData,
+      anchorsData,
+      amenitiesData,
 
       currentBuildingId,
       setCurrentBuildingId,
@@ -344,8 +447,7 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
       selectedFloor,
       setSelectedFloor,
       currentLevelId,
-      availableLevels,
-      setAvailableLevels,
+      floorLevelIds,
       setCurrentLevelId,
       loadedLevelId,
       setLoadedLevelId,
@@ -376,18 +478,19 @@ export const NavigateProvider = ({ children }: { children: React.ReactNode }) =>
     }),
     [
       currentBuildingId,
+      currentVenueId,
       currentLevelId,
       loadedLevelId,
       clearFloorData,
-      availableLevels,
       selectedFloor,
+      floorLevelIds,
       failedLevelId,
 
       buildingData,
-      levelData,
-      unitData,
-      anchorData,
-      amenityData,
+      levelsData,
+      unitsData,
+      anchorsData,
+      amenitiesData,
 
       loadFloorData,
       searchItems,

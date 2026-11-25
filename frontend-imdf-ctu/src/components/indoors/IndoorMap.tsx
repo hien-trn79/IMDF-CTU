@@ -1,6 +1,7 @@
-import { MapContainer, TileLayer } from 'react-leaflet'
+import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { useEffect } from 'react'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
@@ -41,6 +42,18 @@ interface IndoorMapProps {
   showEdges?: boolean
   onSelectNode?: (node: NetworkNodeItem) => void
   onSelectEdge?: (edge: NetworkEdgeItem) => void
+  buildingCoordinates?: [number, number] | null
+}
+
+// Cập nhật vị trí trung tâm của bản đồ khi buildingCoordinates thay đổi
+function MapCenterUpdater({ center }: { center?: [number, number] | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (center && center[0] && center[1]) {
+      map.flyTo(center, 18, { duration: 1 })
+    }
+  }, [center, map])
+  return null
 }
 
 function DrawingAndTopology({
@@ -76,11 +89,13 @@ function DrawingAndTopology({
         snapEnabled={snapEnabled}
         coordinates={drawCoordinates}
         onCoordinatesChange={onDrawCoordinatesChange}
-        features={[
-          ...gridLineData.features,
-          ...networkNodes,
-          ...networkEdges,
-        ] as Feature<Geometry, Record<string, unknown>>[]}
+        // Kết hợp các feature từ gridLineData, networkNodes và networkEdges để hiển thị trên bản đồ
+        features={
+          [...gridLineData.features, ...networkNodes, ...networkEdges] as Feature<
+            Geometry,
+            Record<string, unknown>
+          >[]
+        }
       />
       <TopologyLayers
         edges={networkEdges}
@@ -111,9 +126,9 @@ export default function IndoorMap({
   showEdges,
   onSelectNode,
   onSelectEdge,
-  // visibleImdfLayers,
+  buildingCoordinates,
 }: IndoorMapProps) {
-  const position: [number, number] = [10.03031, 105.76843]
+  const position: [number, number] = buildingCoordinates || [10.03031, 105.76843]
 
   return (
     <div className="indoor_map relative h-full w-full rounded-2xl overflow-hidden">
@@ -124,6 +139,7 @@ export default function IndoorMap({
         maxZoom={22}
         style={{ height: '100%', width: '100%', minHeight: '100%' }}
       >
+        <MapCenterUpdater center={buildingCoordinates} />
         {/* Base map: OpenStreetMap */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

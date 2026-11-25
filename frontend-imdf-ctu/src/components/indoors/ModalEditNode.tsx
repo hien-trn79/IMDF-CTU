@@ -15,6 +15,7 @@ interface ModalEditNodeProps {
   onClose: () => void
   node: NetworkNodeResponse | null
   token: string
+  levelId: number | null
   onUpdated: () => void
   onDeleted: (id: number) => void
 }
@@ -24,6 +25,7 @@ export default function ModalEditNode({
   onClose,
   node,
   token,
+  levelId,
   onUpdated,
   onDeleted,
 }: ModalEditNodeProps) {
@@ -38,9 +40,9 @@ export default function ModalEditNode({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || levelId === null) return
     indoorRouteService
-      .getAll(token)
+      .getAll(token, levelId)
       .then(setRoutes)
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : 'Không tải được danh sách tuyến đường')
@@ -56,7 +58,7 @@ export default function ModalEditNode({
       })
       setError(null)
     }
-  }, [isOpen, node, token])
+  }, [isOpen, node, levelId, token])
 
   const handleSave = async () => {
     setError(null)
