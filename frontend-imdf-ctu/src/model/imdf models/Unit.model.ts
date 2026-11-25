@@ -25,6 +25,7 @@ export interface UnitGeojsonItem {
   geometry: GeoJSON.Geometry
   properties: {
     unitName: string
+    levelId: number
     levelOrdinal: number
     restrictionCategory: string
     restrictionCategoryId: number

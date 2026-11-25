@@ -33,6 +33,7 @@ export interface LevelGeojsonItem {
     restrictionCategoryId: number
     levelId: string
     levelCategoryId: number
+    buildingId: number
     ordinal: number
     displayPoint: {
       type: string

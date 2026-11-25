@@ -39,9 +39,7 @@ const loadRecent = (): string[] => {
 const saveRecent = (list: string[]) => {
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(list))
-  } catch {
-    // localStorage bị chặn (chế độ riêng tư...): bỏ qua
-  }
+  } catch {}
 }
 
 // Style icon theo loại kết quả
