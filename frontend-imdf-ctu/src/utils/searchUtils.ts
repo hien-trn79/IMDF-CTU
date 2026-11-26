@@ -10,6 +10,7 @@ export interface SearchResultItem {
   address?: string
   typeLabel?: string // VD: "Quán cà phê" (chỉ có với địa điểm bên ngoài)
   levelId?: number
+  buildingId?: number
   levelOrdinal?: number
   unitId?: number
   coordinates?: [number, number]
@@ -78,7 +79,7 @@ const UNIT_SECONDARY_KEYS = [
 export function buildFloorEntries(
   levelId: number,
   floorLabel: string,
-  data: { unitData?: any; anchorData?: any; amenityData?: any }
+  data: { unitData?: any; anchorData?: any; amenityData?: any; buildingId?: number }
 ): SearchEntry[] {
   const entries: SearchEntry[] = []
 
@@ -99,7 +100,13 @@ export function buildFloorEntries(
         category: 'unit',
         floorLabel,
         levelId,
-        levelOrdinal: typeof p.ordinal === 'number' ? p.ordinal : undefined,
+        buildingId: data.buildingId,
+        levelOrdinal:
+          typeof p.levelOrdinal === 'number'
+            ? p.levelOrdinal
+            : typeof p.ordinal === 'number'
+              ? p.ordinal
+              : undefined,
         unitId: typeof f.id === 'number' ? f.id : Number(f.id),
         geometry: f.geometry,
         rawProperties: p,
@@ -121,6 +128,7 @@ export function buildFloorEntries(
         category: 'anchor',
         floorLabel,
         levelId,
+        buildingId: data.buildingId,
         levelOrdinal: p.ordinal,
         geometry: f.geometry,
         rawProperties: p,
@@ -143,6 +151,7 @@ export function buildFloorEntries(
         category: 'amenity',
         floorLabel,
         levelId,
+        buildingId: data.buildingId,
         levelOrdinal: p.ordinal,
         geometry: f.geometry,
         rawProperties: p,

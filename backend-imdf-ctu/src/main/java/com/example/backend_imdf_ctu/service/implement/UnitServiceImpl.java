@@ -29,9 +29,8 @@ public class UnitServiceImpl implements UnitService {
     private final AnchorRepository anchorRepository;
 
     @Override
-    public Page<Unit> getAll(Pageable pageable) {
-
-        return repository.findAll(pageable);
+    public List<Unit> getAll() {
+        return repository.findAll();
     }
 
     @Override

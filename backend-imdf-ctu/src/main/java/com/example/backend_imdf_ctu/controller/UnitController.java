@@ -28,15 +28,13 @@ public class UnitController {
     private final UnitService service;
     private final GenericGeoJsonMapper geoJsonMapper;
 
-//    // [GET] /units
-    @GetMapping
-    public ResponseEntity<GeoJsonFeatureCollection> getAll(
-        @ParameterObject
-        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
-        Pageable pageable) {
-        Page<Unit> list =  service.getAll(pageable);
-        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(list));
+    // [GET] /units/all
+    @GetMapping("/all")
+    public ResponseEntity<GeoJsonFeatureCollection> getAll() {
+        List<Unit> units = service.getAll();
+        return ResponseEntity.ok(geoJsonMapper.toFeatureCollection(units));
     }
+
 //
     // [GET] /units/{id}
     @GetMapping("/{id}")
